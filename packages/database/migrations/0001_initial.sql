@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS households (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS household_members (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), name TEXT NOT NULL, preferences TEXT NOT NULL DEFAULT '[]');
+CREATE TABLE IF NOT EXISTS locations (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS inventory_items (id TEXT PRIMARY KEY, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE IF NOT EXISTS inventory_events (id TEXT PRIMARY KEY, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, data TEXT NOT NULL CHECK(json_valid(data)));
+INSERT OR IGNORE INTO households VALUES ('local','我的家');
+INSERT OR IGNORE INTO household_members VALUES ('owner','local','家庭成员','[]');
+INSERT OR IGNORE INTO locations VALUES ('fridge','local','冷藏室'),('freezer','local','冷冻室'),('pantry','local','食品柜'),('medicine','local','药箱'),('bathroom','local','浴室柜'),('other','local','其他');
+INSERT OR IGNORE INTO schema_migrations VALUES (1);

@@ -1,0 +1,12 @@
+{
+  "name": "@homestash/kitchen-core",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@homestash/domain": "workspace:*",
+    "@homestash/database": "workspace:*",
+    "@homestash/ai": "workspace:*",
+    "@homestash/protocol": "workspace:*",
+    "@homestash/recipes": "workspace:*"
+  }
+}

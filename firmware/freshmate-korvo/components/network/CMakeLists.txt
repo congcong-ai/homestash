@@ -1,0 +1,1 @@
+idf_component_register(SRCS "wifi_profiles.c" "hs_network.c" INCLUDE_DIRS "include" "${CMAKE_BINARY_DIR}" REQUIRES esp_wifi esp_netif esp_event nvs_flash esp_timer wpa_supplicant display)

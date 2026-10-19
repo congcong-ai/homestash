@@ -1,0 +1,83 @@
+{
+  "repository": "https://github.com/espressif/esp-dev-kits",
+  "commit": "6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c",
+  "license": "Apache-2.0（BSP 源文件 SPDX 声明）",
+  "files": [
+    {
+      "path": "components/esp32_s31_korvo/CMakeLists.txt",
+      "sha256": "5f155d22dc53b208ce6225ee3689c848d075eb9271e358600faa893093e1ac6f",
+      "gitBlob": "9551148bc4be8eaf325ecd2eb476f4c48006d084",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/CMakeLists.txt"
+    },
+    {
+      "path": "components/esp32_s31_korvo/esp32_s31_adc_calibration.c",
+      "sha256": "080c644e1e21048fd56e0940bfdc319d7edf357338a20400849c475e1b7b9f61",
+      "gitBlob": "5540171b3882878038bb7cdfabba87fb823bdb65",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/esp32_s31_adc_calibration.c"
+    },
+    {
+      "path": "components/esp32_s31_korvo/esp32_s31_korvo.c",
+      "sha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
+      "gitBlob": "4f1cd148836b74302046e0e547de29636d8368ec",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/esp32_s31_korvo.c"
+    },
+    {
+      "path": "components/esp32_s31_korvo/idf_component.yml",
+      "sha256": "af1fe9f9f0cef1cfa0f73d332e70ca32b1dce880e092008b7e39783702c3ffb3",
+      "gitBlob": "598d7e11c882c4ece3c6af5425e466f9a71e4888",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/idf_component.yml"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/audio.h",
+      "sha256": "cf5f6a45619f3b5d4e332e06ae603a9480ed7b57a42a36bcd0ee640022cd8f36",
+      "gitBlob": "abeef32bd109dfd6cd3b087137a9c361649409f8",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/audio.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/button.h",
+      "sha256": "a2f2eac0e832ea6409dc08f39572fce5d9a8fedf3da73d88275642a3b501e3d3",
+      "gitBlob": "ee92ca8ad1e74a4766151cbd883685956146d6f0",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/button.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/camera.h",
+      "sha256": "a770c0a2b662932e2474db43180e162209f907848ab958ac11d8a1f3faad8908",
+      "gitBlob": "f300b9b0a15aeafe7a94837da874ee29f579e3fb",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/camera.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/display.h",
+      "sha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
+      "gitBlob": "3458d40e1dccabb46de31b8e358c41e3ab035d7e",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/display.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/esp32_s31_korvo.h",
+      "sha256": "bf4647ea9ca1c69f812d0ac180d96b45037ab7e7e6f7bd03ce670c02b780b0b9",
+      "gitBlob": "e59dd8f7455b82bc380b5928b4b399e8a8af9740",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/esp32_s31_korvo.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/led.h",
+      "sha256": "e887fca4b56d873f08cae0a693857b9d3b018f37b6109bd885625c6405aaa032",
+      "gitBlob": "8b1af82a2c3472eeeb440e3a6ec8feee0df28905",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/led.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/include/bsp/sdcard.h",
+      "sha256": "13571f2c3b3031e0373a755bdecd294568497e93d9c61250a5121f56f5365f35",
+      "gitBlob": "c1e39d73803bcd31255a0987a1ae039e2202e32a",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/include/bsp/sdcard.h"
+    },
+    {
+      "path": "components/esp32_s31_korvo/priv_include/bsp_adc_calibration.h",
+      "sha256": "e73faf01b5f31a31447dfd13273b06f9a0452f732221aa37529b8e08897d86ad",
+      "gitBlob": "400319761bd2d10a850e9f5073a712a5af400b75",
+      "sourceUrl": "https://raw.githubusercontent.com/espressif/esp-dev-kits/6f4b0f6ef304d76246325e9a9f94c1ddad8ed39c/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo/priv_include/bsp_adc_calibration.h"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  ]
+}

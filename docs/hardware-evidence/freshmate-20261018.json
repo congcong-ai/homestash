@@ -1,0 +1,45 @@
+{
+  "日期": "2026-10-18",
+  "开发板": "ESP32-S31-Korvo-1 V1.1",
+  "SDK提交": "ab95e70748f2eddac6f87217b0cf62533684a6ba",
+  "备份清单": "/Users/peter/code/congcongai/fde-moregy/SmartBadge/data/hardware/devices/1c2904d054a8/backups/before-homestash-20261018-verified/manifest.json",
+  "备份字节数": 16777216,
+  "备份SHA256": "5e2e31789c7e5c52192e976c0978468832436ff4f739aca5bc00de3358b4599b",
+  "整片设备摘要校验": true,
+  "固件字节数": 1951712,
+  "固件SHA256": "9064d53e479f08759078cca04c0f9ab6138e08d71d366821c95a315522d0f1f5",
+  "烧录写入校验": true,
+  "启动检查": {
+    "PSRAM": "16MB 初始化成功",
+    "LCD": "800x480 RGB565 初始化成功",
+    "SD": "挂载成功，不格式化",
+    "ES8389": "初始化成功",
+    "WiFi": "获得局域网 IP",
+    "Core心跳": "ESP_OK"
+  },
+  "软件检查": {
+    "lint": "通过",
+    "typecheck": "通过",
+    "tests": "10/10 通过",
+    "build": "通过",
+    "ESP-IDF构建": "通过"
+  },
+  "录音和听感": {
+    "状态": "已通过真实按键及用户语音验收",
+    "录音ID": "ffeaae13-2b31-4c4d-9c90-72c620a2fbe5",
+    "转写": "买了两个西红柿。",
+    "响应": "已添加2个番茄。建议日期可以在库存里修改。",
+    "SQLite新增物品ID": "a13a5ab0-9cc2-4223-9f1b-72898c39ac88",
+    "新增数量": 2,
+    "单位": "个",
+    "物品": "番茄",
+    "用户确认": "听到了，内容正常",
+    "设备日志": "capture result=2，codec 进入 playback"
+  },
+  "证据日志": [
+    "/tmp/homestash-boot.log",
+    "/tmp/homestash-flash.log",
+    "/tmp/homestash-backup-v2.log",
+    "/tmp/homestash-interaction.log"
+  ]
+}

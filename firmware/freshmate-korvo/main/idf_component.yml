@@ -1,0 +1,4 @@
+dependencies:
+  idf: ">=6.1.0"
+  espressif/esp_codec_dev: "^1.5.9"
+  espressif/cjson: "^1.7.19"

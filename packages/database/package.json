@@ -1,0 +1,15 @@
+{
+  "name": "@homestash/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@homestash/domain": "workspace:*",
+    "drizzle-orm": "^0.44.6",
+    "better-sqlite3": "^12.4.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
+  }
+}

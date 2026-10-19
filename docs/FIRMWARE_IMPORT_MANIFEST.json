@@ -1,0 +1,189 @@
+{
+  "description": "只复制已审计的代码、字体与公开依赖锁，不复制配置、凭据、固件二进制或业务页面。",
+  "sourceRoot": "/Users/peter/code/congcongai/fde-moregy/SmartBadge",
+  "sourceCommit": "52a34ecaf20937706c314dd5743b89c44ecd23a2",
+  "files": [
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/CMakeLists.txt",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/CMakeLists.txt",
+      "sourceSha256": "5f155d22dc53b208ce6225ee3689c848d075eb9271e358600faa893093e1ac6f",
+      "sha256": "5f155d22dc53b208ce6225ee3689c848d075eb9271e358600faa893093e1ac6f",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/idf_component.yml",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/idf_component.yml",
+      "sourceSha256": "af1fe9f9f0cef1cfa0f73d332e70ca32b1dce880e092008b7e39783702c3ffb3",
+      "sha256": "af1fe9f9f0cef1cfa0f73d332e70ca32b1dce880e092008b7e39783702c3ffb3",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_adc_calibration.c",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_adc_calibration.c",
+      "sourceSha256": "080c644e1e21048fd56e0940bfdc319d7edf357338a20400849c475e1b7b9f61",
+      "sha256": "080c644e1e21048fd56e0940bfdc319d7edf357338a20400849c475e1b7b9f61",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_korvo.c",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_korvo.c",
+      "sourceSha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
+      "sha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/priv_include/bsp_adc_calibration.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/priv_include/bsp_adc_calibration.h",
+      "sourceSha256": "e73faf01b5f31a31447dfd13273b06f9a0452f732221aa37529b8e08897d86ad",
+      "sha256": "e73faf01b5f31a31447dfd13273b06f9a0452f732221aa37529b8e08897d86ad",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/esp32_s31_korvo.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/esp32_s31_korvo.h",
+      "sourceSha256": "bf4647ea9ca1c69f812d0ac180d96b45037ab7e7e6f7bd03ce670c02b780b0b9",
+      "sha256": "bf4647ea9ca1c69f812d0ac180d96b45037ab7e7e6f7bd03ce670c02b780b0b9",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/camera.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/camera.h",
+      "sourceSha256": "a770c0a2b662932e2474db43180e162209f907848ab958ac11d8a1f3faad8908",
+      "sha256": "a770c0a2b662932e2474db43180e162209f907848ab958ac11d8a1f3faad8908",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/audio.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/audio.h",
+      "sourceSha256": "cf5f6a45619f3b5d4e332e06ae603a9480ed7b57a42a36bcd0ee640022cd8f36",
+      "sha256": "cf5f6a45619f3b5d4e332e06ae603a9480ed7b57a42a36bcd0ee640022cd8f36",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/sdcard.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/sdcard.h",
+      "sourceSha256": "13571f2c3b3031e0373a755bdecd294568497e93d9c61250a5121f56f5365f35",
+      "sha256": "13571f2c3b3031e0373a755bdecd294568497e93d9c61250a5121f56f5365f35",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/display.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/display.h",
+      "sourceSha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
+      "sha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/led.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/led.h",
+      "sourceSha256": "e887fca4b56d873f08cae0a693857b9d3b018f37b6109bd885625c6405aaa032",
+      "sha256": "e887fca4b56d873f08cae0a693857b9d3b018f37b6109bd885625c6405aaa032",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/button.h",
+      "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/button.h",
+      "sourceSha256": "a2f2eac0e832ea6409dc08f39572fce5d9a8fedf3da73d88275642a3b501e3d3",
+      "sha256": "a2f2eac0e832ea6409dc08f39572fce5d9a8fedf3da73d88275642a3b501e3d3",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/LICENSE",
+      "destination": "vendor/espressif/esp32-s31-korvo/LICENSE",
+      "sourceSha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "modified": false
+    },
+    {
+      "source": "vendor/espressif/esp32-s31-korvo/manifest.json",
+      "destination": "vendor/espressif/esp32-s31-korvo/upstream-manifest.json",
+      "sourceSha256": "5f4041481bb6fb6258f6facd4f3c3573f4bf220b939454ad4815ca3f563cf7ed",
+      "sha256": "5f4041481bb6fb6258f6facd4f3c3573f4bf220b939454ad4815ca3f563cf7ed",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/audio_gain.c",
+      "destination": "firmware/freshmate-korvo/components/audio/audio_gain.c",
+      "sourceSha256": "6003afa8eb51c7b3bad8a1f8e5b2ff1e7457daff354ccb8193da59a603341118",
+      "sha256": "6003afa8eb51c7b3bad8a1f8e5b2ff1e7457daff354ccb8193da59a603341118",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/audio_volume.c",
+      "destination": "firmware/freshmate-korvo/components/audio/audio_volume.c",
+      "sourceSha256": "cc3c9ccedf0d2538056375095aea37c2dff56634ac7faf8fa2a28f6eaf48f993",
+      "sha256": "cc3c9ccedf0d2538056375095aea37c2dff56634ac7faf8fa2a28f6eaf48f993",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/wav.c",
+      "destination": "firmware/freshmate-korvo/components/audio/wav.c",
+      "sourceSha256": "4f57ee8b7650a7d0081f7e564fd98de37724e330cf38f3a15dfcf8b14fd26d84",
+      "sha256": "4f57ee8b7650a7d0081f7e564fd98de37724e330cf38f3a15dfcf8b14fd26d84",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/audio_gain.h",
+      "destination": "firmware/freshmate-korvo/components/audio/include/audio_gain.h",
+      "sourceSha256": "78fc6213b0ee4f38aa8a6d126d9e46478eef5ac7ec0e4f8a4c258279fa597779",
+      "sha256": "78fc6213b0ee4f38aa8a6d126d9e46478eef5ac7ec0e4f8a4c258279fa597779",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/audio_volume.h",
+      "destination": "firmware/freshmate-korvo/components/audio/include/audio_volume.h",
+      "sourceSha256": "3aed744f263e3f6e364ff33418e0eb916fd1b45264ad9be16bd22e91b42ec511",
+      "sha256": "3aed744f263e3f6e364ff33418e0eb916fd1b45264ad9be16bd22e91b42ec511",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/wav.h",
+      "destination": "firmware/freshmate-korvo/components/audio/include/wav.h",
+      "sourceSha256": "b2f3bd3ba2c0d9e85f80808993fe4bc77a4433f2bd0c33c81a8c6a4193b94404",
+      "sha256": "b2f3bd3ba2c0d9e85f80808993fe4bc77a4433f2bd0c33c81a8c6a4193b94404",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/wifi_profiles.c",
+      "destination": "firmware/freshmate-korvo/components/network/wifi_profiles.c",
+      "sourceSha256": "141f3cde02b9a21c61ee487175f6a637d27a6f41a475148fc06ecaabf6fdd548",
+      "sha256": "97332380fbdfad20980a474266f4ab8ec04c4447549b31c13d16e43c476e123a",
+      "modified": true
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/main/wifi_profiles.h",
+      "destination": "firmware/freshmate-korvo/components/network/include/wifi_profiles.h",
+      "sourceSha256": "92e7cec6e76bdac8a3b2a0b6d2ecdabf216676eea835e528d8c91758cecae5ef",
+      "sha256": "9a782c98a2adae57b7b9dfc7b5138ff365ce105dc94a7264a8ded83c1641cd78",
+      "modified": true
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/dependencies.lock",
+      "destination": "firmware/freshmate-korvo/dependencies.lock",
+      "sourceSha256": "67d209d3a425396a68d939e52e59dd5336f8f2f6b2a40ec57c313584fde90ace",
+      "sha256": "67d209d3a425396a68d939e52e59dd5336f8f2f6b2a40ec57c313584fde90ace",
+      "modified": false
+    },
+    {
+      "source": "firmware/esp32-s31-korvo/partitions.csv",
+      "destination": "firmware/freshmate-korvo/partitions.csv",
+      "sourceSha256": "ac82bcfba522a451367902a513be182a9ffe8d0a8e28381f70b2ef46f77d13b3",
+      "sha256": "ac82bcfba522a451367902a513be182a9ffe8d0a8e28381f70b2ef46f77d13b3",
+      "modified": false
+    },
+    {
+      "source": "vendor/fonts/noto-sans-cjk/NotoSansCJKsc-Regular.otf",
+      "destination": "vendor/fonts/noto-sans-cjk/NotoSansCJKsc-Regular.otf",
+      "sourceSha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+      "sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+      "modified": false
+    },
+    {
+      "source": "vendor/fonts/noto-sans-cjk/LICENSE",
+      "destination": "vendor/fonts/noto-sans-cjk/LICENSE",
+      "sourceSha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "modified": false
+    }
+  ]
+}
