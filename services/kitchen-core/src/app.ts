@@ -39,6 +39,7 @@ import { recipeCatalog } from "./recipe-catalog";
 import { deviceScreen, type DevicePage } from "./device-screen";
 import { registerImageIntake } from "./image-intake";
 import { inventoryAssistant } from "./inventory-assistant";
+import { registerBarcodeIntake } from "./barcode-intake";
 const settingsSchema = z.object({
   persona: Persona,
   provider: z.object({
@@ -649,6 +650,7 @@ export function createApp(path: string, override?: AIProvider) {
     resolve(dirname(path), "firmware"),
   );
   const imageIntake = registerImageIntake(app, repo, inventory, once, ai);
+  registerBarcodeIntake(app, repo, inventory, once);
   app.addHook("onClose", async () => repo.close());
   return {
     app,

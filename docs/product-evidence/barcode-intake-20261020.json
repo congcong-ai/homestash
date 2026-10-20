@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-20",
+  "scope": "通用条码查询与人工确认入库",
+  "softwareChecks": {
+    "tests": 35,
+    "barcodeCases": 3,
+    "lint": "通过",
+    "typecheck": "通过",
+    "build": "通过"
+  },
+  "browser": {
+    "url": "隔离本机3001，临时SQLite数据库",
+    "unknownProductManualEntry": true,
+    "category": "household",
+    "quantity": 2,
+    "unit": "包",
+    "explicitConfirmation": true,
+    "sameProductLookupPrefilledNameAndCategory": true,
+    "newBatchQuantityAndDateNotInherited": true
+  },
+  "externalLookup": {
+    "provider": "open-food-facts",
+    "realAdapterRequest": "通过，公开示例单条码",
+    "requiresExplicitConfiguration": true,
+    "default": "local",
+    "realProductCoverage": "未评估，不以单样本推导准确率"
+  },
+  "notVerified": [
+    "手机实物照片读码",
+    "实体扫码枪",
+    "国内商品覆盖率"
+  ],
+  "hardwareTouched": false,
+  "normalCoreRestarted": false
+}

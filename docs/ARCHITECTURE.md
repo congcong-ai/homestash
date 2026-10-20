@@ -79,3 +79,7 @@ Core 校验 ESP32-S31 应用头、项目名、版本、分段校验和及附加 
 `components/power`负责Idle/Active/Light Sleep/Deep Sleep状态及1至10秒范围的定时睡眠，App提供固定3秒实验命令。实验通过现有上传队列串行执行，录音/待处理媒体/未完成启动确认时拒绝；先由Wi-Fi管理任务暂停网络，再由LVGL适配器暂停显示、保留UI对象并释放LCD panel/DMA，最后进入睡眠。Light Sleep返回后使用原BSP重建LCD panel、恢复LVGL和背光，再连接保存过的网络，Deep Sleep通过定时唤醒重启并从NVS/SD恢复。不是自动睡眠策略，未声明SET/触摸唤醒或电源域全部关闭。
 
 SDK的PSRAM半睡恢复路径曾触发IWDT；HomeStash配置中禁用这一选项进行隔离，保留SDK和看门狗。设备心跳报告powerState、OTA确认状态、内部空闲堆和历史最低空闲堆。`hardware:acceptance`从Core与只读SQLite采样，不调用模型或修改库存。
+
+## 条码商品查询
+
+Domain 定义 `Barcode`、`ProductCandidate` 和 `ProductLookupProvider`，与模型和Korvo解耦。Core先查本地已确认商品，只有显式配置才调用Open Food Facts；默认不会向外发送条码。查询只产生待确认记录，用户核对后经Inventory Service、同一事务创建库存事件与幂等回执。商品目录只复用名称、类别及必要来源，批次数量和日期不跨批次继承。复用既有app_state，不改历史migration。详情见 [条码入库](BARCODE_INTAKE.md)。

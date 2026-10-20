@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { categories } from "./categories";
+export { Barcode, barcodeKey, ProductCandidate } from "./products";
+export type { ProductLookupProvider, BarcodeReview } from "./products";
 export { categories, categoryNames } from "./categories";
 export const date = z.iso.date();
 export const ItemInput = z

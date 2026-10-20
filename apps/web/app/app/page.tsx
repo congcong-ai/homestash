@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import { ImageIntake } from "../../components/image-intake";
+import { BarcodeIntake } from "../../components/barcode-intake";
 import { api } from "@homestash/api-client";
 import {
   categories,
@@ -58,6 +59,7 @@ const tabs = [
   ["inventory", "家中库存"],
   ["add", "添点新鲜"],
   ["photos", "拍照入库"],
+  ["barcodes", "条码入库"],
   ["recipes", "今晚吃什么"],
   ["shopping", "购物清单"],
   ["device", "冰箱贴"],
@@ -368,7 +370,7 @@ export default function Page() {
                 setEditing(null);
               }}
             >
-              <span>{["⌂", "▦", "＋", "◉", "♧", "✓", "▣", "⚙"][i]}</span>
+              <span>{["⌂", "▦", "＋", "◉", "▥", "♧", "✓", "▣", "⚙"][i]}</span>
               {label}
             </button>
           ))}
@@ -483,6 +485,13 @@ export default function Page() {
             </div>
             {voiceBox()}
           </>
+        )}
+        {tab === "barcodes" && (
+          <BarcodeIntake
+            locations={state.locations}
+            onChanged={refresh}
+            onViewInventory={() => setTab("inventory")}
+          />
         )}
         {tab === "photos" && (
           <ImageIntake
