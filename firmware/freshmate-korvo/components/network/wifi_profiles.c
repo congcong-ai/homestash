@@ -53,6 +53,7 @@ static esp_err_t submit(request_t *request) {
 esp_err_t hs_wifi_scan(void) { request_t r = {.kind=1}; return submit(&r); }
 esp_err_t hs_wifi_reconnect(void) { request_t r = {.kind=6}; return submit(&r); }
 esp_err_t hs_wifi_automatic(void) { request_t r = {.kind=3}; return submit(&r); }
+esp_err_t hs_wifi_cancel_connection(void) { request_t r = {.kind=7}; return submit(&r); }
 esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap, const char *password) {
   if (!ap || !ap->ssid[0] || strlen(ap->ssid)>32 || !password || strlen(password)>64)
     return ESP_ERR_INVALID_ARG;
@@ -215,6 +216,7 @@ static void manager(void *arg) {
       connecting=false;online=true;
       hs_display_network(target.ap.ssid,true);
       bool stored=!persist || save_network(&target);
+      portENTER_CRITICAL(&guard);status.connection_saved=stored;portEXIT_CRITICAL(&guard);
       persist=false;
       message(stored?"已连接，可手动选择其他 WiFi":"已连接，但保存失败，重启后需重新选择");
       memset(target.password,0,sizeof(target.password));
@@ -222,7 +224,12 @@ static void manager(void *arg) {
     request_t r={0};
     bool connect_now=false;
     if (xQueueReceive(commands,&r,0)==pdTRUE) {
-      if (r.kind==4) {
+      if (r.kind==7) {
+        persist=false;connecting=false;online=false;automatic=true;next_scan=0;
+        memset(&target,0,sizeof(target));esp_wifi_stop();esp_wifi_start();
+        xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
+        message("已取消连接，正在恢复已保存网络");
+      } else if (r.kind==4) {
         esp_wifi_stop();connecting=false;online=false;
         xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
         __atomic_store_n(&paused,true,__ATOMIC_RELEASE);
@@ -277,6 +284,7 @@ static void manager(void *arg) {
       }
     }
     if (connect_now) {
+      portENTER_CRITICAL(&guard);status.connection_revision++;status.connection_saved=false;status.connected=false;status.connecting=true;portEXIT_CRITICAL(&guard);
       connecting=false;online=false;
       esp_wifi_stop();
       esp_err_t err=profile>=0 && profile<2?configure_profile(profile):

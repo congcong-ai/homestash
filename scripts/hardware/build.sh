@@ -6,6 +6,7 @@ if [[ "$(git -C "$SDK" rev-parse HEAD)" != "ab95e70748f2eddac6f87217b0cf62533684
   echo "SDK 提交与审计版本不一致，请先重新核验。" >&2; exit 1
 fi
 node "$ROOT/scripts/hardware/configure.mjs"
+"${HOMESTASH_IDF_PYTHON_BIN:-$HOME/.espressif/python_env/idf6.2_py3.12_env/bin}/python" "$ROOT/scripts/hardware/prepare-ble.py"
 export IDF_SKIP_CHECK_SUBMODULES=1
 export PATH="${HOMESTASH_IDF_PYTHON_BIN:-$HOME/.espressif/python_env/idf6.2_py3.12_env/bin}:$PATH"
 # export.sh 仅加载共享 SDK，构建目录始终属于 HomeStash。

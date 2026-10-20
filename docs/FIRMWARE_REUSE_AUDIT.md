@@ -107,3 +107,9 @@ Phase 1 新增 HomeStash 设备认证/配对、WAV 接收与校验、STT/TTS pro
 原始BSP驱动、引脚和初始化顺序继续复用。为验证Light Sleep，HomeStash副本的BSP源文件和显示头新增 `bsp_display_release_panel`：仅在现有LVGL adapter的 `sleep_prepare` 完成后释放LCD panel并清除静态缓存；醒来继续调用原 `bsp_display_new` 和adapter的 `sleep_recover`，保留LVGL页面对象。没有修改SmartBadge或共享SDK，也没有重写RGB/触摸驱动。该局部显示生命周期扩展标记为 `REFACTOR_AND_REUSE`；其余原始来源摘要、导入摘要和当前摘要分别保留于导入清单。
 
 首轮仅关闭背光直接Light Sleep触发IWDT；PSRAM半睡恢复路径和后续RGB underrun均留有失败记录。HomeStash关闭PSRAM半睡选项并正确暂停/重建LCD；实际结果以集中验收报告为准，不能只凭构建判定成功。
+
+## 后续实现补记 · 2026-10-21
+
+SmartBadge原项目BLE、OTA和心跳“未实现”的审计结论保持不变。HomeStash后续新增独立OTA和设备协议；0.4.3新增日常BLE配置组件，复用乐鑫官方protocomm BLE/Security 1，而非工牌业务。网络连接、LCD、Codec和Camera仍沿用已审计资产，不为BLE重新写板级驱动。依赖在HomeStash私有缓存准备，原SDK和SmartBadge未修改。
+
+日常BLE加密配网及重启恢复、独立USB-A键盘4次输入分别有真机证据。USB-A没有集成日常扫码枪流程，手机BLE配网入口也未实现，详见 [日常BLE配网](DEVICE_BLE_PROVISIONING.md) 与 [独立专项](BLE_PROVISIONING_USB_HOST_TEST_REPORT.md)。

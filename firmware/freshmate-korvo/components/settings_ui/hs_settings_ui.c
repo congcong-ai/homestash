@@ -2,6 +2,7 @@
 #include "hs_device_config.h"
 #include "hs_ota.h"
 #include "hs_display.h"
+#include "hs_provisioning.h"
 #include "wifi_profiles.h"
 #include "bsp/display.h"
 #include "esp_app_desc.h"
@@ -11,14 +12,16 @@
 #include <string.h>
 LV_FONT_DECLARE(hs_font);
 static lv_obj_t *panel,*content,*keyboard,*notice,*list,*password_dialog,*password_input,*password_error;
-static lv_obj_t *url_input,*id_input,*token_input,*ota_label,*install_button;
+static lv_obj_t *url_input,*id_input,*token_input,*ota_label,*install_button,*ble_label;
 static hs_wifi_ap_t aps[HS_WIFI_SCAN_LIMIT],selected;
 static unsigned revision=~0U;
 static int page;
 static bool busy;
 static void (*send_action)(int);
 void hs_settings_ui_busy(bool value) {__atomic_store_n(&busy,value,__ATOMIC_RELAXED);}
-static bool blocked(void) {return __atomic_load_n(&busy,__ATOMIC_RELAXED);}
+static bool blocked(void) {return __atomic_load_n(&busy,__ATOMIC_RELAXED) || hs_provision_active();}
+static bool app_busy(void) {return __atomic_load_n(&busy,__ATOMIC_RELAXED);}
+static void ble_action(lv_event_t *e) {int action=(int)(intptr_t)lv_event_get_user_data(e);if(action==24&&app_busy())return;if(send_action)send_action(action);}
 static lv_obj_t *label(lv_obj_t *p,int x,int y,int w,const char *text) {lv_obj_t *o=lv_label_create(p);lv_obj_set_pos(o,x,y);lv_obj_set_width(o,w);lv_obj_set_style_text_font(o,&hs_font,0);lv_label_set_text(o,text);return o;}
 static lv_obj_t *button(lv_obj_t *p,int x,int y,int w,const char *text,lv_event_cb_t cb,void *data) {
  lv_obj_t *o=lv_button_create(p);lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,44);lv_obj_t *t=lv_label_create(o);lv_obj_set_style_text_font(t,&hs_font,0);lv_label_set_text(t,text);lv_obj_center(t);lv_obj_add_event_cb(o,cb,LV_EVENT_CLICKED,data);return o;
@@ -65,7 +68,7 @@ static void select_page(lv_event_t *e) {
  if(password_dialog)close_password(NULL);
  if(token_input)lv_textarea_set_text(token_input,"");
  page=(int)(intptr_t)lv_event_get_user_data(e);lv_keyboard_set_textarea(keyboard,NULL);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_obj_clean(content);
- list=url_input=id_input=token_input=ota_label=install_button=NULL;
+ list=url_input=id_input=token_input=ota_label=install_button=ble_label=NULL;
  notice=label(content,0,0,740,"");
  if(page==0) {
   button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);
@@ -76,6 +79,9 @@ static void select_page(lv_event_t *e) {
   label(content,0,112,190,"设备 ID");id_input=input(content,190,100,554,64,config.device_id,false);
   label(content,0,176,190,"设备凭据");token_input=input(content,190,164,554,128,"",true);lv_textarea_set_placeholder_text(token_input,"留空保留已保存的凭据");
   button(content,0,235,744,"保存 Core 配置",save_core,NULL);memset(&config,0,sizeof(config));
+ } else if(page==3) {
+  ble_label=label(content,0,42,744,"蓝牙配网默认关闭");
+  button(content,0,235,350,"开启蓝牙配网",ble_action,(void*)24);button(content,380,235,360,"关闭蓝牙配网",ble_action,(void*)25);
  } else {
   char text[160];snprintf(text,sizeof(text),"当前 %s · %s",esp_app_get_description()->version,esp_ota_get_running_partition()->label);label(content,0,50,744,text);
   ota_label=label(content,0,105,744,"尚未检查更新");button(content,0,230,300,"检查更新",ota_action,(void*)20);
@@ -83,10 +89,10 @@ static void select_page(lv_event_t *e) {
  }
 }
 static void open_settings(lv_event_t *e) {
- (void)e;if(panel || blocked())return;
+ (void)e;if(panel || app_busy())return;
  panel=lv_obj_create(lv_screen_active());lv_obj_set_pos(panel,0,0);lv_obj_set_size(panel,800,480);lv_obj_set_style_bg_color(panel,lv_color_hex(0xf4f7ef),0);lv_obj_set_style_bg_opa(panel,LV_OPA_COVER,0);lv_obj_remove_flag(panel,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_pad_all(panel,0,0);
  label(panel,20,10,350,"FreshMate 设备设置");button(panel,650,0,110,"返回",close_settings,NULL);
- const char *names[]={"网络","Core","更新"};for(int i=0;i<3;i++)button(panel,20+i*250,65,230,names[i],select_page,(void*)(intptr_t)i);
+ const char *names[]={"网络","Core","更新","蓝牙"};for(int i=0;i<4;i++)button(panel,20+i*190,65,180,names[i],select_page,(void*)(intptr_t)i);
  content=lv_obj_create(panel);lv_obj_set_pos(content,20,130);lv_obj_set_size(content,760,330);lv_obj_set_style_pad_all(content,0,0);lv_obj_remove_flag(content,LV_OBJ_FLAG_SCROLLABLE);
  keyboard=lv_keyboard_create(panel);lv_obj_set_size(keyboard,800,190);lv_obj_align(keyboard,LV_ALIGN_BOTTOM_MID,0,0);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_obj_add_event_cb(keyboard,keyboard_event,LV_EVENT_ALL,NULL);
  page=0;notice=label(content,0,0,740,"");button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);
@@ -100,6 +106,11 @@ static void refresh(lv_timer_t *timer) {
    revision=wifi.revision;memcpy(aps,wifi.aps,sizeof(aps));lv_obj_clean(list);
    for(unsigned i=0;i<wifi.count;i++) {snprintf(text,sizeof(text),"%s  %d dBm",aps[i].ssid,aps[i].rssi);lv_obj_t *b=lv_list_add_button(list,NULL,text);lv_obj_set_style_text_font(b,&hs_font,0);lv_obj_add_event_cb(b,select_network,LV_EVENT_CLICKED,(void*)(uintptr_t)i);}
   }
+ } else if(page==3 && ble_label) {
+  hs_provision_status_t s;hs_provision_status(&s);char text[400];
+  if(s.active)snprintf(text,sizeof(text),"设备 %s\n验证码 %s\n剩余 %u 秒 · %s",s.name,s.proof,s.seconds_left,s.message);
+  else snprintf(text,sizeof(text),"%s\n默认关闭；开启后180秒自动关闭。\n验证码仅在本机显示，不上传。",s.message[0]?s.message:"蓝牙配网已关闭");
+  lv_label_set_text(ble_label,text);memset(&s,0,sizeof(s));memset(text,0,sizeof(text));
  } else if(page==2 && ota_label) {
   hs_ota_status_t state;hs_ota_status(&state);lv_label_set_text(ota_label,state.message);
   if(state.available && !blocked())lv_obj_remove_state(install_button,LV_STATE_DISABLED);else lv_obj_add_state(install_button,LV_STATE_DISABLED);

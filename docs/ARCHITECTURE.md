@@ -34,7 +34,7 @@ Next.js 是客户端与同源 `/api` 代理，Fastify 是独立 Core。当前端
 
 ## 固件边界
 
-`firmware/freshmate-korvo` 已建立独立固件，按 Board/Drivers → Device Capability → FreshMate App 分离。BSP 来源、引脚与 SDK 以只读 SmartBadge 审计为准。尤其 Camera BSP 存在不等于工牌应用已抓图；BLE 产品配网仍需新增，OTA 已独立接入，TTS 已在 Core 生成并由现有 Speaker 播放。
+`firmware/freshmate-korvo` 已建立独立固件，按 Board/Drivers → Device Capability → FreshMate App 分离。BSP 来源、引脚与 SDK 以只读 SmartBadge 审计为准。尤其 Camera BSP 存在不等于工牌应用已抓图；BLE 产品配网已作为独立能力组件接入（手机前台仍待实现），OTA 已独立接入，TTS 已在 Core 生成并由现有 Speaker 播放。
 
 ## Phase 1：真实设备接入
 
@@ -83,3 +83,7 @@ SDK的PSRAM半睡恢复路径曾触发IWDT；HomeStash配置中禁用这一选�
 ## 条码商品查询
 
 Domain 定义 `Barcode`、`ProductCandidate` 和 `ProductLookupProvider`，与模型和Korvo解耦。Core先查本地已确认商品，只有显式配置才调用Open Food Facts；默认不会向外发送条码。查询只产生待确认记录，用户核对后经Inventory Service、同一事务创建库存事件与幂等回执。商品目录只复用名称、类别及必要来源，批次数量和日期不跨批次继承。复用既有app_state，不改历史migration。详情见 [条码入库](BARCODE_INTAKE.md)。
+
+## BLE 配置能力
+
+日常固件的 `components/provisioning` 复用乐鑫 protocomm BLE / Security 1，自定义 `hs-config` JSON端点。官方组件只负责会话、加密和传输；Wi-Fi仍交给原有管理器，获得IP并保存网络后才提交Core字段。配置通过UUID和内容摘要防止重复及冲突；显式窗口内与录音、相机、OTA和睡眠互斥。PoP仅LCD和受限本机UART可读，不进入心跳。LVGL内存池通过官方属性放在PSRAM，保留内部RAM供控制器与DMA。Mac客户端与真机验证范围见 [BLE配网](DEVICE_BLE_PROVISIONING.md)。

@@ -9,7 +9,8 @@ typedef struct {
 } hs_wifi_ap_t;
 typedef struct {
   hs_wifi_ap_t aps[HS_WIFI_SCAN_LIMIT];
-  unsigned count, revision;
+  unsigned count, revision, connection_revision;
+  bool connection_saved;
   bool scanning, connecting, connected, automatic;
   char ssid[33], message[160];
 } hs_wifi_status_t;
@@ -25,3 +26,4 @@ esp_err_t hs_wifi_automatic(void);
 esp_err_t hs_wifi_pause(bool paused);
 
 esp_err_t hs_wifi_reconnect(void);
+esp_err_t hs_wifi_cancel_connection(void);

@@ -1,0 +1,31 @@
+{
+  "source": "Espressif idf-extra-components/network_provisioning 1.3.1",
+  "archiveSha256": "b771443916a1d00559c538960120a2aeb9f15663dbb5b30a28901ab36372b7cd",
+  "files": [
+    {
+      "path": "security/security.py",
+      "sha256": "37a88d266d730154b0b914e51b68e0e50d2565a192cedf76ac57f2743f79c58e",
+      "modified": false
+    },
+    {
+      "path": "security/security1.py",
+      "sha256": "59bdfe12bfc1f9e635f9fba51683a52aa64eabbe3d44bcd10b780b04a9e692e5",
+      "modified": false
+    },
+    {
+      "path": "utils/__init__.py",
+      "sha256": "e88fdf01f49df6317af44a84b1328b75909037d0965e7f2936edb48cfeac1cb1",
+      "modified": false
+    },
+    {
+      "path": "utils/convenience.py",
+      "sha256": "ca6c639a8285bfa2c757d2b3d4879b25c63c8a1fdc71a395479836686c2c667e",
+      "modified": false
+    }
+  ],
+  "adapters": [
+    "security/__init__.py",
+    "proto/__init__.py"
+  ],
+  "sdkCommit": "ab95e70748f2eddac6f87217b0cf62533684a6ba"
+}

@@ -20,6 +20,7 @@ static bool valid(const char *url,const char *id,const char *token) {
   return true;
 }
 void hs_device_config_get(hs_device_config_t *out) { xSemaphoreTake(lock,portMAX_DELAY);*out=current;xSemaphoreGive(lock); }
+esp_err_t hs_device_config_validate(const char *url,const char *id,const char *token) {return valid(url,id,token)?ESP_OK:ESP_ERR_INVALID_ARG;}
 esp_err_t hs_device_config_save(const char *url,const char *id,const char *token) {
   if(!valid(url,id,token)) return ESP_ERR_INVALID_ARG;
   xSemaphoreTake(lock,portMAX_DELAY);

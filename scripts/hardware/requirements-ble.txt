@@ -1,0 +1,6 @@
+# FreshMate BLE客户端依赖，建议安装到项目忽略目录。
+bleak==3.0.2
+cryptography==50.0.2
+protobuf==7.36.2
+python-dotenv==1.2.4
+pyserial==3.5

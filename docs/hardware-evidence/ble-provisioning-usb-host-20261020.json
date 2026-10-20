@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-20",
+  "board": "ESP32-S31-Korvo-1 V1.1",
+  "scope": "独立诊断固件真机测试；不是日常固件功能集成",
+  "bleProvisioning": {
+    "date": "2026-10-20",
+    "board": "ESP32-S31-Korvo-1 V1.1",
+    "transport": "BLE",
+    "security": "Espressif Security 1",
+    "incorrectProofAttError": "0x85",
+    "incorrectProofRejected": true,
+    "secureSession": true,
+    "credentialsSentOverBle": true,
+    "wifiConnectedReportedOverBle": true,
+    "ipObtained": true,
+    "persistedAcrossReboot": true,
+    "rebootConnectedAtMs": 4555,
+    "updatedDiagnosticRebootConnectedAtMs": 2132,
+    "networkCredentialsCompiledIntoFirmware": false,
+    "phoneAppTested": false,
+    "coreCredentialsProvisionedOverBle": false
+  },
+  "usbHost": {
+    "device": "用户实际 USB 键盘",
+    "keyboardInterfaceEnumerated": true,
+    "compositeGenericInterfaceEnumerated": true,
+    "keyboardInputCount": 4,
+    "userConfirmedKeys": true,
+    "typedTextRecorded": false,
+    "otherClassesTested": false
+  },
+  "configuration": {
+    "previousWifiRestoredUsingApi": true,
+    "testNamespaceCleaned": true,
+    "freshmateNamespacesUnchanged": [
+      "hs_device",
+      "hs_wifi"
+    ],
+    "partitionTableUnchanged": true,
+    "otaSelectionUnchanged": true,
+    "nvsPartitionErasedOrRawRewritten": false,
+    "testNamespaceContainsNoActiveEntries": true
+  },
+  "recovery": {
+    "status": "通过",
+    "firmwareVersion": "0.3.5",
+    "partition": "ota_0",
+    "offset": "0x420000",
+    "sha256": "6352472bc5766f65b4095a1df6ce3d7cafa08f660825613026cdafa628165797",
+    "flashDigestVerified": true,
+    "otaState": "valid",
+    "online": true,
+    "homeScreenSynced": true,
+    "coreHeartbeat": "ESP_OK",
+    "latestObservedUptimeMs": 111723
+  },
+  "issuesObserved": [
+    "Mac缓存旧名称，客户端改为匹配广播名称后成功",
+    "一次串口中断，重新安排并取得键盘输入记录",
+    "首次整块WiFi结构体比较触发软件断言；修正为有效字段校验后恢复通过"
+  ],
+  "logs": [
+    "/tmp/homestash-provision-client.log",
+    "/tmp/homestash-provision-usb-device-reconnect.log",
+    "/tmp/homestash-provision-usb-final-device.log",
+    "/tmp/homestash-provision-config-verify.log",
+    "/tmp/homestash-provision-usb-restore.log",
+    "/tmp/homestash-provision-usb-restored-device.log"
+  ]
+}

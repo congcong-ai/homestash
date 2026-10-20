@@ -144,6 +144,9 @@ with tempfile.TemporaryDirectory(prefix='homestash-wifi-') as directory:
    if(step==12){assert(paused&&!status.connected);assert(hs_wifi_scan()==ESP_OK);}
    if(step==13){assert(paused&&connect_count==4);request_t resume_request={.kind=5};assert(submit(&resume_request)==ESP_OK);}
    if(step==15){assert(!paused&&status.connected&&connect_count==5);assert(!strcmp(stored_ssid,"Cafe"));longjmp(end,1);}
+  } else if(scenario==2){
+   if(step==2){assert(status.connecting&&!status.connection_saved&&status.connection_revision==1);assert(hs_wifi_cancel_connection()==ESP_OK);}
+   if(step==3){assert(saved_count==1);assert(!strcmp(stored_password,"password123"));assert(!memcmp(configured.sta.password,"password123",11));assert(status.automatic);longjmp(end,1);}
   } else if(step==2){assert(hs_wifi_scan()==0);}
  else if(step==3){assert(status.connecting&&strstr(status.message,"请稍后"));}
  else if(step==6){assert(!status.connecting&&!status.connected);assert(strstr(status.message,"超时"));longjmp(end,1);}
@@ -160,6 +163,9 @@ with tempfile.TemporaryDirectory(prefix='homestash-wifi-') as directory:
   if(!setjmp(end))manager(NULL);
   assert(saved_count==1);scenario=1;step=0;now=100000000;event_bits=0;length=0;
   memset(&status,0,sizeof(status));memset(blocked_until,0,sizeof(blocked_until));
+  if(!setjmp(end))manager(NULL);
+  scenario=2;step=0;now=200000000;event_bits=0;length=0;memset(&status,0,sizeof(status));memset(blocked_until,0,sizeof(blocked_until));
+  hs_wifi_ap_t cancelled={.ssid="Cafe"};assert(hs_wifi_connect(&cancelled,"wrong-password")==ESP_OK);
   if(!setjmp(end))manager(NULL);
   char ssid32[33];memset(ssid32,'S',32);ssid32[32]=0;
   char key64[65];memset(key64,'a',64);key64[64]=0;

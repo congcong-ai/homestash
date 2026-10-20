@@ -1,5 +1,6 @@
 #include "hs_audio.h"
 #include "hs_power.h"
+#include "hs_provisioning.h"
 #include "hs_device_config.h"
 #include "hs_settings_ui.h"
 #include "hs_ota.h"
@@ -40,7 +41,7 @@ static void upload(void *arg) {
         esp_err_t heartbeat=hs_transport_heartbeat();
         ESP_LOGI("FreshMate", "Core heartbeat: %s", esp_err_to_name(heartbeat));
         connection_failures=heartbeat==ESP_ERR_HTTP_CONNECT?connection_failures+1:0;
-        if(connection_failures>=3 && esp_timer_get_time()>=reconnect_after) {
+        if(!hs_provision_active() && connection_failures>=3 && esp_timer_get_time()>=reconnect_after) {
           ESP_LOGW("FreshMate","Core连续连接失败，尝试一次网络恢复；至少间隔120秒");
           hs_wifi_reconnect();connection_failures=0;reconnect_after=esp_timer_get_time()+120000000;
         }
@@ -101,6 +102,9 @@ static void console(void *arg) {
       line[length]=0;
       if(overflow){length=0;overflow=false;ESP_LOGW("FreshMate","串口命令过长，已拒绝");continue;}
       if(!strcmp(line,"wifi-scan"))hs_wifi_scan();
+      if(!strcmp(line,"ble-start") || !strcmp(line,"ble-stop")) {int action=!strcmp(line,"ble-start")?24:25;xQueueSend(buttons,&action,0);}
+      if(!strcmp(line,"ble-status")){hs_provision_status_t s;hs_provision_status(&s);ESP_LOGI("FreshMate","BLE active=%d applying=%d state=%s seconds=%u",s.active,s.applying,s.state,s.seconds_left);memset(&s,0,sizeof(s));}
+      if(!strcmp(line,"ble-private")){hs_provision_status_t s;hs_provision_status(&s);if(s.active)printf("HS_BLE_PRIVATE {\"name\":\"%s\",\"proof\":\"%s\"}\n",s.name,s.proof);memset(&s,0,sizeof(s));}
       if(!strcmp(line,"wifi-auto"))hs_wifi_automatic();
       if(!strcmp(line,"wifi-reconnect"))hs_wifi_reconnect();
       if(!strcmp(line,"wifi-status")){hs_wifi_status_t s;hs_wifi_status(&s);ESP_LOGI("FreshMate","Wi-Fi connected=%d saved-mode=%d visible=%u message=%s",s.connected,s.automatic,s.count,s.message);}
@@ -140,6 +144,7 @@ void app_main(void) {
   ESP_ERROR_CHECK(hs_display_init());
   if(hs_storage_init()!=ESP_OK) { hs_ota_boot_health(false); hs_display_text("无法挂载存储卡，请检查 microSD。不会自动格式化。"); return; }
   ESP_ERROR_CHECK(hs_audio_init()); ESP_ERROR_CHECK(hs_network_init());
+  ESP_ERROR_CHECK(hs_provision_init());
   buttons=xQueueCreate(4,sizeof(int)); uploads=xQueueCreate(4,sizeof(job_t)); results=xQueueCreate(1,sizeof(result_t));
   configASSERT(buttons && uploads && results);
   configASSERT(xTaskCreate(console,"串口调试",12288,NULL,3,NULL)==pdPASS);
@@ -176,8 +181,8 @@ void app_main(void) {
       } else {
       busy=false; dashboard=false;hs_display_text(result.message);
       if(result.kind==1) {
-        if(result.success==3) photo_state=hs_camera_recover(photo_id);
-        else photo_state=1;
+        /* 拍摄失败且没有JPEG时不伪造待上传任务；已保存的照片仍保留重试。 */
+        photo_state=hs_camera_recover(photo_id);
         continue;
       }
       esp_err_t playback=result.success==2?hs_audio_play():ESP_ERR_INVALID_STATE;
@@ -195,7 +200,16 @@ void app_main(void) {
       }
     bool clicked=xQueueReceive(buttons,&action,recording?0:pdMS_TO_TICKS(30));
     if(clicked && action==2) {ESP_LOGI("FreshMate", "state recording=%d pending=%d busy=%d storage_error=%d id=%s photo_state=%d photo_id=%s",recording,pending,busy,storage_error,id,photo_state,photo_id);continue;}
+    if(clicked && action==25){hs_provision_stop();continue;}
     if(busy) continue;
+    if(clicked && action==24){
+      if(recording||pending||photo_state==1||storage_error||!boot_checked){hs_display_text("请先完成待处理任务和启动自检，再开启蓝牙配网。");continue;}
+      esp_err_t err=hs_provision_start();ESP_LOGI("FreshMate","产品BLE开启：%s",esp_err_to_name(err));continue;
+    }
+    if(hs_provision_active()) {
+      if(clicked)hs_display_text("蓝牙配网窗口内请先完成或取消配网，再录音、拍照或更新。");
+      continue;
+    }
     if(clicked && (action==22 || action==23)) {
       if(recording || pending || photo_state==1 || storage_error || !boot_checked) {hs_display_text("请先完成待处理录音、照片和启动自检，再做休眠实验。");continue;}
       dashboard=false;job_t job={.kind=action==22?5:6};busy=xQueueSendToFront(uploads,&job,0)==pdTRUE;continue;

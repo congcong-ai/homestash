@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-21",
+  "firmware": {
+    "version": "0.4.3",
+    "size": 2929008,
+    "sha256": "ebde6b99f1f38b39f99273cf71bd4011a291858dad114292fdf08bcf2012cd49",
+    "generic": true
+  },
+  "device": "ESP32-S31-Korvo-1 V1.1",
+  "runningPartition": "ota_1",
+  "otaState": "valid",
+  "ble": {
+    "transport": "protocomm BLE",
+    "security": "Espressif Security 1",
+    "incorrectProofRejected": true,
+    "secureSession": true,
+    "invalidCoreRejected": true,
+    "unavailableWifiRejected": true,
+    "sameIdDifferentPayloadRejected": true,
+    "wifiAndCoreSaved": true,
+    "requestReplayAccepted": true,
+    "state": "saved",
+    "successAutoClose": true,
+    "idleTimeoutMs": 180410,
+    "reopen": true,
+    "manualClose": true,
+    "newProof": true,
+    "rebootRestoresConfig": true
+  },
+  "camera": {
+    "sensor": "SC101IOT",
+    "width": 640,
+    "height": 480,
+    "jpegBytes": 21784,
+    "uploaded": true,
+    "captureId": "6cff5217-2f30-4f54-a640-c61abd78e35a",
+    "intermittentSensorIdFailureStillOpen": true
+  },
+  "voice": {
+    "query": "家里有什么",
+    "replyBytes": 271404,
+    "playbackDriverSuccess": true,
+    "userConfirmedNormal": true,
+    "outboxCleared": true
+  },
+  "observation": {
+    "startedAt": "2026-10-20T23:36:42.142Z",
+    "durationMs": 240519,
+    "requestedSeconds": 240,
+    "failures": [],
+    "inventoryUnchanged": true,
+    "counts": [
+      4,
+      4
+    ],
+    "passed": true,
+    "boundary": "短时连接和运行观察；不等同于长期压力、物理麦克风/试听或电流测量"
+  },
+  "memory": {
+    "lvglPoolBytes": 65536,
+    "lvglPoolAddress": "0x50000000",
+    "idleFreeApproxBytes": 118000,
+    "bleFreeApproxBytes": 65000,
+    "observedFreeHeapMin": 60383,
+    "observedFreeHeapMax": 118183
+  },
+  "tests": {
+    "software": 35,
+    "lint": true,
+    "typecheck": true,
+    "webBuild": true,
+    "genericFirmwareBuild": true,
+    "provisioningAsanUbsan": true,
+    "wifiHostChecks": true
+  },
+  "notCovered": [
+    "手机配网入口",
+    "多天和复杂弱网测试",
+    "电流和续航测量",
+    "日常固件USB-A扫码枪集成"
+  ],
+  "referenceProjectsUnmodified": true,
+  "sleep": {
+    "lightReturnedOk": true,
+    "deepTimerWake": true,
+    "lcdAndNetworkRecovered": true,
+    "configuredSeconds": 3,
+    "noCurrentMeasurement": true
+  }
+}

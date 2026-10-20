@@ -3,6 +3,9 @@
 import argparse
 import sys
 import time
+import json
+import os
+import re
 from pathlib import Path
 import serial
 from serial.tools import list_ports
@@ -17,6 +20,7 @@ parser.add_argument('--photo', action='store_true', help='启动稳定后触发�
 parser.add_argument('--reconnect', action='store_true')
 parser.add_argument('--status', action='store_true')
 parser.add_argument('--command-file', help='读取本地命令行队列；仅输出命令名，不回显配置内容')
+parser.add_argument('--ble-private-file', help='将UART一次性BLE信息写入权限600的本机文件；日志仍隐藏内容')
 args = parser.parse_args()
 config = dotenv_values(Path(__file__).resolve().parents[2] / 'data/hardware/device.env', interpolate=False)
 deadline = time.monotonic() + args.seconds
@@ -24,6 +28,7 @@ device = None
 connected_at = next_status = 0
 sent = stopped = did_reset = False
 command_count = 0
+pending_output = b''
 try:
     while time.monotonic() < deadline:
         if device is None:
@@ -95,11 +100,29 @@ try:
                 next_status = now + 10
             data = device.read(8192)
             if data:
-                sys.stdout.buffer.write(data)
+                pending_output += data
+                while b'\n' in pending_output:
+                    line, pending_output = pending_output.split(b'\n', 1)
+                    if b'HS_BLE_PRIVATE ' in line:
+                        if args.ble_private_file:
+                            try:
+                                private = json.loads(line.split(b'HS_BLE_PRIVATE ', 1)[1])
+                                if not re.fullmatch(r'FreshMate-[0-9A-F]{4}', private.get('name', '')) or not re.fullmatch(r'[0-9a-f]{16}', private.get('proof', '')):
+                                    raise ValueError('配网信息格式无效')
+                                path = Path(args.ble_private_file)
+                                path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+                                os.fchmod(fd, 0o600)
+                                with os.fdopen(fd, 'w') as file: json.dump(private, file)
+                            except Exception:
+                                print('未能保存私密BLE信息，内容已隐藏。', flush=True)
+                        line = b'[BLE private data redacted]'
+                    sys.stdout.buffer.write(line + b'\n')
                 sys.stdout.buffer.flush()
         except serial.SerialException:
             device.close()
             device = None
+            pending_output = b''
             print('\n串口已断开，此前日志已保留。', flush=True)
             if not args.reconnect:
                 break
