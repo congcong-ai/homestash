@@ -12,14 +12,18 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--seconds', type=int, default=40)
 parser.add_argument('--reset', action='store_true')
 parser.add_argument('--record-seconds', type=float)
+parser.add_argument('--screen', type=int, choices=range(6), help='切换 LCD 页面：0今日 1库存 2临期 3推荐 4做饭 5采购')
+parser.add_argument('--photo', action='store_true', help='启动稳定后触发一次拍照')
 parser.add_argument('--reconnect', action='store_true')
 parser.add_argument('--status', action='store_true')
+parser.add_argument('--command-file', help='读取本地命令行队列；仅输出命令名，不回显配置内容')
 args = parser.parse_args()
 config = dotenv_values(Path(__file__).resolve().parents[2] / 'data/hardware/device.env', interpolate=False)
 deadline = time.monotonic() + args.seconds
 device = None
 connected_at = next_status = 0
 sent = stopped = did_reset = False
+command_count = 0
 try:
     while time.monotonic() < deadline:
         if device is None:
@@ -53,6 +57,32 @@ try:
                 did_reset = True
         try:
             now = time.monotonic()
+            if args.screen is not None and now - connected_at > 15 and not sent:
+                device.write(f'screen {args.screen}\n'.encode())
+                sent = True
+            if args.photo and now - connected_at > 15 and not sent:
+                device.write(b'photo\n')
+                sent = True
+            if args.command_file and now - connected_at > 15:
+                lines = Path(args.command_file).read_text().splitlines()
+                for command in lines[command_count:]:
+                    if command == '@reset':
+                        device.rts = True
+                        time.sleep(.1)
+                        device.rts = False
+                        print('\n已执行一次 UART 硬件复位（验收用途）。', flush=True)
+                        continue
+                    if len(command.encode()) > 1023 or "\r" in command:
+                        raise SystemExit('配置命令过长或含有非法换行。')
+                    payload = (command + '\n').encode()
+                    for offset in range(0, len(payload), 48):
+                        device.write(payload[offset:offset + 48])
+                        device.flush()
+                        time.sleep(.03)
+                    time.sleep(.1)
+                    name = command.split(' ', 1)[0]
+                    print(f'\n已提交串口命令：{name}（参数不回显）', flush=True)
+                command_count = len(lines)
             if args.record_seconds is not None:
                 if now - connected_at > 2 and not sent:
                     device.write(b'record\n')

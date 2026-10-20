@@ -1,0 +1,48 @@
+{
+  "日期": "2026-10-19",
+  "需求依据": [
+    "00_MASTER_PROMPT_KORVO_V2.md",
+    "01_PRODUCT_ARCHITECTURE_KORVO_V2.md",
+    "02_BUILD_ROADMAP_KORVO_V2.md"
+  ],
+  "实现": [
+    "库存与临期语音查询",
+    "开封/移动/消耗/丢弃语音动作",
+    "购物清单持久化及界面",
+    "真实生成式菜谱",
+    "真实当前步骤问答"
+  ],
+  "自动测试": "25/25 通过",
+  "lint": "通过",
+  "typecheck": "通过",
+  "build": "通过",
+  "百炼真实联调": {
+    "库存与购物结果": "/var/folders/q5/09cynjd524nbzlbhg8b7ys0m0000gn/T/homestash-inventory-live-6YHeEP/result.json",
+    "菜谱与问答结果": "/var/folders/q5/09cynjd524nbzlbhg8b7ys0m0000gn/T/homestash-recipes-live-Vjshbd/result.json",
+    "边界": "临时数据库，真实模型调用；不代表新增语音动作均已经真机验收"
+  },
+  "浏览器验收": [
+    "购物清单添加演示条目",
+    "标记已买到但不入库",
+    "移除本轮演示条目并恢复原清单",
+    "按晚餐要求生成真实 AI 菜谱并展示缺货"
+  ],
+  "截图": [
+    "/tmp/homestash-shopping-verified.png",
+    "/tmp/homestash-ai-recipes-verified.png"
+  ],
+  "数据核对": {
+    "日常库存完整数据相同": true,
+    "库存事件完整数据相同": true,
+    "购物清单已恢复原数据": true,
+    "当前AI菜谱数量": 1
+  },
+  "未完成主功能": [
+    "图片识别和候选确认入库",
+    "Korvo Camera",
+    "真实设备完整页面与 Web 主动同步",
+    "产品配网与 OTA",
+    "设备睡眠及功耗实验"
+  ],
+  "SmartBadge": "源码与配置未修改"
+}

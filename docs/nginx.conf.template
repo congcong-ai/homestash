@@ -1,0 +1,36 @@
+# 由 HomeStash 安装器管理
+server {
+    listen 80;
+    server_name __DOMAIN__;
+    client_max_body_size 10m;
+    # 官网公开；内部测试后台使用表单登录。
+    location = /app {
+        auth_request /_homestash_session;
+        error_page 401 = @homestash_login;
+        proxy_pass http://127.0.0.1:__WEB_PORT__;
+        include /etc/nginx/proxy_params;
+    }
+    location ^~ /app/ {
+        auth_request /_homestash_session;
+        error_page 401 = @homestash_login;
+        proxy_pass http://127.0.0.1:__WEB_PORT__;
+        include /etc/nginx/proxy_params;
+    }
+    location ^~ /api/ {
+        proxy_pass http://127.0.0.1:__CORE_PORT__;
+        include /etc/nginx/proxy_params;
+        proxy_read_timeout 120s;
+    }
+    location = /_homestash_session {
+        internal;
+        proxy_pass http://127.0.0.1:__CORE_PORT__/api/auth/session;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie $http_cookie;
+    }
+    location @homestash_login { return 302 /login; }
+    location / {
+        proxy_pass http://127.0.0.1:__WEB_PORT__;
+        include /etc/nginx/proxy_params;
+    }
+}

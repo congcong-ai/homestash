@@ -1032,6 +1032,14 @@ lv_display_t *bsp_display_get(void)
     return s_lvgl_display;
 }
 
+esp_err_t bsp_display_release_panel(void)
+{
+    if (!s_lcd_panel) return ESP_OK;
+    esp_err_t err = esp_lcd_panel_del(s_lcd_panel);
+    if (err == ESP_OK) s_lcd_panel = NULL;
+    return err;
+}
+
 esp_lcd_panel_handle_t bsp_display_get_panel(void)
 {
     return s_lcd_panel;

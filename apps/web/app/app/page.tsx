@@ -1,4 +1,5 @@
 "use client";
+import { DeviceMaintenance } from "../../components/device-maintenance";
 import {
   useCallback,
   useEffect,
@@ -6,6 +7,7 @@ import {
   useRef,
   type FormEvent,
 } from "react";
+import { ImageIntake } from "../../components/image-intake";
 import { api } from "@homestash/api-client";
 import {
   categories,
@@ -15,6 +17,7 @@ import {
   type InventoryItem,
   type InventoryEvent,
   type Location,
+  type ShoppingItem,
 } from "@homestash/domain";
 import type { DeviceState, DeviceEvent } from "@homestash/protocol";
 import {
@@ -33,6 +36,7 @@ type Settings = {
 };
 type State = {
   items: InventoryItem[];
+  shopping: ShoppingItem[];
   locations: Location[];
   events: InventoryEvent[];
   todayFirst: (InventoryItem & { freshness: string })[];
@@ -44,6 +48,8 @@ type State = {
     lastSeen: string;
     screen?: string;
     network?: string;
+    firmwareVersion?: string;
+    firmwarePartition?: string;
   } | null;
   settings: Settings;
 };
@@ -51,7 +57,9 @@ const tabs = [
   ["home", "今日"],
   ["inventory", "家中库存"],
   ["add", "添点新鲜"],
+  ["photos", "拍照入库"],
   ["recipes", "今晚吃什么"],
+  ["shopping", "购物清单"],
   ["device", "冰箱贴"],
   ["settings", "设置"],
 ] as const;
@@ -74,6 +82,8 @@ const emoji = (name: string) =>
             ? "🥬"
             : "🧺";
 export default function Page() {
+  const pendingShopping = useRef(new Map<string, string>());
+  const pendingCooking = useRef(new Map<string, string>());
   const pendingVoice = useRef<{ text: string; id: string } | null>(null);
   const pendingEvents = useRef(new Map<string, DeviceEvent>());
   const [connected, setConnected] = useState(true);
@@ -85,7 +95,8 @@ export default function Page() {
     [text, setText] = useState("刚买了两个番茄、一盒草莓和十个鸡蛋。"),
     [editing, setEditing] = useState<InventoryItem | null>(null),
     [people, setPeople] = useState(2),
-    [question, setQuestion] = useState("放多少？");
+    [question, setQuestion] = useState("放多少？"),
+    [recipeRequirements, setRecipeRequirements] = useState("");
   const refresh = useCallback(async () => {
     setState(await api<State>("/state"));
     setConnected(true);
@@ -127,15 +138,19 @@ export default function Page() {
     pendingEvents.current.delete(key);
     return result;
   }
-  async function sendVoice(fromDevice = false) {
-    if (pendingVoice.current?.text !== text)
-      pendingVoice.current = { text, id: crypto.randomUUID() };
+  async function sendVoice(fromDevice = false, utterance = text) {
+    if (pendingVoice.current?.text !== utterance)
+      pendingVoice.current = { text: utterance, id: crypto.randomUUID() };
     await perform(async () => {
       const r = fromDevice
-        ? await event({ type: "VOICE_CAPTURED", text, simulated: true })
+        ? await event({
+            type: "VOICE_CAPTURED",
+            text: utterance,
+            simulated: true,
+          })
         : await api<{ message: string; recipes?: Recipe[] }>("/voice", {
             requestId: pendingVoice.current!.id,
-            text,
+            text: utterance,
           });
       pendingVoice.current = null;
       setMessage(r.message);
@@ -144,6 +159,17 @@ export default function Page() {
         setTab("recipes");
       }
     });
+  }
+  async function shoppingAction(body: Record<string, unknown>) {
+    const key = JSON.stringify(body),
+      requestId = pendingShopping.current.get(key) ?? crypto.randomUUID();
+    pendingShopping.current.set(key, requestId);
+    const result = await api<ShoppingItem[]>("/shopping", {
+      ...body,
+      requestId,
+    });
+    pendingShopping.current.delete(key);
+    return result;
   }
   async function submitItem(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -180,9 +206,34 @@ export default function Page() {
       </main>
     );
   const active = state.items.filter((i) => i.quantity > 0);
-  const allRecipes = recommend(state.items, people);
+  const allRecipes = state.recipes.some((r) => r.origin === "ai")
+    ? state.recipes
+    : recommend(state.items, people);
   const status = state.device;
   const cooking = state.cooking;
+  const cookingActive =
+    !!cooking && (!cooking.status || cooking.status === "active");
+  async function cookingAction(
+    action: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    const body = {
+      action,
+      ...(action === "start"
+        ? {}
+        : { sessionId: cooking?.id, revision: cooking?.revision ?? 0 }),
+      ...extra,
+    };
+    const key = JSON.stringify(body);
+    const requestId = pendingCooking.current.get(key) ?? crypto.randomUUID();
+    pendingCooking.current.set(key, requestId);
+    const result = await api<CookingSession>("/cooking", {
+      ...body,
+      requestId,
+    });
+    pendingCooking.current.delete(key);
+    return result;
+  }
   const voiceBox = (device = false) => (
     <div className="voice-box">
       <label htmlFor={device ? "device-voice" : "voice"}>
@@ -227,6 +278,7 @@ export default function Page() {
           </div>
           <div className="recipe-body">
             <small>
+              {r.origin === "ai" ? "AI 菜谱 · " : "本地菜谱 · "}
               {r.used.length
                 ? "用上家里的 " + r.used.join("、")
                 : "食材还没备齐"}
@@ -242,8 +294,7 @@ export default function Page() {
               disabled={busy}
               onClick={() =>
                 void perform(async () => {
-                  await api("/cooking", {
-                    action: "start",
+                  await cookingAction("start", {
                     recipeId: r.id,
                     people: r.people,
                   });
@@ -252,6 +303,22 @@ export default function Page() {
               }
             >
               开始做饭 →
+            </button>
+            <button
+              className="secondary"
+              disabled={busy || !r.missing.length}
+              onClick={() =>
+                void perform(async () => {
+                  await shoppingAction({
+                    action: "from_recipe",
+                    recipeId: r.id,
+                    people: r.people,
+                  });
+                  setTab("shopping");
+                })
+              }
+            >
+              缺少食材加入清单
             </button>
           </div>
         </article>
@@ -287,7 +354,7 @@ export default function Page() {
   return (
     <div className="shell">
       <aside>
-        <a className="brand" href="#" onClick={() => setTab("home")}>
+        <a className="brand" href="/" aria-label="返回 HomeStash 首页">
           FreshMate<span>✳</span>
         </a>
         <p className="brand-note tracking-wide">把新鲜，留在日常里。</p>
@@ -301,7 +368,7 @@ export default function Page() {
                 setEditing(null);
               }}
             >
-              <span>{["⌂", "▦", "＋", "♧", "▣", "⚙"][i]}</span>
+              <span>{["⌂", "▦", "＋", "◉", "♧", "✓", "▣", "⚙"][i]}</span>
               {label}
             </button>
           ))}
@@ -397,8 +464,171 @@ export default function Page() {
               </button>
             </div>
             {recipeCards(state.recipes)}
+            <div className="row quick-queries">
+              {[
+                "家里有什么",
+                "今天先吃什么",
+                "家里什么快过期",
+                "看看购物清单",
+              ].map((query) => (
+                <button
+                  key={query}
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => void sendVoice(false, query)}
+                >
+                  {query}
+                </button>
+              ))}
+            </div>
             {voiceBox()}
           </>
+        )}
+        {tab === "photos" && (
+          <ImageIntake
+            locations={state.locations}
+            onChanged={refresh}
+            onViewInventory={() => setTab("inventory")}
+          />
+        )}
+        {tab === "shopping" && (
+          <section>
+            <p className="eyebrow">出门前，看看还缺什么</p>
+            <h1>购物清单</h1>
+            <p>
+              按食谱添加缺少的食材，也可以记下家里要补的东西。标记买到后，库存不会自动增加。
+            </p>
+            <form
+              className="shopping-form panel"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const f = new FormData(form);
+                void perform(async () => {
+                  await shoppingAction({
+                    action: "add",
+                    item: {
+                      name: String(f.get("name")),
+                      quantity: Number(f.get("quantity")),
+                      unit: String(f.get("unit")),
+                    },
+                  });
+                  form.reset();
+                });
+              }}
+            >
+              <label>
+                物品
+                <input
+                  name="name"
+                  placeholder="例如牛奶"
+                  required
+                  maxLength={80}
+                />
+              </label>
+              <label>
+                数量
+                <input
+                  name="quantity"
+                  type="number"
+                  min="0.001"
+                  max="1000000"
+                  step="any"
+                  defaultValue="1"
+                  required
+                />
+              </label>
+              <label>
+                单位
+                <input
+                  name="unit"
+                  placeholder="瓶"
+                  defaultValue="个"
+                  required
+                  maxLength={20}
+                />
+              </label>
+              <button disabled={busy} type="submit">
+                加入清单
+              </button>
+            </form>
+            <div className="inventory-list">
+              {!(state.shopping ?? []).length && (
+                <div className="empty panel">
+                  <h2>清单还是空的</h2>
+                  <p>
+                    在菜谱卡片选择“缺少食材加入清单”，或直接添加想买的东西。
+                  </p>
+                  <button onClick={() => setTab("recipes")}>
+                    看看今晚吃什么
+                  </button>
+                </div>
+              )}
+              {(state.shopping ?? []).map((item) => (
+                <article key={item.id} className="panel shopping-entry">
+                  <label>
+                    <input
+                      type="checkbox"
+                      aria-label={`${item.name}已买到`}
+                      checked={item.checked}
+                      disabled={busy}
+                      onChange={() =>
+                        void perform(() =>
+                          shoppingAction({
+                            action: item.checked ? "uncheck" : "check",
+                            id: item.id,
+                          }),
+                        )
+                      }
+                    />
+                    <span
+                      style={{
+                        textDecoration: item.checked ? "line-through" : "none",
+                      }}
+                    >
+                      {item.name} {item.quantity}
+                      {item.unit}
+                    </span>
+                  </label>
+                  <small>
+                    {item.checked
+                      ? "已买到，请核对实物后入库"
+                      : item.source === "manual"
+                        ? "自己记下的"
+                        : "来自食谱缺货清单"}
+                  </small>
+                  <div className="row">
+                    {item.checked && (
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          setText(
+                            `买了${item.quantity}${item.unit}${item.name}`,
+                          );
+                          setTab("add");
+                        }}
+                      >
+                        去入库确认
+                      </button>
+                    )}
+                    <button
+                      className="link"
+                      disabled={busy}
+                      onClick={() =>
+                        void perform(() =>
+                          shoppingAction({ action: "remove", id: item.id }),
+                        )
+                      }
+                    >
+                      移除
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {voiceBox()}
+          </section>
         )}
         {tab === "inventory" && (
           <>
@@ -676,48 +906,91 @@ export default function Page() {
                 disabled={busy}
                 onClick={() =>
                   void perform(async () => {
-                    await api<Recipe[]>("/recipes", { people });
+                    await api<Recipe[]>("/recipes", {
+                      people,
+                      requirements: recipeRequirements,
+                    });
                   })
                 }
               >
                 更新推荐
               </button>
-              <small>本地规则食谱 · 不推荐已过期食品</small>
+              <label>
+                晚餐想法
+                <input
+                  aria-label="晚餐要求"
+                  placeholder="例如：20分钟内，清淡一些"
+                  value={recipeRequirements}
+                  onChange={(e) => setRecipeRequirements(e.target.value)}
+                  maxLength={500}
+                />
+              </label>
+              <small>
+                {allRecipes.some((r) => r.origin === "ai")
+                  ? "AI 生成菜谱 · 食材缺口按当前库存核对"
+                  : "本地规则食谱 · 点击更新可使用已配置的 AI"}
+              </small>
             </div>
-            {recipeCards(allRecipes)}
             {cooking && (
               <section className="cooking panel">
                 <div className="row">
                   <span className="pill">
-                    正在做饭 · {cooking.step + 1}/{cooking.recipe.steps.length}
+                    {cooking.status === "completed"
+                      ? "做完啦"
+                      : cooking.status === "awaiting_confirmation"
+                        ? "核对食材用量"
+                        : "正在做饭"}{" "}
+                    · {cooking.recipe.people} 人份 · {cooking.step + 1}/
+                    {cooking.recipe.steps.length}
                   </span>
                   <h2>{cooking.recipe.name}</h2>
                 </div>
-                <h3>{cooking.recipe.steps[cooking.step]}</h3>
+                <h3>
+                  {cooking.status === "completed"
+                    ? cooking.answer
+                    : cooking.recipe.steps[cooking.step]}
+                </h3>
                 <div className="row">
                   <button
-                    disabled={busy || cooking.step === 0}
+                    disabled={busy || !cookingActive || cooking.step === 0}
                     onClick={() =>
-                      void perform(() =>
-                        api("/cooking", { action: "previous" }),
-                      )
+                      void perform(() => cookingAction("previous"))
                     }
                   >
                     ← 上一步
                   </button>
                   <button
                     disabled={
-                      busy || cooking.step === cooking.recipe.steps.length - 1
+                      busy ||
+                      !cookingActive ||
+                      cooking.step === cooking.recipe.steps.length - 1
                     }
-                    onClick={() =>
-                      void perform(() => api("/cooking", { action: "next" }))
-                    }
+                    onClick={() => void perform(() => cookingAction("next"))}
                   >
                     下一步 →
                   </button>
-                  {cooking.step === cooking.recipe.steps.length - 1 && (
-                    <span>最后一步啦，享用美味吧。</span>
+                  <button
+                    disabled={busy || !cookingActive}
+                    onClick={() => void perform(() => cookingAction("repeat"))}
+                  >
+                    再说一遍
+                  </button>
+                  {cooking.status !== "completed" && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void perform(() => cookingAction("finish"))
+                      }
+                    >
+                      {cooking.status === "awaiting_confirmation"
+                        ? "重新核对用量"
+                        : "做完了"}
+                    </button>
                   )}
+                  {cookingActive &&
+                    cooking.step === cooking.recipe.steps.length - 1 && (
+                      <span>最后一步啦，享用美味吧。</span>
+                    )}
                 </div>
                 <div className="row">
                   <input
@@ -726,22 +999,72 @@ export default function Page() {
                     onChange={(e) => setQuestion(e.target.value)}
                   />
                   <button
-                    disabled={busy || !question.trim()}
+                    disabled={
+                      busy || cooking.status === "completed" || !question.trim()
+                    }
                     onClick={() =>
-                      void perform(() =>
-                        api("/cooking", { action: "ask", question }),
-                      )
+                      void perform(() => cookingAction("ask", { question }))
                     }
                   >
                     问问饭搭子
                   </button>
                 </div>
-                {cooking.answer && <p className="answer">{cooking.answer}</p>}
+                {cooking.answer && cooking.status !== "completed" && (
+                  <p className="answer">{cooking.answer}</p>
+                )}
+                {cooking.status === "awaiting_confirmation" &&
+                  cooking.consumption && (
+                    <div className="consumption-confirmation">
+                      <h3>核对后，再记下消耗</h3>
+                      <p>
+                        按食谱预估的数量；如果实际用量不同，请选择不扣减，再到库存中记录。
+                      </p>
+                      <ul>
+                        {cooking.consumption.lines.map((line) => (
+                          <li key={line.itemId}>
+                            {line.name} {line.quantity}
+                            {line.unit} · 批次 {line.itemId.slice(0, 8)}
+                          </li>
+                        ))}
+                      </ul>
+                      {cooking.consumption.missing.length > 0 && (
+                        <p role="status">
+                          {cooking.consumption.missing.join("、")}，请核对库存。
+                        </p>
+                      )}
+                      <div className="row">
+                        <button
+                          disabled={
+                            busy || cooking.consumption.missing.length > 0
+                          }
+                          onClick={() =>
+                            void perform(() =>
+                              cookingAction("confirm_consumption"),
+                            )
+                          }
+                        >
+                          确认扣减
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void perform(() =>
+                              cookingAction("skip_consumption"),
+                            )
+                          }
+                        >
+                          不扣减，结束做饭
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <small>
-                  烹饪不会自动扣库存；实际使用后请在库存里确认消耗。
+                  设备语音支持“下一步”“上一步”“再说一遍”“放多少”“做完了”。只有明确确认后才扣减库存。
                 </small>
               </section>
             )}
+            {recipeCards(allRecipes)}
             {voiceBox()}
           </>
         )}
@@ -773,6 +1096,10 @@ export default function Page() {
                 开始录音，再按停止。真实录音经百炼识别后更新库存；下方仍为独立模拟器。
               </p>
             </section>
+            <DeviceMaintenance
+              version={state.physicalDevice?.firmwareVersion}
+              partition={state.physicalDevice?.firmwarePartition}
+            />
             <section className="device">
               <div className="lcd">
                 <div className="row">

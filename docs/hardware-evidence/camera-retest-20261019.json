@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-19",
+  "board": "ESP32-S31-Korvo-1 V1.1",
+  "sensor": "SC101IOT",
+  "sensorPid": "0xda4a",
+  "firmwareChangedBeforeCameraRetest": false,
+  "firmwareSha256": "7a0a55eb484b4166a2f8db7d91d080dc06582a73b8d1902fc1f1dce208e925e6",
+  "capture": "通过",
+  "jpeg": {
+    "width": 640,
+    "height": 480,
+    "bytes": 24668,
+    "sha256": "81c229469535f1c371220f65ee253a52d00e8831a3070b0c191cc3f2a52027ed",
+    "decode": "sips 与实际打开检查通过",
+    "visual": "桌面与实物可见"
+  },
+  "upload": "通过，0 个候选",
+  "inventoryConfirmed": false,
+  "rootCause": "此前 I2C 无响应的原因未确定",
+  "logs": [
+    "/tmp/homestash-retest-baseline.log",
+    "/tmp/homestash-retest-camera2.log",
+    "/tmp/homestash-retest-camera3.log",
+    "/tmp/homestash-retest-camera4.log"
+  ],
+  "successfulNewCaptures": 3,
+  "afterRestore": {
+    "bytes": 25350,
+    "width": 640,
+    "height": 480,
+    "sha256": "18b0d44618bfc73882412925bb88ac1220d8bba8ff4c1c4f6b49dd9d9fdec006",
+    "uploadResult": 3,
+    "log": "/tmp/homestash-retest-restored.log"
+  },
+  "debugImageRetentionDisabledAtEnd": true
+}

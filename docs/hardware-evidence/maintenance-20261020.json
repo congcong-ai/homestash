@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-20",
+  "board": "ESP32-S31-Korvo-1 V1.1",
+  "settingsUi": "用户确认设置入口与Wi-Fi列表正常；完整密码键盘与Core修改触摸流程未验收",
+  "coreConfig": "串口保存ESP_OK，升级后认证心跳ESP_OK",
+  "wifi": "串口手动连接获得IP并保存，通用固件升级后使用NVS自动连接成功",
+  "beforeOta": {
+    "version": "0.3.1",
+    "partition": "factory"
+  },
+  "release": {
+    "version": "0.3.2",
+    "file": "homestash-freshmate-0.3.2.bin",
+    "bytes": 2189680,
+    "sha256": "0552da76cc28f0b4550e93ba04279e83cef5d8ce92f765c7943e8f7202bee205",
+    "generic": true
+  },
+  "afterOta": {
+    "version": "0.3.2",
+    "partition": "ota_0",
+    "elfPrefix": "5cfd006a2",
+    "bootHealth": "通过，启动后30秒标记有效",
+    "heartbeat": "ESP_OK"
+  },
+  "interruptedDownload": {
+    "sentBytes": 32768,
+    "result": "设备拒绝不完整镜像，保持factory运行；恢复Core地址后心跳正常"
+  },
+  "cameraRegression": {
+    "beforeOta": {
+      "id": "a5ab6b7e-71bb-4498-a5c7-afe79e5131af",
+      "jpegBytes": 7669
+    },
+    "afterOta": {
+      "id": "29ac8a9b-162b-4f07-b9f4-e00d964e1548",
+      "jpegBytes": 7586
+    },
+    "sensor": "SC101IOT",
+    "resolution": "640x480",
+    "upload": "两次均result=3",
+    "candidates": 0,
+    "inventoryConfirmed": false
+  },
+  "inventory": {
+    "items": 4,
+    "events": 4,
+    "fullDataUnchanged": true
+  },
+  "backup": {
+    "path": "data/hardware/pre-ota-20261020/",
+    "bytes": 16777216,
+    "sha256": "7ab2b186d43686dfbe1641bc617e98f6f0becb909d7e96d88bbfb32d03ee9032",
+    "verification": "对完整16MiB执行verify-flash，摘要匹配；不是两次完整读回"
+  },
+  "checks": {
+    "lint": "通过",
+    "typecheck": "通过",
+    "tests": {
+      "passed": 32,
+      "failed": 0
+    },
+    "build": "通过",
+    "firmwareBuild": "通过",
+    "wifiNativeCHostTests": "通过"
+  },
+  "fix": "串口配置任务栈由3072增至12288字节；修复前触发Stack protection fault，修复后配置保存、手动配网、OTA均通过",
+  "smartBadge": "源码与配置未修改；最终git status为空",
+  "localLogs": "data/hardware/maintenance-20261020/logs/",
+  "notVerified": [
+    "LCD完整密码输入与Core修改及升级二次确认触摸流程",
+    "升级中物理断电",
+    "启动故障自动回滚",
+    "第二OTA槽交替升级",
+    "长期稳定性和复杂网络恢复",
+    "BLE产品配网",
+    "Secure Boot与生产签名/防降级"
+  ]
+}

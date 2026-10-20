@@ -97,3 +97,13 @@ Phase 1 新增 HomeStash 设备认证/配对、WAV 接收与校验、STT/TTS pro
 已将 BSP、增益/音量/WAV 工具和公开锁文件复制到 HomeStash，逐文件来源和哈希见 `FIRMWARE_IMPORT_MANIFEST.json`。Wi-Fi 管理器改用 `hs_wifi` 符号/NVS 命名空间并注入 HomeStash 独立配置。FreshMate 新增显示、录放音、认证 HTTP、暂存重试及任务装配；没有复制原有企业 CA、Wi-Fi 或 AI 凭据。
 
 原审计是 Phase 0 时点记录；后续实测状态以 `PHASE_1_PROGRESS.md` 为准。
+
+## 后续相机集成观察 · 2026-10-19
+
+只读归档的原厂 factory_demo 配置启用 OV3660（默认 RGB565 大端 240×240）和 SC101IOT（默认 UYVY 640×480），与本地 BSP 共用 I²C 和 DVP 引脚。FreshMate 据此启用传感器并新增独立拍照/JPEG/上传适配，没有修改原样 BSP 或 SmartBadge。第一次真实启动时两个传感器均未响应 SCCB/I²C 探测，尚未产生真实 JPEG。该结果进一步说明 Camera 驱动存在不等于当前套件已经完成相机验收；镜头盖只影响画面，不能解释探测失败。后续以硬件证据记录实际结果，不回填为 SmartBadge 已验证资产。
+
+## Phase 1 集中验收中的最小BSP扩展 · 2026-10-20
+
+原始BSP驱动、引脚和初始化顺序继续复用。为验证Light Sleep，HomeStash副本的BSP源文件和显示头新增 `bsp_display_release_panel`：仅在现有LVGL adapter的 `sleep_prepare` 完成后释放LCD panel并清除静态缓存；醒来继续调用原 `bsp_display_new` 和adapter的 `sleep_recover`，保留LVGL页面对象。没有修改SmartBadge或共享SDK，也没有重写RGB/触摸驱动。该局部显示生命周期扩展标记为 `REFACTOR_AND_REUSE`；其余原始来源摘要、导入摘要和当前摘要分别保留于导入清单。
+
+首轮仅关闭背光直接Light Sleep触发IWDT；PSRAM半睡恢复路径和后续RGB underrun均留有失败记录。HomeStash关闭PSRAM半睡选项并正确暂停/重建LCD；实际结果以集中验收报告为准，不能只凭构建判定成功。

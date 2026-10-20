@@ -1,0 +1,171 @@
+{
+  "date": "2026-10-20",
+  "board": "ESP32-S31-Korvo-1 V1.1",
+  "status": "Phase1核心Korvo PoC验收通过（有保留项）；不代表路线所有功能或长期/功耗专项均完成",
+  "release": {
+    "version": "0.3.5",
+    "bytes": 2216720,
+    "sha256": "6352472bc5766f65b4095a1df6ce3d7cafa08f660825613026cdafa628165797",
+    "generic": true
+  },
+  "checks": {
+    "lint": "通过",
+    "typecheck": "通过",
+    "tests": {
+      "passed": 32,
+      "failed": 0
+    },
+    "build": "通过",
+    "firmwareBuild": "通过",
+    "wifiNativeC": "通过，含维护暂停/恢复",
+    "powerNativeC": "通过，仅主机状态和边界检查"
+  },
+  "manualLcdSetup": "用户确认：Wi-Fi屏幕键盘输入、连接、Core原值且凭据留空保存、返回首页全部成功",
+  "pages": "六页真实屏幕新revision与Core文本一致；串口触发，不代替逐页触摸",
+  "bailian": {
+    "inventory": "临时库通过",
+    "recipes": "临时库通过",
+    "cooking": "临时库通过，合成语音；不代替物理麦克风",
+    "failuresRetained": [
+      "首轮TTS503",
+      "自然语序不同导致探针断言失败",
+      "AI菜谱新增调料后正确拒绝扣减，旧探针断言失败"
+    ]
+  },
+  "ota": {
+    "normal": "最终0.3.5启动ota_0且标记valid",
+    "rollback": "ota_0升级到ota_1后、30秒确认前硬件复位，自动回到ota_0",
+    "truncatedDownload": "此前32KiB截断拒绝，原应用继续运行",
+    "physicalPowerCut": "后续受控重复已取得下载中途断电证据：262144/2216720字节传输中断，用户确认全部断电约3秒，原ota_1/0.3.5/valid及首页、联网恢复。",
+    "userPowerCutReport": "用户确认看到下载提示后切断全部供电、约3秒后重连；重启回默认首页",
+    "observedAfterUserPowerCut": {
+      "firmwareVersion": "0.3.5",
+      "firmwarePartition": "ota_0",
+      "firmwareElf": "ef059a794",
+      "otaState": "valid",
+      "uptimeMs": 78219
+    },
+    "controlledSlowNetworkInterruption": {
+      "lastLoggedSentBytes": 1933312,
+      "completeImageBytes": 2216720,
+      "result": "受控服务关闭导致下载未完成，保留运行中ota_0；这是网络中断，不是新物理断电"
+    },
+    "completeRetryAfterInterruption": {
+      "from": "ota_0",
+      "to": "ota_1",
+      "version": "0.3.5",
+      "state": "valid",
+      "bootHealth": "通过",
+      "heartbeat": "ESP_OK",
+      "screen": "首页恢复"
+    },
+    "controlledPhysicalPowerCut": {
+      "result": "通过：下载中途断电保留原有效应用，恢复正常Core后完整重试升级成功",
+      "fromPartition": "ota_1",
+      "afterPowerCutPartition": "ota_1",
+      "version": "0.3.5",
+      "otaState": "valid",
+      "lastLoggedSentBytes": 262144,
+      "completeImageBytes": 2216720,
+      "evidence": [
+        "用户确认全部供电断开约3秒后重连",
+        "下载期间UART断开",
+        "心跳恢复且uptime重新计时",
+        "下载连接未传输完整镜像",
+        "原运行槽未切换，首页恢复"
+      ],
+      "boundary": "验证下载中途掉电；未覆盖Flash各指令、元数据提交瞬间的全部故障时序"
+    },
+    "completeRetryAfterPhysicalPowerCut": {
+      "from": "ota_1",
+      "to": "ota_0",
+      "version": "0.3.5",
+      "state": "valid",
+      "userConfirmation": "通过LCD恢复正常Core并安装后已回首页",
+      "freshHeartbeatAfterProxyStopped": true,
+      "lastSeen": "2026-10-20T05:30:28.494Z"
+    }
+  },
+  "power": {
+    "failedVersions": {
+      "0.3.3": "Light Sleep的PSRAM半睡恢复路径出现IWDT",
+      "0.3.4": "关闭PSRAM半睡后仍出现RGB underrun/IWDT"
+    },
+    "mitigation": "0.3.5使用现有LVGL sleep_prepare/recover及最小BSP panel释放缓存扩展；关闭PSRAM半睡；未关闭看门狗或修改共享SDK",
+    "light": {
+      "result": "ESP_OK",
+      "requestedSeconds": 3,
+      "deviceTimerElapsedUs": 5051168,
+      "wakeupCause": 4,
+      "boundary": "设备计时差值，未校准墙钟睡眠时长"
+    },
+    "deep": {
+      "requestedSeconds": 3,
+      "wakeupCause": 4,
+      "networkAndScreenProjectionRestored": true
+    },
+    "currentMeasurement": "未测量，不提供电流或续航推算"
+  },
+  "coreOutage": "暂停同一Core约25秒，恢复后设备日志再次ESP_OK；服务端先收到旧排队请求的时间不作为设备实际恢复时延",
+  "inventory": {
+    "items": 4,
+    "events": 4,
+    "fullDataUnchangedAtLastCheck": true
+  },
+  "source": {
+    "importedFiles": 26,
+    "hashesMatch": true,
+    "smartBadgeChanged": false,
+    "sharedSdkChanged": false,
+    "sdkCommit": "ab95e70748f2eddac6f87217b0cf62533684a6ba"
+  },
+  "pending": [],
+  "excluded": [
+    "BLE产品配网",
+    "多天及复杂弱网压力",
+    "电流/电池续航",
+    "Secure Boot与生产签名/防降级",
+    "定制PCB/微信Phase2"
+  ],
+  "localEvidence": "data/hardware/phase1-acceptance-20261020/",
+  "observation": {
+    "requestedSeconds": 300,
+    "durationMs": 300381,
+    "samples": 60,
+    "failures": [],
+    "passed": true,
+    "inventoryUnchanged": true,
+    "internalFreeHeapBytes": {
+      "minimum": 63131,
+      "maximum": 63131,
+      "first": 63131,
+      "last": 63131
+    },
+    "boundary": "5分钟短时观察，不等同于多天压力或所有网络环境"
+  },
+  "cleanup": {
+    "normalCoreRestored": true,
+    "coreConfigSave": "用户LCD保存确认；停止3102代理后新心跳验证",
+    "heartbeatAfterRestore": "停止临时代理后新心跳正常",
+    "temporaryOtaServerStopped": true,
+    "serialMonitorStopped": true,
+    "privateCommandQueueCleared": true
+  },
+  "postWakeScreenAndSpeaker": "用户确认LCD首页与“家里有什么”真实录音、播报都正常",
+  "retainedLimitations": [
+    "已覆盖下载中途掉电；未枚举Flash写指令及启动元数据提交每一瞬间的故障时序",
+    "BLE产品配网未实现",
+    "5分钟短时观察不等同于多天、复杂弱网压力",
+    "未测量电流和电池续航"
+  ],
+  "finalDevice": {
+    "firmwareVersion": "0.3.5",
+    "firmwarePartition": "ota_0",
+    "firmwareElf": "ef059a794",
+    "otaState": "valid",
+    "powerState": "Idle",
+    "uptimeMs": 103036,
+    "freeHeapBytes": 63127,
+    "minimumFreeHeapBytes": 31980
+  }
+}

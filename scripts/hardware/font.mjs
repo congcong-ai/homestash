@@ -15,7 +15,13 @@ function scan(dir) {
       symbols += readFileSync(p, "utf8");
   }
 }
-for (const dir of ["firmware/freshmate-korvo", "packages", "apps/web/app"])
+for (const dir of [
+  "firmware/freshmate-korvo",
+  "packages",
+  "apps/web/app",
+  "apps/web/components",
+  "services/kitchen-core/src",
+])
   scan(resolve(root, dir));
 symbols = [...new Set(symbols.match(/[^\u0000-\u007f]/gu) ?? [])].join("");
 const result = spawnSync(

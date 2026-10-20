@@ -20,3 +20,8 @@ void hs_wifi_status(hs_wifi_status_t *status);
 esp_err_t hs_wifi_scan(void);
 esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap, const char *password);
 esp_err_t hs_wifi_automatic(void);
+
+/* 维护期间由管理任务停用网络；恢复时优先使用已保存网络。 */
+esp_err_t hs_wifi_pause(bool paused);
+
+esp_err_t hs_wifi_reconnect(void);

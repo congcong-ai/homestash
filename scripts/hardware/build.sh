@@ -11,4 +11,6 @@ export PATH="${HOMESTASH_IDF_PYTHON_BIN:-$HOME/.espressif/python_env/idf6.2_py3.
 # export.sh 仅加载共享 SDK，构建目录始终属于 HomeStash。
 source "$SDK/export.sh" >/dev/null
 cd "$ROOT/firmware/freshmate-korvo"
+# 显式重新配置，确保版本环境变量变化不会沿用旧 CMake 缓存。
+idf.py reconfigure
 idf.py -j 4 build

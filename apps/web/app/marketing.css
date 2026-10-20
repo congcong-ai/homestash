@@ -1,0 +1,1399 @@
+.marketing {
+  --m-ink: #282820;
+  --m-red: #ed573e;
+  --m-paper: #f9f7ef;
+  background: var(--m-paper);
+  color: var(--m-ink);
+  font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow: clip;
+  line-height: 1.65;
+}
+.marketing a {
+  color: inherit;
+  text-decoration: none;
+}
+.marketing .m-header {
+  height: 104px;
+  max-width: 1400px;
+  padding: 0 6%;
+  margin: 0 auto;
+  border: 0;
+  gap: 25px;
+}
+.marketing .m-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 27px;
+  letter-spacing: -1.4px;
+  font-weight: 800;
+}
+.marketing .logo-dot {
+  align-self: flex-start;
+  font-size: 12px;
+  margin: 4px 0 0 -4px;
+}
+.marketing .m-header nav {
+  flex-direction: row;
+  align-items: center;
+  gap: 32px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.marketing .m-header nav a {
+  transition: color 0.2s;
+}
+.marketing .m-header nav a:hover {
+  color: var(--m-red);
+}
+.marketing .m-nav-github {
+  border: 1px solid #c6c5b9;
+  border-radius: 30px;
+  padding: 10px 20px;
+}
+.marketing .m-main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.marketing .hero {
+  display: grid;
+  grid-template-columns: 1fr 1.04fr;
+  align-items: center;
+  max-width: 1400px;
+  min-height: 720px;
+  margin: auto;
+  padding: 25px 6% 65px;
+  gap: 30px;
+}
+.marketing .eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.marketing .eyebrow > span {
+  width: 7px;
+  height: 7px;
+  background: var(--m-red);
+  border-radius: 50%;
+}
+.marketing h1 {
+  font-size: clamp(45px, 4.5vw, 69px);
+  font-weight: 800;
+  line-height: 1.32;
+  letter-spacing: -3px;
+  margin: 27px 0;
+}
+.marketing .memory-word {
+  position: relative;
+  color: var(--m-red);
+  margin: 0;
+  white-space: nowrap;
+}
+.memory-word svg {
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  width: 100%;
+  fill: none;
+  stroke: var(--m-red);
+  stroke-width: 3;
+  stroke-linecap: round;
+  overflow: visible;
+  stroke-dasharray: 500;
+  animation: draw-line 1.8s ease both;
+}
+.marketing .hero-description {
+  font-size: 16px;
+  line-height: 1.95;
+  color: #75756a;
+  margin: 26px 0 30px;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+.marketing .m-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 15px 24px;
+  border-radius: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    transform 0.25s,
+    box-shadow 0.25s;
+}
+.marketing .m-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 0 #ed573e40;
+}
+.marketing .m-button-dark {
+  background: var(--m-ink);
+  color: #fff;
+}
+.marketing .m-button-light {
+  background: var(--m-paper);
+  color: var(--m-ink);
+}
+.marketing .m-text-link {
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid #b5b5a6;
+  padding-bottom: 5px;
+  display: inline-flex;
+  gap: 18px;
+}
+.hero-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 28px;
+  font-size: 10px;
+  color: #78796f;
+}
+.fridge-demo {
+  min-width: 0;
+}
+.fridge-stage {
+  height: 550px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+}
+.stage-orbit {
+  position: absolute;
+  width: 455px;
+  height: 455px;
+  border: 1px solid #dfddcf;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e9e7d6aa, transparent 68%);
+}
+.stage-orbit:before {
+  content: "";
+  position: absolute;
+  inset: 22px -20px;
+  border: 1px dashed #dddbcb;
+  border-radius: 50%;
+  transform: rotate(-30deg);
+}
+.fridge-body {
+  position: relative;
+  width: 330px;
+  height: 468px;
+  background: linear-gradient(110deg, #f2f1e7 0%, #eae9dc 68%, #d6d7c9 100%);
+  border: 1px solid #dbdccf;
+  border-radius: 26px 26px 22px 22px;
+  box-shadow:
+    inset 4px 4px 10px #fff,
+    12px 16px 0 #cccdbf,
+    24px 34px 40px #6a705b20;
+  transform: rotate(-5deg) rotateY(-9deg);
+  animation: fridge-arrive 1s ease both;
+  transition: transform 0.6s;
+}
+.fridge-stage:hover .fridge-body {
+  transform: rotate(-2deg) rotateY(0);
+}
+.fridge-seam {
+  position: absolute;
+  top: 338px;
+  width: 100%;
+  border-top: 3px solid #cccebf;
+  box-shadow: 0 2px 0 #fff9;
+}
+.fridge-handle {
+  position: absolute;
+  left: 15px;
+  top: 168px;
+  width: 8px;
+  height: 107px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #aeb1a4, #e6e7d8);
+  box-shadow: 3px 3px 4px #8e948145;
+}
+.fridge-label {
+  position: absolute;
+  top: 20px;
+  left: 32px;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: #8c8e7f;
+}
+.magnet {
+  position: absolute;
+  width: 254px;
+  left: 44px;
+  top: 58px;
+  padding: 15px 15px 9px;
+  background: linear-gradient(135deg, #fb795e, #e94d35 70%);
+  border-radius: 24px;
+  box-shadow:
+    inset 2px 2px 2px #ffbca3,
+    inset -3px -3px 2px #b73925,
+    6px 12px 13px #6f50373b;
+  transform: rotate(8deg);
+  color: #fff;
+}
+.magnet-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.magnet-top b {
+  font-size: 18px;
+  font-weight: 400;
+}
+.magnet-top i {
+  width: 5px;
+  height: 5px;
+  background: #f6ed98;
+  border-radius: 50%;
+  box-shadow: 0 0 9px #fff;
+}
+.magnet-screen {
+  background: #f8f4dc;
+  border: 4px solid #b83e2d;
+  border-radius: 12px;
+  box-shadow: inset 2px 2px 4px #b3a586;
+  color: #434932;
+  padding: 13px 11px;
+  animation: screen-in 0.4s both;
+  min-height: 210px;
+}
+.screen-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 7px;
+  color: #7c826b;
+  gap: 8px;
+}
+.screen-date > span {
+  border: 1px solid #d1d5b9;
+  border-radius: 10px;
+  padding: 1px 4px;
+}
+.marketing .magnet-screen h3 {
+  font-size: 15px;
+  letter-spacing: -0.5px;
+  margin: 10px 0;
+}
+.screen-rows > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 0;
+  border-top: 1px solid #dfe0c8;
+  font-size: 10px;
+}
+.screen-rows strong {
+  font-weight: 500;
+}
+.screen-rows small {
+  margin-left: auto;
+  font-size: 8px;
+  color: #70765c;
+}
+.food-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.marketing .magnet-screen p {
+  font-size: 7px;
+  margin: 8px 0 0;
+  color: #85876a;
+}
+.magnet-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 9px 2px;
+}
+.speaker-grill {
+  width: 40px;
+  height: 12px;
+  background: radial-gradient(circle, #ad352c 1px, transparent 1.5px) 0 0/5px
+    5px;
+}
+.magnet-button {
+  display: grid;
+  place-items: center;
+  background: #ffd09f;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  box-shadow: 0 3px 0 #b63928;
+  color: #c44731;
+  font-size: 23px;
+}
+.speaker-light {
+  width: 5px;
+  height: 5px;
+  border: 1px solid #ffb6a1;
+  border-radius: 50%;
+  margin-right: 15px;
+}
+.fridge-sticker {
+  position: absolute;
+  left: 35px;
+  bottom: 27px;
+  width: 112px;
+  height: 89px;
+  background: #f2ce66;
+  transform: rotate(11deg);
+  padding: 11px 13px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: 2px 3px 4px #73764f20;
+}
+.fridge-sticker > span {
+  position: absolute;
+  font-size: 38px;
+  right: 9px;
+  bottom: 3px;
+  color: #d96a32;
+}
+.fridge-brand {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  font-size: 7px;
+  color: #8b8c7d;
+  writing-mode: vertical-rl;
+  letter-spacing: 1px;
+}
+.voice-bubble {
+  position: absolute;
+  bottom: 87px;
+  left: -3px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow: 0 10px 35px #46473415;
+  font-size: 12px;
+  transform: rotate(-3deg);
+  animation: bubble-in 0.5s both;
+}
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 25px;
+}
+.voice-wave i {
+  width: 3px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--m-red);
+  animation: wave 1s ease-in-out infinite alternate;
+}
+.voice-wave i:nth-child(2n) {
+  height: 22px;
+  animation-delay: 0.3s;
+}
+.voice-wave i:nth-child(3) {
+  height: 16px;
+  animation-delay: 0.6s;
+}
+.voice-arrow {
+  display: grid;
+  place-items: center;
+  background: #f6f4ed;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+}
+.floating-tag {
+  position: absolute;
+  right: -10px;
+  top: 110px;
+  background: #e6edb8;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-size: 11px;
+  transform: rotate(9deg);
+  animation: float 5s ease-in-out infinite;
+}
+.floating-tag span {
+  margin-right: 8px;
+}
+.stage-spark {
+  position: absolute;
+  color: var(--m-red);
+  z-index: 2;
+}
+.spark-one {
+  font-size: 58px;
+  right: 5px;
+  bottom: 95px;
+  animation: spin 30s linear infinite;
+}
+.spark-two {
+  font-size: 30px;
+  left: 0;
+  top: 68px;
+}
+.concept-caption {
+  position: absolute;
+  bottom: 6px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #949488;
+}
+.scene-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+.marketing .scene-tabs button {
+  background: transparent;
+  border: 1px solid #dadace;
+  color: #848578;
+  border-radius: 30px;
+  font-size: 10px;
+  padding: 9px 14px;
+  white-space: nowrap;
+}
+.scene-tabs button span {
+  opacity: 0.5;
+  margin-right: 6px;
+}
+.marketing .scene-tabs button[aria-pressed="true"] {
+  background: var(--m-ink);
+  color: #fff;
+  border-color: var(--m-ink);
+}
+.m-ticker {
+  background: #e9edcd;
+  border-top: 1px solid #d8ddbb;
+  border-bottom: 1px solid #d8ddbb;
+  overflow: hidden;
+  transform: rotate(-1.5deg);
+  margin: 6px -5px 0;
+}
+.m-ticker > div {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+.m-ticker span {
+  white-space: nowrap;
+  font-size: 22px;
+  font-weight: 600;
+  padding: 15px 0;
+  letter-spacing: 2px;
+}
+.m-ticker b {
+  font-size: 27px;
+  color: #7d8751;
+  margin: 0 46px;
+  vertical-align: middle;
+}
+.m-section {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 100px 4%;
+}
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 38px;
+  gap: 25px;
+}
+.marketing h2 {
+  font-size: clamp(30px, 3.2vw, 46px);
+  line-height: 1.4;
+  letter-spacing: -2px;
+  margin: 18px 0 0;
+  font-weight: 750;
+}
+.section-heading > p {
+  font-size: 13px;
+  color: #858579;
+  margin: 0 0 8px;
+  line-height: 1.9;
+}
+.moment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.moment-card {
+  padding: 25px 25px 28px;
+  border-radius: 6px;
+  min-width: 0;
+  transition: transform 0.3s;
+}
+.moment-card:hover {
+  transform: translateY(-8px) rotate(-1deg);
+}
+.moment-pink {
+  background: #f0e2dc;
+}
+.moment-yellow {
+  background: #f3eacb;
+}
+.moment-green {
+  background: #e6eadb;
+}
+.moment-number {
+  font-size: 10px;
+  color: #797567;
+  letter-spacing: 1px;
+}
+.marketing .moment-card h3 {
+  font-size: 20px;
+  letter-spacing: -0.8px;
+  margin: 0 0 10px;
+}
+.marketing .moment-card p {
+  font-size: 12px;
+  line-height: 1.9;
+  margin: 0;
+  color: #77766b;
+}
+.moment-art {
+  height: 160px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.produce > span {
+  font-size: 63px;
+  filter: drop-shadow(3px 10px 4px #6d5c4420);
+  transform: rotate(-12deg);
+}
+.produce > span:nth-child(2) {
+  transform: translateY(-8px) rotate(12deg);
+  margin-left: -14px;
+}
+.produce > span:nth-child(3) {
+  margin-left: -20px;
+  transform: rotate(17deg);
+}
+.produce i,
+.dinner i {
+  position: absolute;
+  bottom: 21px;
+  right: 0;
+  background: #fff;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-style: normal;
+  transform: rotate(-8deg);
+  box-shadow: 0 3px 10px #00000009;
+}
+.reminder > span {
+  font-size: 65px;
+  position: absolute;
+  left: 2px;
+  top: 30px;
+  transform: rotate(-18deg);
+}
+.reminder > div {
+  background: #faf8eb;
+  padding: 15px 17px;
+  border-radius: 8px;
+  margin-left: 25px;
+  transform: rotate(6deg);
+  font-size: 17px;
+  font-weight: 650;
+  box-shadow: 3px 5px 0 #d8cfa6;
+}
+.reminder small {
+  display: block;
+  font-size: 8px;
+  margin-top: 5px;
+}
+.reminder > b {
+  color: #b7a25b;
+  font-size: 28px;
+  position: absolute;
+  right: 0;
+  bottom: 22px;
+}
+.dinner > span {
+  font-size: 95px;
+  transform: rotate(-15deg);
+  filter: drop-shadow(3px 6px 2px #57664e20);
+}
+.dinner > b {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: #8a956c;
+  font-size: 38px;
+}
+.section-footnote {
+  text-align: right;
+  font-size: 10px;
+  color: #8a8a7c;
+  margin: 18px 0 0;
+}
+.privacy-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 70px;
+  padding-top: 40px;
+  padding-bottom: 95px;
+}
+.privacy-symbol {
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: radial-gradient(circle, #e4e8d3 0, transparent 65%);
+}
+.privacy-symbol > span {
+  width: 195px;
+  height: 212px;
+  background: #dfe5ba;
+  border-radius: 44px;
+  box-shadow:
+    inset 4px 4px 0 #f0f2d8,
+    inset -5px -5px 0 #c1cb94,
+    10px 19px 35px #61704420;
+  transform: rotate(-10deg);
+  font-size: 140px;
+  line-height: 1.35;
+  text-align: center;
+  color: #768449;
+}
+.privacy-symbol > i {
+  position: absolute;
+  bottom: 36px;
+  right: 0;
+  background: #fff;
+  padding: 12px 22px;
+  font-style: normal;
+  font-size: 12px;
+  border-radius: 6px;
+  transform: rotate(5deg);
+  box-shadow: 0 6px 15px #00000008;
+}
+.marketing .privacy-copy > p {
+  font-size: 13px;
+  color: #7b7c6f;
+  line-height: 1.9;
+  margin: 22px 0;
+}
+.marketing .privacy-copy .privacy-detail {
+  font-size: 10px;
+  max-width: 370px;
+  margin: 18px 0 0;
+  color: #858578;
+}
+.marketing .repo-pending {
+  font-size: 10px;
+  color: #a04c36;
+}
+.more-banner {
+  max-width: 1140px;
+  margin: 0 auto;
+  background: #e9edda;
+  border-radius: 8px;
+  padding: 55px 65px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+}
+.more-banner p {
+  font-size: 13px;
+  color: #707863;
+  margin: 20px 0;
+}
+.more-orbit {
+  width: 300px;
+  height: 300px;
+  position: relative;
+  border: 1px solid #ccd3b4;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.more-orbit:before {
+  content: "";
+  position: absolute;
+  inset: 35px;
+  border: 1px dashed #ccd3b4;
+  border-radius: 50%;
+}
+.more-orbit > b {
+  font-size: 95px;
+  color: #7f8c60;
+  font-weight: 400;
+}
+.more-orbit > span {
+  position: absolute;
+  font-size: 48px;
+  display: grid;
+  place-items: center;
+  background: #f9f7ef;
+  border-radius: 22px;
+  width: 85px;
+  height: 85px;
+  box-shadow: 4px 8px 12px #58633c12;
+  animation: float 5s ease-in-out infinite;
+}
+.more-orbit > span:nth-child(1) {
+  left: -10px;
+  top: 18px;
+  transform: rotate(-15deg);
+}
+.more-orbit > span:nth-child(2) {
+  right: -10px;
+  top: 70px;
+  animation-delay: 1s;
+}
+.more-orbit > span:nth-child(3) {
+  left: 70px;
+  bottom: -15px;
+  animation-delay: 2s;
+}
+.faq-section {
+  max-width: 1000px;
+}
+.faq-list {
+  border-top: 1px solid #dcdcd0;
+}
+.faq-list details {
+  border-bottom: 1px solid #dcdcd0;
+  padding: 21px 0;
+}
+.faq-list summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 20px;
+}
+.faq-list summary::-webkit-details-marker {
+  display: none;
+}
+.faq-list summary > span {
+  font-weight: 400;
+  font-size: 20px;
+  color: #9c9e8d;
+  transition: transform 0.2s;
+}
+.faq-list details[open] summary > span {
+  transform: rotate(45deg);
+}
+.marketing .faq-list p {
+  font-size: 12px;
+  line-height: 1.9;
+  max-width: 700px;
+  color: #787a6b;
+  margin: 15px 0 4px;
+}
+.final-cta {
+  background: var(--m-red);
+  text-align: center;
+  padding: 55px 20px 45px;
+  color: #fff4de;
+}
+.final-cta > span {
+  display: block;
+  font-size: 45px;
+  line-height: 1;
+}
+.marketing .final-cta h2 {
+  margin: 17px 0 25px;
+  font-size: 45px;
+}
+.final-cta > p {
+  font-size: 10px;
+  opacity: 0.75;
+  margin: 17px 0 0;
+}
+.m-footer {
+  max-width: 1400px;
+  margin: auto;
+  padding: 38px 6%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 25px;
+}
+.marketing .m-footer .m-logo {
+  font-size: 21px;
+}
+.m-footer p {
+  margin: 0;
+  font-size: 11px;
+  color: #8b8b7c;
+}
+.m-footer > div {
+  display: flex;
+  gap: 22px;
+  margin-left: auto;
+  font-size: 10px;
+  color: #7d7e70;
+}
+.applications-hero {
+  padding: 80px 6% 70px;
+  max-width: 1240px;
+  margin: auto;
+  text-align: center;
+}
+.applications-hero .eyebrow {
+  justify-content: center;
+}
+.applications-hero h1 {
+  font-size: clamp(40px, 5vw, 65px);
+}
+.applications-hero h1 em {
+  font-style: normal;
+  color: var(--m-red);
+}
+.applications-hero p {
+  font-size: 15px;
+  line-height: 2;
+  color: #7c7e70;
+}
+.application-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  padding-top: 0;
+}
+.application-card {
+  background: #eeeee2;
+  padding: 28px;
+  border-radius: 8px;
+}
+.application-card:nth-child(2n) {
+  background: #f0e4dc;
+}
+.application-card .application-icon {
+  font-size: 38px;
+  display: block;
+  margin-bottom: 25px;
+}
+.application-card .capability-tag {
+  font-size: 9px;
+  display: inline-block;
+  margin: 16px 0 0;
+  padding: 3px 8px;
+  background: #ffffff85;
+  border-radius: 20px;
+  color: #777b65;
+}
+.marketing .application-card h2 {
+  font-size: 21px;
+  letter-spacing: -0.5px;
+  margin: 0 0 10px;
+}
+.application-card p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #747569;
+  margin: 0;
+}
+.platform-explainer {
+  border-top: 1px solid #dbddce;
+}
+.platform-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 40px 0;
+}
+.platform-steps > div {
+  flex: 1;
+  background: #e9edda;
+  padding: 25px 15px;
+  text-align: center;
+  border-radius: 8px;
+}
+.platform-steps strong {
+  display: block;
+  font-size: 16px;
+}
+.platform-steps small {
+  font-size: 11px;
+}
+.platform-note {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #747969;
+  max-width: 720px;
+}
+.marketing .back-link {
+  display: inline-block;
+  font-size: 12px;
+  margin-top: 30px;
+  border-bottom: 1px solid;
+}
+.marketing .hardware-note {
+  font-size: 12px;
+  background: #eeeee4;
+  padding: 18px 22px;
+  border-radius: 6px;
+  margin-top: 30px;
+}
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 500;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes wave {
+  to {
+    transform: scaleY(0.45);
+  }
+}
+@keyframes float {
+  50% {
+    translate: 0 -9px;
+  }
+}
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes screen-in {
+  from {
+    opacity: 0.4;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes fridge-arrive {
+  from {
+    opacity: 0;
+    translate: 20px 20px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (min-width: 1450px) {
+  .marketing .hero {
+    min-height: 760px;
+  }
+  .fridge-stage {
+    transform: scale(1.07);
+  }
+}
+@media (max-width: 1000px) {
+  .marketing .hero {
+    gap: 10px;
+    padding-left: 5%;
+    padding-right: 5%;
+    min-height: 650px;
+  }
+  .marketing h1 {
+    font-size: 48px;
+  }
+  .fridge-stage {
+    scale: 0.88;
+    margin: -25px -22px;
+  }
+  .stage-orbit {
+    width: 380px;
+    height: 380px;
+  }
+  .floating-tag {
+    right: -15px;
+  }
+  .hero-actions {
+    gap: 15px;
+  }
+  .marketing .m-button {
+    padding: 14px 20px;
+    gap: 14px;
+  }
+  .hero-trust {
+    gap: 10px;
+  }
+  .moment-card {
+    padding: 20px 17px;
+  }
+  .marketing .moment-card h3 {
+    font-size: 18px;
+  }
+  .marketing .moment-card p {
+    font-size: 11px;
+  }
+  .more-banner {
+    margin: 0 4%;
+    padding: 40px;
+  }
+  .privacy-section {
+    gap: 40px;
+  }
+  .m-footer p {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .marketing .m-header {
+    height: 80px;
+    padding: 0 6%;
+    gap: 12px;
+  }
+  .marketing .m-logo {
+    font-size: 23px;
+  }
+  .marketing .m-logo svg {
+    width: 24px;
+  }
+  .marketing .m-header nav {
+    gap: 14px;
+    font-size: 10px;
+  }
+  .marketing .m-header nav > a:first-child {
+    display: none;
+  }
+  .marketing .m-nav-github {
+    padding: 7px 12px;
+  }
+  .marketing .logo-dot {
+    font-size: 9px;
+  }
+  .marketing .hero {
+    display: flex;
+    flex-direction: column;
+    padding: 35px 6% 32px;
+    gap: 4px;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .hero-copy {
+    position: relative;
+    z-index: 3;
+  }
+  .marketing h1 {
+    font-size: clamp(40px, 9.7vw, 65px);
+    letter-spacing: -2px;
+    margin: 22px 0;
+  }
+  .marketing .hero-description {
+    font-size: 14px;
+    line-height: 1.9;
+    margin: 24px 0;
+  }
+  .marketing .eyebrow {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .hero-trust {
+    font-size: 9px;
+    margin-top: 23px;
+    gap: 16px;
+  }
+  .marketing .hero-actions {
+    gap: 23px;
+  }
+  .marketing .m-text-link {
+    font-size: 12px;
+  }
+  .marketing .m-button {
+    font-size: 12px;
+    padding: 14px 21px;
+  }
+  .fridge-demo {
+    width: 100%;
+    margin: 12px auto 0;
+    max-width: 470px;
+  }
+  .fridge-stage {
+    scale: 1;
+    transform: scale(0.86);
+    height: 520px;
+    margin: -25px -10px -25px;
+  }
+  .stage-orbit {
+    width: 380px;
+    height: 380px;
+  }
+  .fridge-body {
+    width: 310px;
+  }
+  .magnet {
+    left: 35px;
+  }
+  .voice-bubble {
+    left: -3px;
+    font-size: 11px;
+    bottom: 70px;
+    padding: 15px 13px;
+  }
+  .floating-tag {
+    top: 87px;
+    right: -4px;
+  }
+  .spark-one {
+    right: 3px;
+    bottom: 64px;
+  }
+  .spark-two {
+    left: 4px;
+    top: 35px;
+  }
+  .concept-caption {
+    bottom: -6px;
+  }
+  .scene-tabs {
+    margin-top: 6px;
+    gap: 5px;
+  }
+  .marketing .scene-tabs button {
+    padding: 9px 12px;
+    font-size: 9px;
+  }
+  .m-ticker {
+    margin-top: 28px;
+  }
+  .m-ticker span {
+    font-size: 17px;
+    padding: 12px 0;
+  }
+  .m-ticker b {
+    margin: 0 27px;
+    font-size: 22px;
+  }
+  .m-section {
+    padding: 65px 6%;
+  }
+  .section-heading {
+    display: block;
+    margin-bottom: 25px;
+  }
+  .section-heading > p {
+    margin-top: 17px;
+    font-size: 12px;
+  }
+  .marketing h2 {
+    font-size: 32px;
+    letter-spacing: -1.5px;
+  }
+  .moment-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .moment-card {
+    padding: 25px;
+    position: relative;
+    min-height: 226px;
+  }
+  .moment-art {
+    height: 105px;
+    max-width: 250px;
+    margin: 0 auto 15px;
+  }
+  .marketing .moment-card h3 {
+    font-size: 21px;
+  }
+  .marketing .moment-card p {
+    font-size: 12px;
+  }
+  .moment-number {
+    font-size: 9px;
+  }
+  .produce > span {
+    font-size: 58px;
+  }
+  .produce i {
+    bottom: 0;
+  }
+  .reminder > span {
+    top: 5px;
+  }
+  .reminder > b {
+    bottom: 4px;
+  }
+  .dinner > span {
+    font-size: 80px;
+  }
+  .dinner i {
+    bottom: 0;
+  }
+  .section-footnote {
+    text-align: left;
+    font-size: 9px;
+  }
+  .privacy-section {
+    display: flex;
+    flex-direction: column-reverse;
+    padding-top: 0;
+    padding-bottom: 45px;
+    gap: 15px;
+  }
+  .privacy-copy {
+    width: 100%;
+  }
+  .marketing .privacy-copy > p {
+    font-size: 12px;
+  }
+  .marketing .privacy-copy .privacy-detail {
+    font-size: 10px;
+    max-width: none;
+  }
+  .privacy-symbol {
+    height: 270px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .privacy-symbol > span {
+    width: 170px;
+    height: 185px;
+    font-size: 122px;
+  }
+  .privacy-symbol > i {
+    bottom: 12px;
+    font-size: 11px;
+    right: 10px;
+  }
+  .more-banner {
+    padding: 35px 25px 20px;
+    display: block;
+    margin: 0 6%;
+  }
+  .more-banner p {
+    font-size: 12px;
+  }
+  .more-orbit {
+    width: 210px;
+    height: 210px;
+    margin: 35px auto;
+  }
+  .more-orbit > span {
+    width: 62px;
+    height: 62px;
+    font-size: 34px;
+    border-radius: 16px;
+  }
+  .more-orbit > b {
+    font-size: 75px;
+  }
+  .faq-list summary {
+    font-size: 13px;
+  }
+  .marketing .faq-list p {
+    font-size: 11px;
+  }
+  .final-cta {
+    padding: 42px 20px;
+  }
+  .marketing .final-cta h2 {
+    font-size: 37px;
+  }
+  .m-footer {
+    padding: 30px 6%;
+    gap: 15px;
+  }
+  .m-footer > div {
+    margin: 0;
+    justify-content: space-between;
+    width: 100%;
+    gap: 14px;
+    font-size: 9px;
+  }
+  .applications-hero {
+    padding: 45px 6%;
+  }
+  .applications-hero h1 {
+    font-size: 40px;
+  }
+  .applications-hero p {
+    font-size: 13px;
+  }
+  .application-grid {
+    grid-template-columns: 1fr;
+    padding-top: 0;
+    gap: 13px;
+  }
+  .application-card {
+    padding: 25px;
+  }
+  .application-card .application-icon {
+    margin-bottom: 15px;
+  }
+  .platform-steps {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .platform-steps > div {
+    width: 100%;
+  }
+  .platform-steps > b {
+    rotate: 90deg;
+  }
+  .platform-note {
+    font-size: 12px;
+  }
+  .marketing .hardware-note {
+    font-size: 11px;
+  }
+  .marketing .m-header nav > a {
+    white-space: nowrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing *,
+  .marketing *:before {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .marketing .m-ticker > div {
+    transform: none;
+  }
+  .marketing .fridge-stage:hover .fridge-body {
+    transform: rotate(-5deg) rotateY(-9deg);
+  }
+}

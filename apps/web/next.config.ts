@@ -11,7 +11,7 @@ const config: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:3100/api/:path*",
+        destination: `${process.env.CORE_INTERNAL_URL ?? "http://127.0.0.1:3100"}/api/:path*`,
       },
     ];
   },

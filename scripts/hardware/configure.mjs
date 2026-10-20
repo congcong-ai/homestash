@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { parse } from "dotenv";
 const root = resolve(import.meta.dirname, "../..");
 const configPath = resolve(root, "data/hardware/device.env");
-const config = existsSync(configPath) ? parse(readFileSync(configPath)) : {};
+const generic = process.env.HOMESTASH_GENERIC_FIRMWARE === "1";
+const config =
+  !generic && existsSync(configPath) ? parse(readFileSync(configPath)) : {};
 const values = {};
 for (const key of [
   "WIFI_SSID",
@@ -46,7 +48,9 @@ writeFileSync(resolve(build, "local-network-config.h"), header, {
   mode: 0o600,
 });
 console.log(
-  existsSync(configPath)
-    ? "已生成独立设备配置（不输出凭据）。"
-    : "未配置网络：生成仅供编译验证的固件。",
+  generic
+    ? "已生成通用固件配置（不嵌入网络和设备凭据）。"
+    : existsSync(configPath)
+      ? "已生成独立设备配置（不输出凭据）。"
+      : "未配置网络：生成仅供编译验证的固件。",
 );

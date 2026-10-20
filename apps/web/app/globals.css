@@ -790,5 +790,124 @@ footer {
   }
 }
 
-.actual-screen { margin: 16px 0; padding: 20px; background: #edf2e2; border: 1px solid #dce4d0; border-radius: 16px; color: #293b2d; }
-.actual-screen p { white-space: pre-wrap; line-height: 1.8; margin-bottom: 0; }
+.actual-screen {
+  margin: 16px 0;
+  padding: 20px;
+  background: #edf2e2;
+  border: 1px solid #dce4d0;
+  border-radius: 16px;
+  color: #293b2d;
+}
+.actual-screen p {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+
+.consumption-confirmation {
+  padding: 1.25rem;
+  margin: 1rem 0;
+  border: 1px solid var(--line, #dce3d4);
+  border-radius: 16px;
+  background: #f7faef;
+}
+.consumption-confirmation ul {
+  padding-left: 1.25rem;
+  line-height: 1.8;
+}
+
+.shopping-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin: 1.5rem 0;
+}
+.shopping-form label {
+  display: grid;
+  gap: 0.5rem;
+}
+.shopping-form input {
+  width: 100%;
+  min-width: 0;
+}
+.shopping-entry {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.shopping-entry label {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex: 1;
+}
+.shopping-entry input {
+  width: auto;
+}
+.quick-queries {
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .shopping-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .shopping-form label:first-child {
+    grid-column: 1/-1;
+  }
+  .shopping-entry {
+    gap: 0.75rem;
+  }
+  .shopping-entry small {
+    width: 100%;
+  }
+}
+
+.image-upload {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.intake-preview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #f4f7ef;
+}
+.intake-candidate {
+  margin: 1rem 0;
+}
+.intake-candidate input[type="checkbox"] {
+  width: auto;
+}
+.intake-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.intake-fields label {
+  display: grid;
+  gap: 0.5rem;
+}
+.intake-fields input,
+.intake-fields select {
+  width: 100%;
+  min-width: 0;
+}
+.intake-evidence {
+  padding: 0.75rem;
+  background: #f5f7ef;
+  border-radius: 12px;
+}
+@media (max-width: 640px) {
+  .intake-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .intake-fields label:first-child {
+    grid-column: 1/-1;
+  }
+}

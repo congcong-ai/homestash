@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-19",
+  "board": "ESP32-S31-Korvo-1 V1.1",
+  "scope": "BLE，无经典蓝牙音频",
+  "controllerLibraryCommit": "cc027ecd288b31198f82331faabb972a37d6800e",
+  "probeFirmwareSha256": "7ae5e83329e44dacb1de9137a06e5ef9ceb6916ae2d7dc0e22e3afe98a87ceb8",
+  "probeFirmwareBytes": 742208,
+  "scan": "通过",
+  "rssiDbm": -41,
+  "connect": "通过",
+  "serviceDiscovery": "通过",
+  "initialRead": "通过",
+  "writeAcknowledgement": "通过",
+  "randomPayloadReadback": {
+    "status": "通过",
+    "bytes": 19
+  },
+  "clientLog": "/tmp/homestash-ble-client.log",
+  "flashLog": "/tmp/homestash-ble-flash.log",
+  "currentFirmwareReadback": {
+    "bytes": 2162816,
+    "sha256": "7a0a55eb484b4166a2f8db7d91d080dc06582a73b8d1902fc1f1dce208e925e6"
+  },
+  "restore": {
+    "status": "通过",
+    "applicationSha256": "7a0a55eb484b4166a2f8db7d91d080dc06582a73b8d1902fc1f1dce208e925e6",
+    "esptoolHashVerified": true,
+    "coreHeartbeat": "ESP_OK",
+    "cameraCaptureAndUpload": "通过",
+    "logs": [
+      "/tmp/homestash-ble-restore.log",
+      "/tmp/homestash-retest-restored.log",
+      "/tmp/homestash-retest-final-network.log"
+    ],
+    "homeScreen": "已同步并恢复首页",
+    "finalNetwork": "已联网且 Core heartbeat ESP_OK；本次仍观察到间歇性连接失败，根因未解决"
+  },
+  "deviceLog": "/tmp/homestash-ble-device.log",
+  "bluetoothMac": "1c:29:04:d0:54:a9",
+  "controllerInitialization": "通过",
+  "advertisingStatus": 0
+}

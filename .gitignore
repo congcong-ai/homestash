@@ -19,3 +19,9 @@ data/hardware/
 
 __pycache__/
 *.pyc
+
+.deploy.env
+.deploy.env.*
+!.deploy.env.example
+output/
+dist/

@@ -28,8 +28,10 @@
       "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_korvo.c",
       "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/esp32_s31_korvo.c",
       "sourceSha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
-      "sha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
-      "modified": false
+      "sha256": "ff07621e1536682d8854d3bf28848ba4adb962df56290034bc5dce40ad1d569f",
+      "modified": true,
+      "importedSha256": "e3f41205f4d61839c6842de6685e1bc659ef932ec313cad6d97c7fab3525dd50",
+      "changes": "HomeStash最小扩展：LVGL sleep_prepare后释放LCD panel并清除BSP缓存，醒来复用原bsp_display_new重建；不改引脚/驱动/SmartBadge来源"
     },
     {
       "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/priv_include/bsp_adc_calibration.h",
@@ -70,8 +72,10 @@
       "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/display.h",
       "destination": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/display.h",
       "sourceSha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
-      "sha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
-      "modified": false
+      "sha256": "b5e2e779474669724f6c6c7dce4b6b7bd46ba2aa0e88a4927d70ae0228422641",
+      "modified": true,
+      "importedSha256": "8d13e48b1690ae10da1deac700b3e31c3bcdb250e67961dce14ce351eec9c4f5",
+      "changes": "HomeStash最小扩展：LVGL sleep_prepare后释放LCD panel并清除BSP缓存，醒来复用原bsp_display_new重建；不改引脚/驱动/SmartBadge来源"
     },
     {
       "source": "vendor/espressif/esp32-s31-korvo/components/esp32_s31_korvo/include/bsp/led.h",
@@ -147,15 +151,19 @@
       "source": "firmware/esp32-s31-korvo/main/wifi_profiles.c",
       "destination": "firmware/freshmate-korvo/components/network/wifi_profiles.c",
       "sourceSha256": "141f3cde02b9a21c61ee487175f6a637d27a6f41a475148fc06ecaabf6fdd548",
-      "sha256": "97332380fbdfad20980a474266f4ab8ec04c4447549b31c13d16e43c476e123a",
-      "modified": true
+      "sha256": "05e35f5d998bc1fe3dd50e2006c4d3500663f37e8efabfd67d31cf44d9592535",
+      "modified": true,
+      "importedSha256": "97332380fbdfad20980a474266f4ab8ec04c4447549b31c13d16e43c476e123a",
+      "changes": "HomeStash维护暂停/恢复、连接失败受限重连；SmartBadge源文件不变"
     },
     {
       "source": "firmware/esp32-s31-korvo/main/wifi_profiles.h",
       "destination": "firmware/freshmate-korvo/components/network/include/wifi_profiles.h",
       "sourceSha256": "92e7cec6e76bdac8a3b2a0b6d2ecdabf216676eea835e528d8c91758cecae5ef",
-      "sha256": "9a782c98a2adae57b7b9dfc7b5138ff365ce105dc94a7264a8ded83c1641cd78",
-      "modified": true
+      "sha256": "47ae9c9fb0f95b94953546b2edb9ba6d91f31b40958ddaeb90e03df5b6171e7f",
+      "modified": true,
+      "importedSha256": "9a782c98a2adae57b7b9dfc7b5138ff365ce105dc94a7264a8ded83c1641cd78",
+      "changes": "新增维护暂停与重连接口；SmartBadge源文件不变"
     },
     {
       "source": "firmware/esp32-s31-korvo/dependencies.lock",
@@ -168,8 +176,10 @@
       "source": "firmware/esp32-s31-korvo/partitions.csv",
       "destination": "firmware/freshmate-korvo/partitions.csv",
       "sourceSha256": "ac82bcfba522a451367902a513be182a9ffe8d0a8e28381f70b2ef46f77d13b3",
-      "sha256": "ac82bcfba522a451367902a513be182a9ffe8d0a8e28381f70b2ef46f77d13b3",
-      "modified": false
+      "sha256": "aa1bb3860074e472fee7aff671c51eede7c45811d5a0a24047bee5c350314ad3",
+      "modified": true,
+      "importedSha256": "ac82bcfba522a451367902a513be182a9ffe8d0a8e28381f70b2ef46f77d13b3",
+      "changes": "保留原NVS/PHY/factory，增加OTADATA和双OTA槽"
     },
     {
       "source": "vendor/fonts/noto-sans-cjk/NotoSansCJKsc-Regular.otf",

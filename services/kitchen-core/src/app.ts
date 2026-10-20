@@ -1,10 +1,15 @@
 import Fastify from "fastify";
+import { dirname, resolve } from "node:path";
+import { registerFirmware } from "./firmware";
+import { registerInternalAuth } from "./auth";
 import { z } from "zod";
 import { SQLiteRepository } from "@homestash/database";
 import {
   InventoryService,
   DomainError,
   freshness,
+  ShoppingInput,
+  type ShoppingItem,
   type InventoryItem,
 } from "@homestash/domain";
 import {
@@ -15,6 +20,7 @@ import {
   respond,
   type AIProvider,
   type ProviderConfig,
+  RecipeDraft,
 } from "@homestash/ai";
 import {
   DeviceEvent,
@@ -24,9 +30,15 @@ import {
 } from "@homestash/protocol";
 import {
   recommend,
-  cookingAnswer,
-  type CookingSession,
+  cookingText,
+  refreshRecipe,
+  type Recipe,
 } from "@homestash/recipes";
+import { cookingService } from "./cooking";
+import { recipeCatalog } from "./recipe-catalog";
+import { deviceScreen, type DevicePage } from "./device-screen";
+import { registerImageIntake } from "./image-intake";
+import { inventoryAssistant } from "./inventory-assistant";
 const settingsSchema = z.object({
   persona: Persona,
   provider: z.object({
@@ -40,11 +52,25 @@ const settingsSchema = z.object({
     model: z.string().max(100),
   }),
 });
+type VoiceResult = {
+  intent: Intent;
+  message: string;
+  changed: InventoryItem[];
+  recipes?: ReturnType<typeof recommend>;
+  items?: InventoryItem[];
+  shopping?: ShoppingItem[];
+  candidates?: InventoryItem[];
+};
 type Settings = z.infer<typeof settingsSchema>;
 export function createApp(path: string, override?: AIProvider) {
-  const app = Fastify({ logger: false, bodyLimit: 65536 });
+  const app = Fastify({
+    logger: false,
+    bodyLimit: 65536,
+    trustProxy: ["127.0.0.1", "::1"],
+  });
   const repo = new SQLiteRepository(path);
   const inventory = new InventoryService(repo);
+  const assistant = inventoryAssistant(repo, inventory);
   const defaults: Settings = {
     persona: "default",
     provider: {
@@ -65,44 +91,130 @@ export function createApp(path: string, override?: AIProvider) {
         d.online && !!d.lastSeen && Date.now() - Date.parse(d.lastSeen) < 45000,
     };
   };
-  const cooking = () => repo.read<CookingSession | null>("cooking", null);
-  function cook(
-    action: "start" | "next" | "previous" | "ask",
-    recipeId?: string,
-    question = "",
-    people = 2,
-  ) {
-    let session = cooking();
-    if (action === "start") {
-      const recipe = recommend(repo.list(), people).find(
-        (r) => r.id === recipeId || r.name === recipeId,
-      );
-      if (!recipe) throw new DomainError("请选择当前推荐的食谱");
-      session = { id: crypto.randomUUID(), recipe, step: 0, answer: "" };
-    } else {
-      if (!session) throw new DomainError("请先选择食谱并开始做饭");
-      session = { ...session };
-      if (action === "next")
-        session.step = Math.min(
-          session.recipe.steps.length - 1,
-          session.step + 1,
-        );
-      if (action === "previous") session.step = Math.max(0, session.step - 1);
-      session.answer = action === "ask" ? cookingAnswer(session, question) : "";
-    }
-    repo.write("cooking", session);
-    updateScreen(
-      `${session.recipe.name} · 第${session.step + 1}步\n${session.recipe.steps[session.step]}`,
-    );
-    return session;
-  }
+  const { current: cooking, act: cook } = cookingService(
+    repo,
+    inventory,
+    updateScreen,
+  );
   function updateScreen(text: string) {
     repo.write("device", { ...device(), screen: text });
   }
-  function apply(intent: Intent) {
+  function ai(): AIProvider {
+    const config: ProviderConfig = settings().provider;
+    return (
+      override ??
+      (config.mode === "mock"
+        ? new MockAIProvider()
+        : new OpenAICompatibleProvider(
+            { ...config, visionModel: process.env.AI_VISION_MODEL },
+            process.env.AI_API_KEY ?? "",
+          ))
+    );
+  }
+  const currentRecipes = () => {
+    const generated = repo.read<Recipe[]>("recipe-catalog", []);
+    return generated.length
+      ? generated.map((r) => refreshRecipe(r, repo.list()))
+      : recommend(repo.list());
+  };
+  async function generateRecipes(
+    provider: AIProvider,
+    people: number,
+    requirements: string,
+  ) {
+    if (!provider.generateRecipes) return recommend(repo.list(), people);
+    const food = repo
+      .list()
+      .filter(
+        (i) =>
+          i.category === "food" && i.quantity > 0 && freshness(i) !== "expired",
+      );
+    const drafts = await provider.generateRecipes(
+      {
+        people,
+        requirements,
+        inventory: food
+          .slice(0, 200)
+          .map(({ name, quantity, unit }) => ({ name, quantity, unit })),
+      },
+      settings().persona,
+    );
+    if (!drafts.length || drafts.length > 3)
+      throw new DomainError("AI 食谱数量无效，请重新推荐");
+    return drafts.map((raw) => {
+      const draft = RecipeDraft.parse(raw);
+      const ingredients: Recipe["ingredients"] = [];
+      for (const entry of draft.ingredients) {
+        const existing = ingredients.find(
+          (i) => i.name === entry.name && i.unit === entry.unit,
+        );
+        if (existing) existing.quantity += entry.quantity;
+        else ingredients.push({ ...entry });
+      }
+      return refreshRecipe(
+        {
+          ...draft,
+          ingredients,
+          id: `ai-${crypto.randomUUID()}`,
+          origin: "ai",
+          people,
+          used: [],
+          missing: [],
+        },
+        repo.list(),
+      );
+    });
+  }
+  async function answerQuestion(provider: AIProvider, question: string) {
+    const session = cooking();
+    if (!session || !provider.answerCooking) return undefined;
+    return provider.answerCooking(
+      {
+        recipe: {
+          name: session.recipe.name,
+          minutes: session.recipe.minutes,
+          ingredients: session.recipe.ingredients,
+          steps: session.recipe.steps,
+          people: session.recipe.people,
+        },
+        step: session.step,
+        question,
+      },
+      settings().persona,
+    );
+  }
+  function apply(
+    intent: Intent,
+    expectedCooking?: { id: string | null; step?: number; revision?: number },
+    preparedRecipes?: Recipe[],
+    preparedAnswer?: string,
+  ): VoiceResult {
+    if (preparedRecipes)
+      repo.write(
+        "recipe-catalog",
+        preparedRecipes.filter((r) => r.origin === "ai"),
+      );
     let message = "";
     let changed: InventoryItem[] = [];
     switch (intent.intent) {
+      case "inventory_query": {
+        const result = assistant.query(intent);
+        const message = respond(result.message, settings().persona);
+        updateScreen(message);
+        return { intent, ...result, message, changed };
+      }
+      case "inventory_action": {
+        const result = assistant.act(intent);
+        const message = respond(result.message, settings().persona);
+        updateScreen(message);
+        return { intent, ...result, message };
+      }
+      case "shopping": {
+        const result = assistant.shop(intent);
+        const message = respond(result.message, settings().persona);
+        updateScreen(message);
+        return { intent, ...result, message, changed };
+      }
       case "add_items":
         changed = intent.items.map((i) =>
           inventory.create({ ...i, source: "voice" }),
@@ -133,15 +245,24 @@ export function createApp(path: string, override?: AIProvider) {
         break;
       }
       case "recommend_recipe": {
-        const recipes = recommend(repo.list(), intent.people);
+        const recipes =
+          preparedRecipes ?? recommend(repo.list(), intent.people);
+        repo.write("recipe-people", intent.people);
         message = `${intent.people}人份建议：${recipes.map((r) => r.name).join("、")}。请核对缺少的食材。`;
         message = respond(message, settings().persona);
         updateScreen(message);
         return { intent, message, recipes, changed };
       }
       case "cooking": {
-        const session = cook(intent.action, intent.question, intent.question);
-        message = session.answer || session.recipe.steps[session.step];
+        const session = cook(
+          intent.action,
+          intent.recipeName ?? intent.question,
+          intent.question,
+          intent.people ?? repo.read("recipe-people", 2),
+          expectedCooking,
+          preparedAnswer,
+        );
+        message = cookingText(session);
         break;
       }
       case "unknown":
@@ -152,20 +273,96 @@ export function createApp(path: string, override?: AIProvider) {
     updateScreen(message);
     return { intent, message, changed };
   }
-  async function voice(text: string) {
+  async function voice(text: string): Promise<() => ReturnType<typeof apply>> {
     const s = settings();
     const config: ProviderConfig = s.provider;
-    const provider =
-      override ??
-      (config.mode === "mock"
-        ? new MockAIProvider()
-        : new OpenAICompatibleProvider(config, process.env.AI_API_KEY ?? ""));
+    const provider = ai();
     if (config.mode === "openai-compatible" && !config.model)
       throw new DomainError("请先配置模型名称");
+    const session = cooking();
+    const people = repo.read("recipe-people", 2);
     const intent = Intent.parse(
-      await provider.structuredOutput(text, s.persona),
+      await provider.structuredOutput(text, s.persona, {
+        recipeNames: recipeCatalog(repo, people).map((r) => r.name),
+        people,
+        cooking: session
+          ? {
+              recipeName: session.recipe.name,
+              step: session.step + 1,
+              status: session.status ?? "active",
+            }
+          : null,
+      }),
     );
-    return () => apply(intent);
+    if (
+      intent.intent === "cooking" &&
+      intent.action === "confirm_consumption" &&
+      !/^(?:请)?(?:确认扣减|确认消耗|确认扣库存)[。！!？?\s]*$/.test(
+        text.trim(),
+      )
+    )
+      return () => {
+        const message =
+          "库存未扣减。核对数量后，请明确说“确认扣减”，或说“不扣减”";
+        updateScreen(message);
+        return {
+          intent: { intent: "unknown" as const, message },
+          message,
+          changed: [],
+        };
+      };
+    let preparedRecipes: Recipe[] | undefined;
+    let preparedAnswer: string | undefined;
+    if (intent.intent === "recommend_recipe")
+      preparedRecipes = await generateRecipes(
+        provider,
+        intent.people,
+        intent.requirements ?? text,
+      );
+    if (
+      intent.intent === "cooking" &&
+      intent.action === "start" &&
+      !recipeCatalog(repo, intent.people ?? people).some(
+        (r) =>
+          r.name === (intent.recipeName ?? intent.question) ||
+          r.id === (intent.recipeName ?? intent.question),
+      ) &&
+      provider.generateRecipes
+    )
+      preparedRecipes = await generateRecipes(
+        provider,
+        intent.people ?? people,
+        `请推荐用户指定的菜：${intent.recipeName ?? intent.question}`,
+      );
+    if (intent.intent === "cooking" && intent.action === "ask")
+      preparedAnswer = await answerQuestion(provider, intent.question ?? text);
+    return () => {
+      try {
+        return repo.transaction(() =>
+          apply(
+            intent,
+            intent.intent === "cooking"
+              ? {
+                  id: session?.id ?? null,
+                  step: session?.step,
+                  revision: session?.revision ?? 0,
+                }
+              : undefined,
+            preparedRecipes,
+            preparedAnswer,
+          ),
+        );
+      } catch (error) {
+        // 无效烹饪指令也生成可播报回执，避免设备永远重试同一段录音。
+        if (
+          !(error instanceof DomainError) ||
+          !["cooking", "inventory_action", "shopping"].includes(intent.intent)
+        )
+          throw error;
+        updateScreen(error.message);
+        return { intent, message: error.message, changed: [] };
+      }
+    };
   }
   // 同一进程串行提交异步意图，重放结果落 SQLite；网络重试不能重复增加库存。
   let tail: Promise<unknown> = Promise.resolve();
@@ -205,6 +402,8 @@ export function createApp(path: string, override?: AIProvider) {
           message: i.message,
         })),
       });
+    if ((err as { statusCode?: number }).statusCode === 413)
+      return reply.code(413).send({ error: "请求内容过大，请选择更小的图片" });
     if ((err as { statusCode?: number }).statusCode === 400)
       return reply.code(400).send({ error: "请求不是有效的 JSON" });
     if (err instanceof DomainError)
@@ -217,10 +416,15 @@ export function createApp(path: string, override?: AIProvider) {
     const origin = req.headers.origin;
     if (
       origin &&
-      !["http://127.0.0.1:3000", "http://localhost:3000"].includes(origin)
+      ![
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        process.env.APP_ORIGIN,
+      ].includes(origin)
     )
       return reply.code(403).send({ error: "仅允许本机界面访问" });
   });
+  registerInternalAuth(app);
   app.get("/api/health", async () => ({
     ok: true,
     name: "HomeStash",
@@ -240,7 +444,8 @@ export function createApp(path: string, override?: AIProvider) {
           ["expired", "urgent", "eat_soon"].indexOf(a.freshness) -
           ["expired", "urgent", "eat_soon"].indexOf(b.freshness),
       ),
-    recipes: recommend(repo.list()),
+    recipes: currentRecipes(),
+    shopping: assistant.shopping.list(),
     cooking: cooking(),
     device: device(),
     physicalDevice: repo.read("physical-device", null),
@@ -257,24 +462,102 @@ export function createApp(path: string, override?: AIProvider) {
       .parse(req.body);
     return once(b.requestId, b, () => voice(b.text));
   });
+  app.get("/api/shopping", async () => assistant.shopping.list());
+  app.post("/api/shopping", async (req) => {
+    const b = z
+      .discriminatedUnion("action", [
+        z.object({
+          action: z.literal("add"),
+          item: ShoppingInput,
+          requestId: z.uuid(),
+        }),
+        z.object({
+          action: z.enum(["check", "uncheck", "remove"]),
+          id: z.uuid(),
+          requestId: z.uuid(),
+        }),
+        z.object({
+          action: z.literal("from_recipe"),
+          recipeId: z.string().min(1),
+          people: z.number().int().min(1).max(20),
+          requestId: z.uuid(),
+        }),
+      ])
+      .parse(req.body);
+    return once(`shopping:${b.requestId}`, b, async () => () => {
+      if (b.action === "add") assistant.shopping.add(b.item);
+      else if (b.action === "from_recipe")
+        assistant.shortage(b.recipeId, b.people, true);
+      else assistant.shopping.act(b.id, b.action);
+      return assistant.shopping.list();
+    });
+  });
   app.post("/api/recipes", async (req) => {
     const b = z
-      .object({ people: z.number().int().min(1).max(20) })
+      .object({
+        people: z.number().int().min(1).max(20),
+        requirements: z.string().max(500).default(""),
+        requestId: z.uuid().optional(),
+      })
       .parse(req.body);
-    return recommend(repo.list(), b.people);
+    return once(
+      `recipes:${b.requestId ?? crypto.randomUUID()}`,
+      b,
+      async () => {
+        const recipes = await generateRecipes(ai(), b.people, b.requirements);
+        return () => {
+          repo.write(
+            "recipe-catalog",
+            recipes.filter((r) => r.origin === "ai"),
+          );
+          repo.write("recipe-people", b.people);
+          return recipes;
+        };
+      },
+    );
   });
   app.post("/api/cooking", async (req) => {
     const b = z
       .object({
-        action: z.enum(["start", "next", "previous", "ask"]),
+        action: z.enum([
+          "start",
+          "next",
+          "previous",
+          "ask",
+          "repeat",
+          "finish",
+          "confirm_consumption",
+          "skip_consumption",
+        ]),
+        sessionId: z.uuid().optional(),
+        revision: z.number().int().nonnegative().optional(),
+        requestId: z.uuid().optional(),
         recipeId: z.string().optional(),
         question: z.string().max(1000).default(""),
         people: z.number().int().min(1).max(20).default(2),
       })
       .parse(req.body);
-    return repo.transaction(() =>
-      cook(b.action, b.recipeId, b.question, b.people),
-    );
+    if (
+      ["confirm_consumption", "skip_consumption"].includes(b.action) &&
+      (!b.sessionId || b.revision === undefined)
+    )
+      throw new DomainError("请携带当前做饭任务 ID 和版本进行确认");
+    const work = async () => {
+      const preparedAnswer =
+        b.action === "ask" ? await answerQuestion(ai(), b.question) : undefined;
+      return () =>
+        cook(
+          b.action,
+          b.recipeId,
+          b.question,
+          b.people,
+          b.sessionId ? { id: b.sessionId, revision: b.revision } : undefined,
+          preparedAnswer,
+        );
+    };
+    return b.requestId
+      ? once(`cooking:${b.requestId}`, b, work)
+      : repo.transaction(await work());
   });
   app.post("/api/settings", async (req) => {
     const s = settingsSchema.parse(req.body);
@@ -360,6 +643,22 @@ export function createApp(path: string, override?: AIProvider) {
       };
     });
   });
+  const firmware = registerFirmware(
+    app,
+    repo,
+    resolve(dirname(path), "firmware"),
+  );
+  const imageIntake = registerImageIntake(app, repo, inventory, once, ai);
   app.addHook("onClose", async () => repo.close());
-  return { app, repo, inventory, prepareVoice: voice, once };
+  return {
+    app,
+    repo,
+    inventory,
+    prepareVoice: voice,
+    once,
+    imageIntake,
+    firmware,
+    deviceScreen: (page: DevicePage) =>
+      deviceScreen(repo, currentRecipes(), page),
+  };
 }

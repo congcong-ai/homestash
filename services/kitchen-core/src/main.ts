@@ -13,6 +13,7 @@ const deviceServer = process.env.DEVICE_TOKEN
       token: process.env.DEVICE_TOKEN,
       deviceId: process.env.DEVICE_ID ?? "freshmate-korvo-01",
       mediaDir: resolve("data/device-media"),
+      debugImageDir: process.env.DEVICE_IMAGE_DEBUG_DIR,
     })
   : null;
 await app.listen({
@@ -24,7 +25,7 @@ if (deviceServer)
     port: 3101,
     host: process.env.DEVICE_HOST ?? "127.0.0.1",
   });
-console.log("HomeStash Core 已启动：http://127.0.0.1:3100");
+console.log(`HomeStash Core 已启动：${app.listeningOrigin}`);
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     void (async () => {

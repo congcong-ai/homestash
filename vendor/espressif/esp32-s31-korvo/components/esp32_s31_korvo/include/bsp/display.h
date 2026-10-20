@@ -100,6 +100,9 @@ lv_display_t *bsp_display_get(void);
  */
 esp_lcd_panel_handle_t bsp_display_get_panel(void);
 
+/* HomeStash扩展：仅在LVGL adapter sleep_prepare完成后调用，释放并清除缓存。 */
+esp_err_t bsp_display_release_panel(void);
+
 /**
  * @brief Create the GT1151 touch controller used by the RGB 800x480 panel.
  *

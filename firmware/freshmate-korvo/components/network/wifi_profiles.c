@@ -25,6 +25,7 @@ static const char *passwords[] = {CONFIG_HS_WIFI_PASSWORD, CONFIG_HS_WIFI_OFFICE
 static portMUX_TYPE guard = portMUX_INITIALIZER_UNLOCKED;
 static hs_wifi_status_t status = {.automatic = true};
 static QueueHandle_t commands;
+static bool paused;
 typedef struct { int kind; hs_wifi_ap_t ap; char password[65]; } request_t;
 static char saved_ssid[33], saved_password[65];
 static int64_t blocked_until[3];
@@ -50,6 +51,7 @@ static esp_err_t submit(request_t *request) {
   return ESP_OK;
 }
 esp_err_t hs_wifi_scan(void) { request_t r = {.kind=1}; return submit(&r); }
+esp_err_t hs_wifi_reconnect(void) { request_t r = {.kind=6}; return submit(&r); }
 esp_err_t hs_wifi_automatic(void) { request_t r = {.kind=3}; return submit(&r); }
 esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap, const char *password) {
   if (!ap || !ap->ssid[0] || strlen(ap->ssid)>32 || !password || strlen(password)>64)
@@ -57,6 +59,15 @@ esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap, const char *password) {
   request_t r = {.kind=2, .ap=*ap};
   strlcpy(r.password, password, sizeof(r.password));
   return submit(&r);
+}
+
+esp_err_t hs_wifi_pause(bool value) {
+  request_t r={.kind=value?4:5};esp_err_t err=submit(&r);if(err!=ESP_OK)return err;
+  for(int i=0;i<100;i++) {
+    if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)==value)return ESP_OK;
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+  return ESP_ERR_TIMEOUT;
 }
 
 static bool enterprise(int profile) {
@@ -211,7 +222,20 @@ static void manager(void *arg) {
     request_t r={0};
     bool connect_now=false;
     if (xQueueReceive(commands,&r,0)==pdTRUE) {
-      if (r.kind==1) {
+      if (r.kind==4) {
+        esp_wifi_stop();connecting=false;online=false;
+        xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
+        __atomic_store_n(&paused,true,__ATOMIC_RELEASE);
+        message("网络已暂停，等待定时唤醒");
+      } else if(r.kind==5 || r.kind==6) {
+        esp_wifi_stop();esp_wifi_start();connecting=false;online=false;automatic=true;next_scan=0;
+        memset(blocked_until,0,sizeof(blocked_until));
+        xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
+        __atomic_store_n(&paused,false,__ATOMIC_RELEASE);
+        message("已唤醒，正在恢复网络");
+      } else if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)) {
+        message("网络暂停中，请等待唤醒");
+      } else if (r.kind==1) {
         if (connecting) message("正在连接，请稍后重新扫描");
         else scan_networks();
       } else if (r.kind==3) {
@@ -228,6 +252,10 @@ static void manager(void *arg) {
           persist=!r.ap.enterprise;connect_now=true;
         }
       }
+    }
+    if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)) {
+      portENTER_CRITICAL(&guard);status.connected=false;status.connecting=false;portEXIT_CRITICAL(&guard);
+      continue;
     }
     if (connecting && esp_timer_get_time()>deadline) {
       esp_wifi_disconnect();connecting=false;online=false;
