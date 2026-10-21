@@ -66,6 +66,24 @@ export class ShoppingService {
       return item;
     });
   }
+  syncRecipe(source: string, raw: unknown[]) {
+    if (!source.startsWith("recipe:"))
+      throw new DomainError("只能复核食谱生成的购物计划");
+    const missing = raw.map((item) => ShoppingInput.parse(item));
+    return this.repo.transaction(() => {
+      const retained = this.list().filter(
+        (item) =>
+          item.source !== source ||
+          item.checked ||
+          missing.some(
+            (line) => line.name === item.name && line.unit === item.unit,
+          ),
+      );
+      this.repo.write("shopping", retained);
+      for (const line of missing) this.add(line, source);
+      return this.list();
+    });
+  }
   receive(id: string, raw: unknown, inventory: InventoryService) {
     const input = ItemInput.extend({
       quantity: z.number().finite().positive().max(1000000),

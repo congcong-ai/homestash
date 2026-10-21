@@ -157,12 +157,31 @@ export function inventoryAssistant(
         ),
       }))
       .filter((i) => i.quantity > 0);
+    const source = `recipe:${recipe.id}:${recipe.people}`;
+    const waiting = shopping
+      .list()
+      .filter(
+        (item) =>
+          item.source === source &&
+          item.checked &&
+          !item.inventoryItemId &&
+          missing.some(
+            (line) => line.name === item.name && line.unit === item.unit,
+          ),
+      );
     if (add)
-      for (const item of missing)
-        shopping.add(item, `recipe:${recipe.id}:${recipe.people}`);
+      shopping.syncRecipe(
+        source,
+        missing.filter(
+          (line) =>
+            !waiting.some(
+              (item) => item.name === line.name && item.unit === line.unit,
+            ),
+        ),
+      );
     return {
       message: missing.length
-        ? `${recipe.people}人份${recipe.name}还缺：${missing.map((i) => `${i.name}${i.quantity}${i.unit}`).join("、")}。${add ? "已加入购物清单。" : "可在购物清单页确认加入；单位不一致时请先核对库存。"}`
+        ? `${recipe.people}人份${recipe.name}还缺：${missing.map((i) => `${i.name}${i.quantity}${i.unit}`).join("、")}。${add ? `已按当前库存复核购物清单。${waiting.length ? `其中${waiting.map((i) => i.name).join("、")}已买到，先到待确认核对入库，未重复加购。` : ""}` : "可在购物清单页确认加入；单位不一致时请先核对库存。"}`
         : `${recipe.name}的主要食材数量已齐，无需补充。`,
       missing,
       recipe,

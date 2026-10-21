@@ -96,6 +96,11 @@ const emoji = (name: string) =>
             ? "🥬"
             : "🧺";
 export default function Page() {
+  const [switchingRecipe, setSwitchingRecipe] = useState<{
+    recipe: Recipe;
+    sessionId: string;
+    revision: number;
+  } | null>(null);
   const [receiving, setReceiving] = useState<ShoppingItem | null>(null);
   const observedEpoch = useRef<string | null>(null);
   const pendingShopping = useRef(new Map<string, string>());
@@ -121,6 +126,7 @@ export default function Page() {
     ) {
       setEditing(null);
       setReceiving(null);
+      setSwitchingRecipe(null);
       pendingShopping.current.clear();
       pendingCooking.current.clear();
       pendingVoice.current = null;
@@ -252,6 +258,7 @@ export default function Page() {
   const cooking = state.cooking;
   const cookingActive =
     !!cooking && (!cooking.status || cooking.status === "active");
+  const cookingUnfinished = !!cooking && cooking.status !== "completed";
   async function cookingAction(
     action: string,
     extra: Record<string, unknown> = {},
@@ -332,20 +339,44 @@ export default function Page() {
             <button
               disabled={busy}
               onClick={() =>
-                void perform(async () => {
-                  await cookingAction("start", {
-                    recipeId: r.id,
-                    people: r.people,
-                  });
-                  setTab("recipes");
-                })
+                cookingUnfinished &&
+                cooking &&
+                (cooking.recipe.id !== r.id ||
+                  cooking.recipe.people !== r.people)
+                  ? (setSwitchingRecipe({
+                      recipe: r,
+                      sessionId: cooking.id,
+                      revision: cooking.revision ?? 0,
+                    }),
+                    setTab("recipes"))
+                  : void perform(async () => {
+                      await cookingAction("start", {
+                        recipeId: r.id,
+                        people: r.people,
+                      });
+                      setTab("recipes");
+                    })
               }
             >
-              开始做饭 →
+              {cookingUnfinished &&
+              cooking?.recipe.id === r.id &&
+              cooking.recipe.people === r.people
+                ? cooking.status === "awaiting_confirmation"
+                  ? "继续核对用量 →"
+                  : "继续做饭 →"
+                : "开始做饭 →"}
             </button>
             <button
               className="secondary"
-              disabled={busy || !r.missing.length}
+              disabled={
+                busy ||
+                (!r.missing.length &&
+                  !state.shopping.some(
+                    (item) =>
+                      !item.checked &&
+                      item.source === `recipe:${r.id}:${r.people}`,
+                  ))
+              }
               onClick={() =>
                 void perform(async () => {
                   await shoppingAction({
@@ -357,7 +388,7 @@ export default function Page() {
                 })
               }
             >
-              缺少食材加入清单
+              {r.missing.length ? "缺少食材加入清单" : "复核购物清单"}
             </button>
           </div>
         </article>
@@ -405,6 +436,7 @@ export default function Page() {
               onClick={() => {
                 setTab(key);
                 setEditing(null);
+                setSwitchingRecipe(null);
               }}
             >
               <span>
@@ -470,6 +502,21 @@ export default function Page() {
         )}
         {tab === "home" && (
           <>
+            {cookingUnfinished && cooking && (
+              <section className="panel">
+                <h2>
+                  {cooking.status === "awaiting_confirmation"
+                    ? "还有一份用量待核对"
+                    : "上次的菜，接着做"}
+                </h2>
+                <p>
+                  {cooking.recipe.name} · {cooking.recipe.people}人份 · 第
+                  {cooking.step + 1}步
+                </p>
+                <button onClick={() => setTab("recipes")}>继续当前做饭</button>
+              </section>
+            )}
+
             <section className="welcome">
               <div>
                 <p className="eyebrow">你的厨房，有我惦记</p>
@@ -850,6 +897,40 @@ export default function Page() {
           <>
             <p className="eyebrow">不用纠结，今晚吃这个</p>
             <h1>把库存变成一顿好饭</h1>
+            {switchingRecipe && (
+              <section className="panel" aria-label="切换食谱确认">
+                <h2>改做{switchingRecipe.recipe.name}？</h2>
+                <p>
+                  当前做饭进度将被替换，不会自动扣减原任务的库存。需要保留进度时，请继续当前菜。
+                </p>
+                <div className="row">
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void perform(async () => {
+                        await cookingAction("start", {
+                          recipeId: switchingRecipe.recipe.id,
+                          people: switchingRecipe.recipe.people,
+                          sessionId: switchingRecipe.sessionId,
+                          revision: switchingRecipe.revision,
+                        });
+                        setSwitchingRecipe(null);
+                      })
+                    }
+                  >
+                    确认换这道菜
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => setSwitchingRecipe(null)}
+                  >
+                    继续当前菜
+                  </button>
+                </div>
+              </section>
+            )}
+
             <div className="row people">
               <label>
                 用餐人数{" "}

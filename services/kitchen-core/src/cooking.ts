@@ -45,6 +45,16 @@ export function cookingService(
     )
       throw new DomainError("做饭进度或确认清单已变化，请重新核对后再操作");
     if (action === "start") {
+      if (
+        session &&
+        session.status !== "completed" &&
+        session.recipe.people === people &&
+        (session.recipe.id === recipeId ||
+          session.recipe.name === recipeId?.replace("西红柿", "番茄"))
+      ) {
+        screen(cookingText(session));
+        return session;
+      }
       const recipe = recipeCatalog(repo, people).find(
         (r) =>
           r.id === recipeId || r.name === recipeId?.replace("西红柿", "番茄"),
