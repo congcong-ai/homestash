@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { registerDevices } from "./devices";
 import { dirname, resolve } from "node:path";
 import { registerFirmware } from "./firmware";
 import { registerInternalAuth } from "./auth";
@@ -69,7 +70,9 @@ export function createApp(path: string, override?: AIProvider) {
     bodyLimit: 65536,
     trustProxy: ["127.0.0.1", "::1"],
   });
+  registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
+  const devices = registerDevices(app, repo);
   const inventory = new InventoryService(repo);
   const assistant = inventoryAssistant(repo, inventory);
   const defaults: Settings = {
@@ -425,7 +428,6 @@ export function createApp(path: string, override?: AIProvider) {
     )
       return reply.code(403).send({ error: "仅允许本机界面访问" });
   });
-  registerInternalAuth(app);
   app.get("/api/health", async () => ({
     ok: true,
     name: "HomeStash",
@@ -450,6 +452,7 @@ export function createApp(path: string, override?: AIProvider) {
     cooking: cooking(),
     device: device(),
     physicalDevice: repo.read("physical-device", null),
+    physicalDevices: devices.list(),
     settings: { ...settings(), keyConfigured: !!process.env.AI_API_KEY },
     household: { id: "local", name: "我的家" },
   }));
@@ -659,6 +662,7 @@ export function createApp(path: string, override?: AIProvider) {
     prepareVoice: voice,
     once,
     imageIntake,
+    devices,
     firmware,
     deviceScreen: (page: DevicePage) =>
       deviceScreen(repo, currentRecipes(), page),

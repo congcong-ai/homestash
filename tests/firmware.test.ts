@@ -11,7 +11,7 @@ import {
   firmwareSignature,
 } from "../services/kitchen-core/src/firmware";
 import { pcmWav } from "@homestash/ai/speech";
-function image(version = "0.3.0", chip = 32) {
+function image(version = "0.3.0", chip = 32, boardId?: string) {
   const b = Buffer.alloc(304);
   b[0] = 0xe9;
   b[1] = 1;
@@ -21,6 +21,7 @@ function image(version = "0.3.0", chip = 32) {
   b.writeUInt32LE(0xabcd5432, 32);
   b.write(version, 48);
   b.write("homestash_freshmate", 80);
+  if (boardId) b.write(`HS_TARGET_V1:${boardId}\0`, 160);
   let sum = 0xef;
   for (const x of b.subarray(32, 288)) sum ^= x;
   // 第一段结束288，校验位为303；摘要附加在304。
@@ -123,6 +124,108 @@ test("固件发布和下载鉴权、摘要签名、跨重启与坏缓存拒绝�
       ).statusCode,
       503,
     );
+  } finally {
+    await device.close();
+    await core.app.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("按镜像内板型标记隔离发布与下载，同芯片不同板不混刷；旧版Korvo保持兼容", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "homestash-board-ota-"));
+  const core = createApp(join(dir, "core.db"));
+  const device = createDeviceServer(
+    core,
+    {
+      transcribe: async () => "",
+      synthesize: async () => pcmWav(Buffer.alloc(3200)),
+    },
+    { token: "x".repeat(32), deviceId: "korvo", mediaDir: join(dir, "media") },
+  );
+  try {
+    assert.throws(
+      () => inspectFirmware(image("0.5.0")),
+      "新版镜像必须带板型标记",
+    );
+    assert.equal(inspectFirmware(image()).boardId, "esp32-s31-korvo-1-v1.1");
+    const registration = (
+      await core.app.inject({
+        method: "POST",
+        url: "/api/devices",
+        payload: { id: "other", name: "另一个S31板", boardId: "custom-s31" },
+      })
+    ).json();
+    const headers = {
+      "x-device-id": "other",
+      authorization: `Bearer ${registration.token}`,
+    };
+    const publish = async (bytes: Buffer) =>
+      (
+        await core.app.inject({
+          method: "POST",
+          url: "/api/firmware",
+          headers: { "content-type": "application/octet-stream" },
+          payload: bytes,
+        })
+      ).json();
+    const korvo = await publish(image());
+    assert.equal(
+      (await device.inject({ url: "/device/v1/firmware", headers })).statusCode,
+      404,
+    );
+    assert.equal(
+      (await device.inject({ url: `/device/v1/firmware/${korvo.id}`, headers }))
+        .statusCode,
+      404,
+    );
+    const mismatched = await core.app.inject({
+      method: "POST",
+      url: "/api/firmware",
+      headers: {
+        "content-type": "application/octet-stream",
+        "x-firmware-board": "custom-s31",
+      },
+      payload: image(),
+    });
+    assert.equal(mismatched.statusCode, 409);
+    const other = await publish(image("0.5.0", 32, "custom-s31"));
+    assert.equal(other.boardId, "custom-s31");
+    assert.equal(
+      (await core.app.inject("/api/firmware?boardId=custom-s31")).json().id,
+      other.id,
+    );
+    const manifest = (
+      await device.inject({ url: "/device/v1/firmware", headers })
+    ).json();
+    assert.equal(manifest.id, other.id);
+    assert.equal(
+      manifest.signature,
+      firmwareSignature(other, registration.token),
+    );
+    const h = {
+      "x-device-id": "korvo",
+      authorization: `Bearer ${"x".repeat(32)}`,
+    };
+    assert.equal(
+      (await device.inject({ url: "/device/v1/firmware", headers: h })).json()
+        .id,
+      korvo.id,
+    );
+    assert.equal(
+      (
+        await device.inject({
+          url: `/device/v1/firmware/${other.id}`,
+          headers: h,
+        })
+      ).statusCode,
+      404,
+    );
+    assert.equal(
+      (await device.inject({ url: `/device/v1/firmware/${other.id}`, headers }))
+        .statusCode,
+      200,
+    );
+    assert.equal(core.repo.events().length, 0);
   } finally {
     await device.close();
     await core.app.close();

@@ -8,14 +8,12 @@ const path = resolve(process.env.DATABASE_PATH ?? "data/homestash.db");
 mkdirSync(dirname(path), { recursive: true });
 const core = createApp(path);
 const { app } = core;
-const deviceServer = process.env.DEVICE_TOKEN
-  ? createDeviceServer(core, speechFromEnv(), {
-      token: process.env.DEVICE_TOKEN,
-      deviceId: process.env.DEVICE_ID ?? "freshmate-korvo-01",
-      mediaDir: resolve("data/device-media"),
-      debugImageDir: process.env.DEVICE_IMAGE_DEBUG_DIR,
-    })
-  : null;
+const deviceServer = createDeviceServer(core, speechFromEnv(), {
+  token: process.env.DEVICE_TOKEN,
+  deviceId: process.env.DEVICE_ID ?? "freshmate-korvo-01",
+  mediaDir: resolve("data/device-media"),
+  debugImageDir: process.env.DEVICE_IMAGE_DEBUG_DIR,
+});
 await app.listen({
   port: Number(process.env.CORE_PORT ?? 3100),
   host: "127.0.0.1",

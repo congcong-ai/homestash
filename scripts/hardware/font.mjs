@@ -17,6 +17,8 @@ function scan(dir) {
 }
 for (const dir of [
   "firmware/freshmate-korvo",
+  "firmware/common",
+  "firmware/apps",
   "packages",
   "apps/web/app",
   "apps/web/components",

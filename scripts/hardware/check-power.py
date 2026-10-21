@@ -27,7 +27,7 @@ int64_t esp_timer_get_time(void);
 ''')
     for header in ['esp_err.h', 'esp_sleep.h', 'esp_timer.h', 'esp_log.h']:
         (temporary / header).write_text('#include "common.h"\n')
-    (temporary / 'test.c').write_text(f'#include "{root}/firmware/freshmate-korvo/components/power/hs_power.c"\n' + '''
+    (temporary / 'test.c').write_text(f'#include "{root}/firmware/common/components/power/hs_power.c"\n' + '''
 static uint64_t wakeup;
 static int outcome, calls;
 static int64_t now;
@@ -48,5 +48,5 @@ int main(void){
  puts("通过：时长边界、Active/Idle、休眠期间不被活动覆盖、Light Sleep失败恢复、Deep Sleep定时唤醒配置");
 }
 '''.replace('static uint64_t wakeup;', '#include <string.h>\nstatic uint64_t wakeup;'))
-    subprocess.run(['cc', '-fsanitize=address,undefined', '-I', str(temporary), '-I', str(root / 'firmware/freshmate-korvo/components/power/include'), str(temporary / 'test.c'), '-o', str(temporary / 'test')], check=True)
+    subprocess.run(['cc', '-fsanitize=address,undefined', '-I', str(temporary), '-I', str(root / 'firmware/common/components/power/include'), str(temporary / 'test.c'), '-o', str(temporary / 'test')], check=True)
     subprocess.run([str(temporary / 'test')], check=True)

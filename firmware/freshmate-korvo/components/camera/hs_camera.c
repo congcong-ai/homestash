@@ -16,7 +16,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#define PHOTO_DIR "/sdcard/homestash/photos"
+#include "hs_outbox.h"
+#define PHOTO_DIR HS_DATA_ROOT "/photos"
 #define JPEG_LIMIT (3*1024*1024)
 static bool valid_id(const char *id) {
   if(!id || strlen(id)!=36) return false;

@@ -1,1 +1,0 @@
-idf_component_register(SRCS "hs_transport.c" INCLUDE_DIRS "include" "${CMAKE_BINARY_DIR}" REQUIRES power device_config app_update esp_app_format camera esp_http_client mbedtls espressif__cjson storage esp_timer display)

@@ -14,16 +14,15 @@ pnpm hardware:build
 
 从 HomeStash 根目录执行；`data/hardware` 已忽略。无配置也能构建，但不能联网。配置仅生成到忽略的 `build/local-network-config.h`。二进制包含 Wi-Fi 和设备 Token，不能公开发布；不包含 AI API Key。`HOMESTASH_IDF_PATH` 可指定相同提交的 SDK。字体更新运行 `node scripts/hardware/font.mjs`。
 
-## 分层
+## 分层与构建目标
 
-- `vendor/espressif/.../esp32_s31_korvo`：原样 BSP，不另猜 GPIO。
-- `components/audio`：原样增益、音量、WAV 工具及独立录放音适配。
-- `components/network`：抽离 SmartBadge 自动/手动 Wi-Fi 管理能力，使用独立 `hs_wifi` NVS 命名空间。当前屏幕只显示连接状态，尚无手动配网页面。
-- `components/display`：FreshMate LVGL 页面。字体为本项目文本子集，模型返回未覆盖字形时可能缺字。
-- `components/storage`：只使用 `/sdcard/homestash`，挂载失败不格式化。
-- `components/protocol`：带设备认证的 WAV 上传、TTS 下载与心跳。
-- `main`：产品任务装配；录音/播放独占音频设备，网络任务独立。
-- Camera、BLE 配网、OTA、AEC、NS、VAD 均未在此固件启用，不代表已验收。
+- `../apps/freshmate_app`：通用产品流程，当前工程main只调用它。
+- `../common/components`：网络、配置、录音队列、协议、OTA、BLE和电源等公共ESP-IDF服务，以及device_port契约。
+- `components/board`：当前Korvo身份、能力和按键映射。
+- `components/audio/camera/display/settings_ui/storage`：Korvo硬件与界面适配，继续使用原厂BSP和已验证代码。
+- 数据根目录由当前目标指定为`/sdcard/homestash`，NVS与SD内容保持原位置。
+
+根目录执行`pnpm hardware:targets`查看目标，`pnpm hardware:build:generic --board korvo-s31`构建无本机凭据镜像。当前源码版本0.5.0仅完成编译与主机验证，没有刷入设备；此前0.4.3已实测Camera、BLE和OTA。AEC/NS/VAD尚未启用。迁移设计见 [固件复用](../../docs/FIRMWARE_PORTABILITY.md)。
 
 ## 交互与恢复
 

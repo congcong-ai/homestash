@@ -42,7 +42,16 @@ const ca = config.WIFI_OFFICE_CA_FILE
   ? readFileSync(resolve(root, config.WIFI_OFFICE_CA_FILE), "utf8")
   : "";
 header += `static const unsigned char office_ca[] = ${JSON.stringify(ca)};\n`;
-const build = resolve(root, "firmware/freshmate-korvo/build");
+const project = resolve(
+  process.env.HOMESTASH_FIRMWARE_PROJECT ??
+    resolve(root, "firmware/freshmate-korvo"),
+);
+if (
+  !project.startsWith(resolve(root, "firmware") + "/") ||
+  !existsSync(resolve(project, "CMakeLists.txt"))
+)
+  throw Error("固件工程路径无效");
+const build = resolve(project, "build");
 mkdirSync(build, { recursive: true });
 writeFileSync(resolve(build, "local-network-config.h"), header, {
   mode: 0o600,

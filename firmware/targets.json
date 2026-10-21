@@ -1,0 +1,11 @@
+{
+  "default": "korvo-s31",
+  "targets": {
+    "korvo-s31": {
+      "boardId": "esp32-s31-korvo-1-v1.1",
+      "project": "firmware/freshmate-korvo",
+      "idfCommit": "ab95e70748f2eddac6f87217b0cf62533684a6ba",
+      "prepareS31BleDependencies": true
+    }
+  }
+}

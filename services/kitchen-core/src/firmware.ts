@@ -3,6 +3,8 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { SQLiteRepository } from "@homestash/database";
+import { z } from "zod";
+import { KORVO_BOARD_ID, HardwareDescriptor } from "@homestash/protocol";
 import { DomainError } from "@homestash/domain";
 export const MAX_FIRMWARE_BYTES = 4 * 1024 * 1024;
 export type FirmwareRelease = {
@@ -12,6 +14,7 @@ export type FirmwareRelease = {
   version: string;
   project: string;
   chip: "esp32s31";
+  boardId?: string;
   createdAt: string;
 };
 export const firmwareSignature = (release: FirmwareRelease, token: string) =>
@@ -23,7 +26,7 @@ export const firmwareSignature = (release: FirmwareRelease, token: string) =>
 export function inspectFirmware(bytes: Buffer) {
   const fail = () => {
     throw new DomainError(
-      "固件无效：请选择完整的 HomeStash ESP32-S31 应用 .bin，不接受引导程序、整片备份或其它板型",
+      "固件无效：请选择受支持的 HomeStash 应用 .bin，不接受引导程序、整片备份、缺少板型标记或校验失败的镜像",
     );
   };
   if (
@@ -71,10 +74,21 @@ export function inspectFirmware(bytes: Buffer) {
     !/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version)
   )
     return fail();
+  const marker = Buffer.from("HS_TARGET_V1:");
+  const at = bytes.indexOf(marker);
+  let boardId = KORVO_BOARD_ID;
+  if (at >= 0) {
+    if (bytes.indexOf(marker, at + marker.length) >= 0) return fail();
+    const end = bytes.indexOf(0, at + marker.length);
+    if (end < 0 || end - at - marker.length > 80) return fail();
+    boardId = bytes.toString("utf8", at + marker.length, end);
+    if (!/^[a-z0-9][a-z0-9._-]{0,79}$/.test(boardId)) return fail();
+  } else if (!/^0\.[0-4]\./.test(version)) return fail();
   return {
     version,
     project,
     chip: "esp32s31" as const,
+    boardId,
     size: bytes.length,
     sha256: createHash("sha256").update(bytes).digest("hex"),
   };
@@ -84,18 +98,38 @@ export function registerFirmware(
   repo: SQLiteRepository,
   root: string,
 ) {
-  const latest = () =>
-    repo.read<FirmwareRelease | null>("firmware-latest", null);
+  const latest = (boardId = KORVO_BOARD_ID) => {
+    const scoped = repo.read<FirmwareRelease | null>(
+      `firmware-latest:${boardId}`,
+      null,
+    );
+    const old = repo.read<FirmwareRelease | null>("firmware-latest", null);
+    return (
+      scoped ??
+      (old && (old.boardId ?? KORVO_BOARD_ID) === boardId ? old : null)
+    );
+  };
   app.addContentTypeParser(
     "application/octet-stream",
     { parseAs: "buffer" },
     (_req, body, done) => done(null, body),
   );
-  app.get("/api/firmware", async () => latest());
+  app.get("/api/firmware", async (req) => {
+    const { boardId } = z
+      .object({
+        boardId: HardwareDescriptor.shape.boardId.default(KORVO_BOARD_ID),
+      })
+      .strict()
+      .parse(req.query);
+    return latest(boardId);
+  });
   app.post("/api/firmware", { bodyLimit: MAX_FIRMWARE_BYTES }, async (req) => {
     if (!Buffer.isBuffer(req.body))
       throw new DomainError("请上传固件二进制文件");
     const info = inspectFirmware(req.body);
+    const expectedBoard = req.headers["x-firmware-board"];
+    if (expectedBoard !== undefined && expectedBoard !== info.boardId)
+      throw new DomainError("镜像板型与所选设备板型不符，未发布");
     const release: FirmwareRelease = {
       ...info,
       id: info.sha256,
@@ -107,11 +141,17 @@ export function registerFirmware(
     await writeFile(temporary, req.body, { mode: 0o600 });
     await rename(temporary, path);
     repo.write(`firmware:${release.id}`, release);
-    repo.write("firmware-latest", release);
+    repo.write(`firmware-latest:${release.boardId}`, release);
+    if (release.boardId === KORVO_BOARD_ID)
+      repo.write("firmware-latest", release);
     return release;
   });
   return {
     latest,
+    compatible(id: string, boardId: string) {
+      const release = repo.read<FirmwareRelease | null>(`firmware:${id}`, null);
+      return !!release && (release.boardId ?? KORVO_BOARD_ID) === boardId;
+    },
     async binary(id: string) {
       if (!/^[a-f0-9]{64}$/.test(id)) return null;
       const release = repo.read<FirmwareRelease | null>(`firmware:${id}`, null);

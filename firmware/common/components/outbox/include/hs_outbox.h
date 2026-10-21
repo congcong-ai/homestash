@@ -6,7 +6,7 @@
 #define HS_OUTBOX_ERROR -1
 #define HS_OUTBOX_PATH_SIZE 256
 #ifndef HS_DATA_ROOT
-#define HS_DATA_ROOT "/sdcard/homestash"
+#error "构建目标必须指定HS_DATA_ROOT持久化目录"
 #endif
 int hs_outbox_init(void);
 int hs_outbox_path(const char *id, const char *extension, char *path, size_t size);

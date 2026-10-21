@@ -1,5 +1,6 @@
-import Fastify from "fastify";
-import { createHash, timingSafeEqual } from "node:crypto";
+import Fastify, { type FastifyRequest } from "fastify";
+import { DeviceReport, KORVO_BOARD_ID } from "@homestash/protocol";
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -17,25 +18,28 @@ export function createDeviceServer(
   core: ReturnType<typeof createApp>,
   speech: SpeechProvider,
   options: {
-    token: string;
-    deviceId: string;
+    token?: string;
+    deviceId?: string;
     mediaDir: string;
     debugImageDir?: string;
   },
 ) {
-  if (options.token.length < 32)
-    throw new Error("设备 Token 至少需要 32 个字符");
+  if (options.token && options.deviceId)
+    core.devices.legacy(options.deviceId, options.token);
   const app = Fastify({ logger: false, bodyLimit: MAX_WAV_BYTES });
+  const sessions = new WeakMap<
+    FastifyRequest,
+    { id: string; token: string; boardId: string }
+  >();
+  const identity = (req: FastifyRequest) => sessions.get(req)!;
   app.addHook("onRequest", async (req, reply) => {
-    const actual = Buffer.from(req.headers.authorization ?? "");
-    const expected = Buffer.from(`Bearer ${options.token}`);
-    if (
-      req.headers.origin ||
-      req.headers["x-device-id"] !== options.deviceId ||
-      actual.length !== expected.length ||
-      !timingSafeEqual(actual, expected)
-    )
-      return reply.code(401).send({ error: "设备认证失败" });
+    const header = req.headers.authorization ?? "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    const device =
+      !req.headers.origin &&
+      core.devices.authenticate(req.headers["x-device-id"], token);
+    if (!device) return reply.code(401).send({ error: "设备认证失败" });
+    sessions.set(req, { id: device.id, boardId: device.boardId, token });
   });
   app.addContentTypeParser(
     "audio/wav",
@@ -58,43 +62,29 @@ export function createDeviceServer(
       .send({ error: "设备请求未完成，请保留相同采集 ID 重试" });
   });
   const params = (value: unknown) => z.object({ id: z.uuid() }).parse(value);
-  const key = (id: string) => `physical:${options.deviceId}:${id}`;
-  const reportSchema = z
-    .object({
-      screen: z.string().max(1024).optional(),
-      network: z.string().max(96).optional(),
-      screenRevision: z.number().int().nonnegative().optional(),
-      uptimeMs: z.number().int().nonnegative().optional(),
-      firmwareVersion: z.string().max(32).optional(),
-      firmwarePartition: z.string().max(16).optional(),
-      firmwareElf: z
-        .string()
-        .regex(/^[a-f0-9]{8,64}$/)
-        .optional(),
-      otaState: z.string().max(160).optional(),
-      powerState: z
-        .enum(["Idle", "Active", "Light Sleep", "Deep Sleep"])
-        .optional(),
-      freeHeapBytes: z.number().int().nonnegative().optional(),
-      minimumFreeHeapBytes: z.number().int().nonnegative().optional(),
-    })
-    .strict();
-  const seen = (report: z.infer<typeof reportSchema> = {}) =>
-    core.repo.write("physical-device", {
-      ...core.repo.read<Record<string, unknown>>("physical-device", {}),
-      ...report,
-      id: options.deviceId,
-      lastSeen: new Date().toISOString(),
-    });
-  app.get("/device/v1/firmware", async (_req, reply) => {
-    const release = core.firmware.latest();
-    if (!release) return reply.code(404).send({ error: "尚未发布固件" });
-    return { ...release, signature: firmwareSignature(release, options.token) };
+  const key = (req: FastifyRequest, id: string) =>
+    `physical:${identity(req).id}:${id}`;
+  const seen = (req: FastifyRequest, report: DeviceReport = {}) =>
+    core.devices.seen(identity(req).id, report);
+  app.get("/device/v1/firmware", async (req, reply) => {
+    const release = core.firmware.latest(identity(req).boardId);
+    if (
+      !release ||
+      identity(req).boardId !== (release.boardId ?? KORVO_BOARD_ID)
+    )
+      return reply.code(404).send({ error: "尚未发布匹配此板型的固件" });
+    return {
+      ...release,
+      boardId: release.boardId ?? KORVO_BOARD_ID,
+      signature: firmwareSignature(release, identity(req).token),
+    };
   });
   app.get("/device/v1/firmware/:id", async (req, reply) => {
     const { id } = z
       .object({ id: z.string().regex(/^[a-f0-9]{64}$/) })
       .parse(req.params);
+    if (!core.firmware.compatible(id, identity(req).boardId))
+      return reply.code(404).send({ error: "固件与此板型不匹配" });
     const bytes = await core.firmware.binary(id);
     return bytes
       ? reply.type("application/octet-stream").send(bytes)
@@ -105,11 +95,11 @@ export function createDeviceServer(
       .object({ page: z.enum(devicePages).default("home") })
       .strict()
       .parse(req.query);
-    seen();
+    seen(req);
     return core.deviceScreen(page);
   });
   app.post("/device/v1/heartbeat", async (req) => {
-    seen(reportSchema.parse(req.body ?? {}));
+    seen(req, DeviceReport.parse(req.body ?? {}));
     return { ok: true };
   });
   app.post("/device/v1/captures/:id", async (req, reply) => {
@@ -123,9 +113,9 @@ export function createDeviceServer(
         .code(400)
         .send({ error: "录音必须为 16 kHz 单声道 16 bit PCM WAV，最长 60 秒" });
     }
-    seen();
+    seen(req);
     const hash = createHash("sha256").update(wav).digest("hex");
-    return core.once(key(id), { hash }, async () => {
+    return core.once(key(req, id), { hash }, async () => {
       const text = await speech.transcribe(wav);
       const commit = await core.prepareVoice(text);
       return () => {
@@ -150,18 +140,19 @@ export function createDeviceServer(
       } catch {
         return reply.code(400).send({ error: "JPEG 内容无效，库存未改变" });
       }
-      seen();
+      seen(req);
       // 仅显式启用的本地硬件调试留样；默认不保存原始照片，也不提供公开图片 URL。
       if (options.debugImageDir) {
         await mkdir(options.debugImageDir, { recursive: true, mode: 0o700 });
-        await writeFile(join(options.debugImageDir, `${id}.jpg`), req.body, {
-          mode: 0o600,
-        });
+        await writeFile(
+          join(options.debugImageDir, `${identity(req).id}-${id}.jpg`),
+          req.body,
+          {
+            mode: 0o600,
+          },
+        );
       }
-      const review = await core.imageIntake.analyze(
-        `physical:${options.deviceId}:${id}`,
-        dataUrl,
-      );
+      const review = await core.imageIntake.analyze(key(req, id), dataUrl);
       return {
         id,
         reviewId: review.id,
@@ -177,12 +168,13 @@ export function createDeviceServer(
   app.get("/device/v1/captures/:id/audio", async (req, reply) => {
     const { id } = params(req.params);
     const receipt = core.repo.read<{ result: { message: string } } | null>(
-      `request:${key(id)}`,
+      `request:${key(req, id)}`,
       null,
     );
     if (!receipt) return reply.code(404).send({ error: "找不到录音处理回执" });
-    seen();
-    const path = join(options.mediaDir, `${id}.wav`);
+    seen(req);
+    const directory = join(options.mediaDir, identity(req).id);
+    const path = join(directory, `${id}.wav`);
     const work = async () => {
       try {
         const bytes = await readFile(path);
@@ -193,20 +185,21 @@ export function createDeviceServer(
       }
       const wav = await speech.synthesize(receipt.result.message);
       validateWav(wav);
-      await mkdir(options.mediaDir, { recursive: true });
+      await mkdir(directory, { recursive: true });
       await writeFile(`${path}.tmp`, wav, { mode: 0o600 });
       await rename(`${path}.tmp`, path);
       return wav;
     };
-    let job = audioJobs.get(id);
+    const jobId = key(req, id);
+    let job = audioJobs.get(jobId);
     if (!job) {
       job = work();
-      audioJobs.set(id, job);
+      audioJobs.set(jobId, job);
     }
     try {
       return reply.type("audio/wav").send(await job);
     } finally {
-      audioJobs.delete(id);
+      audioJobs.delete(jobId);
     }
   });
   return app;

@@ -1,4 +1,5 @@
 #include "hs_transport.h"
+#include "hs_board.h"
 #include "hs_power.h"
 #include "esp_heap_caps.h"
 #include "hs_storage.h"
@@ -132,6 +133,12 @@ esp_err_t hs_transport_heartbeat(void) {
   cJSON_AddStringToObject(body,"network",snapshot.network);
   cJSON_AddNumberToObject(body,"screenRevision",snapshot.revision);
   cJSON_AddNumberToObject(body,"uptimeMs",esp_timer_get_time()/1000);
+  const hs_board_descriptor_t *board=hs_board_descriptor();
+  cJSON *hardware=cJSON_AddObjectToObject(body,"hardware");
+  cJSON_AddStringToObject(hardware,"boardId",board->id);cJSON_AddStringToObject(hardware,"chip",board->chip);
+  cJSON *capabilities=cJSON_AddArrayToObject(hardware,"capabilities");
+  static const char *names[]={"audio_input","audio_output","camera","display","touch","buttons","wifi","ble_provisioning","ota","persistent_storage","timer_sleep"};
+  for(unsigned i=0;i<sizeof(names)/sizeof(names[0]);i++)if(board->capabilities&(1u<<i))cJSON_AddItemToArray(capabilities,cJSON_CreateString(names[i]));
   cJSON_AddStringToObject(body,"powerState",hs_power_state());
   cJSON_AddNumberToObject(body,"freeHeapBytes",heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
   cJSON_AddNumberToObject(body,"minimumFreeHeapBytes",heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));

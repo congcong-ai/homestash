@@ -1,1 +1,1 @@
-idf_component_register(SRCS "main.c" INCLUDE_DIRS "." "${CMAKE_BINARY_DIR}" REQUIRES provisioning power settings_ui ota device_config espressif__cjson camera audio network display storage protocol esp32_s31_korvo nvs_flash esp_timer)
+idf_component_register(SRCS "main.c" INCLUDE_DIRS "." REQUIRES freshmate_app)

@@ -46,7 +46,7 @@ int protocomm_add_endpoint(protocomm_t*,const char*,int (*)(uint32_t,const uint8
 ''')
     for path in ['esp_err.h','esp_random.h','esp_timer.h','esp_log.h','protocomm.h','protocomm_ble.h','protocomm_security1.h','psa/crypto.h','freertos/FreeRTOS.h','freertos/semphr.h','freertos/task.h']:
         file = tmp / path;file.parent.mkdir(parents=True, exist_ok=True);file.write_text('#include "common.h"\n')
-    (tmp / 'test.c').write_text(f'#include "{root}/firmware/freshmate-korvo/components/provisioning/hs_provisioning.c"\n' + r'''
+    (tmp / 'test.c').write_text(f'#include "{root}/firmware/common/components/provisioning/hs_provisioning.c"\n' + r'''
 static int64_t now=1000;static unsigned seed;
 static unsigned connections,saves,cancels,stops;static bool fail;
 static hs_wifi_status_t wifi;static hs_device_config_t core={.revision=7};static jmp_buf done;
@@ -90,7 +90,7 @@ int main(void){
  puts("通过：默认关闭、随机窗口、字段/空字符拒绝、相同请求重放/冲突、仅联网后提交、连接失败不改Core、关闭清理PoP、取消排队配置；传输与密码学为桩，不代表真机。");
 }
 ''')
-    includes = [tmp, cjson] + [root / f'firmware/freshmate-korvo/components/{c}/include' for c in ['provisioning','network','device_config']]
+    includes = [tmp, cjson] + [root / f'firmware/common/components/{c}/include' for c in ['provisioning','network','device_config']]
     command = ['cc','-fsanitize=address,undefined','-Wno-unused-parameter']
     for path in includes: command += ['-I', str(path)]
     subprocess.run(command + [str(tmp/'test.c'), str(cjson/'cJSON.c'), '-o', str(tmp/'test')], check=True)

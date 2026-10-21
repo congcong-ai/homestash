@@ -1,4 +1,5 @@
 #include "hs_ota.h"
+#include "hs_board.h"
 #include "hs_transport.h"
 #include "hs_device_config.h"
 #include "esp_ota_ops.h"
@@ -29,11 +30,13 @@ static esp_err_t manifest(release_t *out) {
   bool complete=esp_http_client_is_complete_data_received(h);esp_http_client_cleanup(h);
   if(n<=0 || !complete)return ESP_FAIL;
   body[n]=0;cJSON *j=cJSON_Parse(body);
+  cJSON *board_id=cJSON_GetObjectItemCaseSensitive(j,"boardId");
+  const hs_board_descriptor_t *board=hs_board_descriptor();
   cJSON *sha=cJSON_GetObjectItemCaseSensitive(j,"sha256"),*size=cJSON_GetObjectItemCaseSensitive(j,"size"),*version=cJSON_GetObjectItemCaseSensitive(j,"version"),*project=cJSON_GetObjectItemCaseSensitive(j,"project"),*chip=cJSON_GetObjectItemCaseSensitive(j,"chip"),*signature=cJSON_GetObjectItemCaseSensitive(j,"signature");
   err=ESP_FAIL;
-  if(!cJSON_IsString(sha) || strlen(sha->valuestring)!=64 || strspn(sha->valuestring,"0123456789abcdef")!=64 || !cJSON_IsNumber(size) || size->valuedouble!=size->valueint || size->valueint<304 || size->valueint>4*1024*1024 || !cJSON_IsString(version) || !version->valuestring[0] || strlen(version->valuestring)>31 || !cJSON_IsString(project) || strcmp(project->valuestring,"homestash_freshmate") || !cJSON_IsString(chip) || strcmp(chip->valuestring,"esp32s31") || !cJSON_IsString(signature) || strlen(signature->valuestring)!=64)goto done;
-  char canonical[192],signed_hex[65];unsigned char signed_bytes[32];
-  snprintf(canonical,sizeof(canonical),"%s:%d:%s:homestash_freshmate:esp32s31",sha->valuestring,size->valueint,version->valuestring);
+  if(!cJSON_IsString(sha) || strlen(sha->valuestring)!=64 || strspn(sha->valuestring,"0123456789abcdef")!=64 || !cJSON_IsNumber(size) || size->valuedouble!=size->valueint || size->valueint<304 || size->valueint>4*1024*1024 || !cJSON_IsString(version) || !version->valuestring[0] || strlen(version->valuestring)>31 || !cJSON_IsString(project) || strcmp(project->valuestring,esp_app_get_description()->project_name) || !cJSON_IsString(chip) || strcmp(chip->valuestring,board->chip) || !cJSON_IsString(board_id) || strcmp(board_id->valuestring,board->id) || !cJSON_IsString(signature) || strlen(signature->valuestring)!=64)goto done;
+  char canonical[256],signed_hex[65];unsigned char signed_bytes[32];
+  snprintf(canonical,sizeof(canonical),"%s:%d:%s:%s:%s",sha->valuestring,size->valueint,version->valuestring,project->valuestring,chip->valuestring);
   psa_key_attributes_t attributes=PSA_KEY_ATTRIBUTES_INIT;mbedtls_svc_key_id_t key=0;size_t signature_size=0;
   psa_set_key_type(&attributes,PSA_KEY_TYPE_HMAC);psa_set_key_algorithm(&attributes,PSA_ALG_HMAC(PSA_ALG_SHA_256));psa_set_key_usage_flags(&attributes,PSA_KEY_USAGE_SIGN_MESSAGE);
   if(psa_crypto_init()!=PSA_SUCCESS || psa_import_key(&attributes,(unsigned char*)config.token,strlen(config.token),&key)!=PSA_SUCCESS)goto done;

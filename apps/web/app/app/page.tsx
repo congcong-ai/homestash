@@ -1,4 +1,5 @@
 "use client";
+import { DeviceFleet } from "../../components/device-fleet";
 import { DeviceMaintenance } from "../../components/device-maintenance";
 import {
   useCallback,
@@ -20,7 +21,11 @@ import {
   type Location,
   type ShoppingItem,
 } from "@homestash/domain";
-import type { DeviceState, DeviceEvent } from "@homestash/protocol";
+import type {
+  DeviceState,
+  DeviceEvent,
+  ManagedDevice,
+} from "@homestash/protocol";
 import {
   recommend,
   type Recipe,
@@ -44,6 +49,7 @@ type State = {
   recipes: Recipe[];
   cooking: CookingSession | null;
   device: DeviceState;
+  physicalDevices: ManagedDevice[];
   physicalDevice: {
     id: string;
     lastSeen: string;
@@ -1082,33 +1088,14 @@ export default function Page() {
             <p className="eyebrow">厨房里的小小陪伴</p>
             <h1>FreshMate 冰箱贴</h1>
             <p className="muted">Korvo LCD 模拟屏幕 · 800 × 480 比例</p>
-            <section className="card">
-              <h2>真实开发板</h2>
-              <p>
-                {state.physicalDevice
-                  ? `${state.physicalDevice.id} · ${Date.now() - Date.parse(state.physicalDevice.lastSeen) < 45000 ? "在线" : "离线"}`
-                  : "尚未收到真实设备心跳"}
-              </p>
-              {state.physicalDevice?.screen && (
-                <div className="actual-screen" aria-label="真实设备屏幕">
-                  <small>
-                    设备屏幕
-                    {state.physicalDevice.network
-                      ? ` · ${state.physicalDevice.network}`
-                      : ""}
-                  </small>
-                  <p>{state.physicalDevice.screen}</p>
-                </div>
-              )}
-              <p className="muted">
-                按开发板 SET
-                开始录音，再按停止。真实录音经百炼识别后更新库存；下方仍为独立模拟器。
-              </p>
-            </section>
-            <DeviceMaintenance
-              version={state.physicalDevice?.firmwareVersion}
-              partition={state.physicalDevice?.firmwarePartition}
+            <DeviceFleet
+              devices={state.physicalDevices ?? []}
+              onChanged={refresh}
             />
+            <p className="muted">
+              Korvo 按 SET 开始录音，再按停止；MODE 拍照。下方为独立设备模拟器。
+            </p>
+            <DeviceMaintenance devices={state.physicalDevices ?? []} />
             <section className="device">
               <div className="lcd">
                 <div className="row">

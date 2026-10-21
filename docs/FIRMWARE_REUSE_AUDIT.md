@@ -113,3 +113,7 @@ Phase 1 新增 HomeStash 设备认证/配对、WAV 接收与校验、STT/TTS pro
 SmartBadge原项目BLE、OTA和心跳“未实现”的审计结论保持不变。HomeStash后续新增独立OTA和设备协议；0.4.3新增日常BLE配置组件，复用乐鑫官方protocomm BLE/Security 1，而非工牌业务。网络连接、LCD、Codec和Camera仍沿用已审计资产，不为BLE重新写板级驱动。依赖在HomeStash私有缓存准备，原SDK和SmartBadge未修改。
 
 日常BLE加密配网及重启恢复、独立USB-A键盘4次输入分别有真机证据。USB-A没有集成日常扫码枪流程，手机BLE配网入口也未实现，详见 [日常BLE配网](DEVICE_BLE_PROVISIONING.md) 与 [独立专项](BLE_PROVISIONING_USB_HOST_TEST_REPORT.md)。
+
+## 可复用组件路径更新 · 2026-10-21
+
+按用户最新方向，FreshMate产品循环已移到firmware/apps/freshmate_app，通用ESP-IDF服务移到firmware/common/components，Korvo硬件适配保留在原工程components。原Codec、Camera采集、LCD/BSP和Wi-Fi恢复算法继续复用，没有为架构重写驱动或修改SmartBadge。0.5.0仅构建和主机验证，未刷入；新板仍需真实BSP、资源配置和最小硬件回归。完整路径、构建目标和限制见 [多板复用](FIRMWARE_PORTABILITY.md)。

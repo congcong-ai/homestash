@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-21",
+  "priority": "后台主流程与多板复用优先；手机BLE和原型板深度专项暂缓",
+  "firmware": {
+    "version": "0.5.0",
+    "boardId": "esp32-s31-korvo-1-v1.1",
+    "generic": true,
+    "size": 2933152,
+    "sha256": "93aab0ff2ef74cdf7b6e1688b712a270b2cd9fa6546fccd4d3340fa9e0aa5237",
+    "flashed": false,
+    "publishedToDailyCore": false
+  },
+  "assembly": {
+    "sharedApplication": "firmware/apps/freshmate_app",
+    "sharedServices": "firmware/common/components",
+    "boardAdapter": "firmware/freshmate-korvo/components",
+    "sdkCommit": "ab95e70748f2eddac6f87217b0cf62533684a6ba",
+    "genericBuildPassed": true,
+    "targetMarkerVerified": true,
+    "unknownTargetRejected": true
+  },
+  "backend": {
+    "multiDeviceRegistry": true,
+    "perDeviceCredentials": true,
+    "revocationSurvivesRestart": true,
+    "rotationSurvivesRestart": true,
+    "worksWithoutEnvironmentBootstrapToken": true,
+    "perDeviceStateAndAudioIsolation": true,
+    "firmwareSelectionAndDownloadByBoard": true,
+    "wrongBoardPublishRejected": true,
+    "legacyKorvoCompatibility": true,
+    "existingMigrationsModified": false
+  },
+  "validation": {
+    "softwareTests": 38,
+    "lint": true,
+    "typecheck": true,
+    "webBuild": true,
+    "nativeCapabilityAsanUbsan": true,
+    "wifiHostChecks": true,
+    "provisioningHostChecks": true,
+    "powerHostChecks": true,
+    "uiTemporaryDatabase": true,
+    "uiSecondaryDeviceRegistered": true,
+    "uiCredentialDismissed": true,
+    "uiBoardSelectorUpdated": true,
+    "dailyInventoryUsedForTestWrites": false,
+    "screenshot": "docs/images/device-management-20261021.png"
+  },
+  "physicalBoundaries": {
+    "flashedThisRound": false,
+    "lastVerifiedDeviceVersion": "0.4.3",
+    "secondPhysicalBoardAdapted": false,
+    "hostProfilesAreNotPhysicalBoards": true
+  },
+  "referenceProjectsUnmodified": true
+}

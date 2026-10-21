@@ -2,9 +2,12 @@ cmake_minimum_required(VERSION 3.16)
 if(DEFINED ENV{HOMESTASH_FIRMWARE_VERSION})
   set(PROJECT_VER "$ENV{HOMESTASH_FIRMWARE_VERSION}")
 else()
-  set(PROJECT_VER "0.4.3")
+  set(PROJECT_VER "0.5.0")
 endif()
+add_compile_definitions(HS_DATA_ROOT="/sdcard/homestash")
 set(EXTRA_COMPONENT_DIRS
+  "${CMAKE_CURRENT_LIST_DIR}/../common/components"
+  "${CMAKE_CURRENT_LIST_DIR}/../apps/freshmate_app"
   "${CMAKE_CURRENT_LIST_DIR}/../../vendor/espressif/esp32-s31-korvo/components"
   "${CMAKE_CURRENT_LIST_DIR}/../../data/hardware/esp-idf-ble-components/bt"
   "${CMAKE_CURRENT_LIST_DIR}/../../data/hardware/esp-idf-ble-components/protobuf-c")

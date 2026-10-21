@@ -4,7 +4,7 @@ const production = process.argv.includes("--production");
 const port = Number(process.env.CORE_PORT ?? 3100);
 if (port !== 3100)
   throw new Error("Phase 0 统一使用 Core 3100 端口，请保持配置与 Web 代理一致");
-for (const p of [3000, port, ...(process.env.DEVICE_TOKEN ? [3101] : [])]) {
+for (const p of [3000, port, 3101]) {
   let ids = "";
   try {
     ids = execFileSync("lsof", ["-ti", `tcp:${p}`, "-sTCP:LISTEN"], {

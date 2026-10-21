@@ -87,3 +87,9 @@ Domain 定义 `Barcode`、`ProductCandidate` 和 `ProductLookupProvider`，与�
 ## BLE 配置能力
 
 日常固件的 `components/provisioning` 复用乐鑫 protocomm BLE / Security 1，自定义 `hs-config` JSON端点。官方组件只负责会话、加密和传输；Wi-Fi仍交给原有管理器，获得IP并保存网络后才提交Core字段。配置通过UUID和内容摘要防止重复及冲突；显式窗口内与录音、相机、OTA和睡眠互斥。PoP仅LCD和受限本机UART可读，不进入心跳。LVGL内存池通过官方属性放在PSRAM，保留内部RAM供控制器与DMA。Mac客户端与真机验证范围见 [BLE配网](DEVICE_BLE_PROVISIONING.md)。
+
+## 多设备与固件可移植性 · 2026-10-21
+
+后台通过managed-devices分别保存设备身份、凭据摘要、状态和能力；设备接口按认证身份隔离幂等回执、TTS任务和缓存。physical-device仅保留最近通信的兼容投影，不再作为新设备管理的唯一事实来源。旧环境凭据只导入一次；撤销或重新签发不会被Core重启覆盖。复用现有app_state，不改历史migration。
+
+固件应用位于firmware/apps/freshmate_app，公共ESP-IDF能力位于firmware/common/components；Korvo工程只负责目标配置、板级实现与入口。device_port是编译时接口，板型由目标manifest和镜像内标记绑定；公共应用不引用BSP、GPIO或LVGL。后台按boardId独立维护固件与下载权限。具体取舍、SDK边界、可选硬件、兼容和验证见 [固件复用](FIRMWARE_PORTABILITY.md) 与 [设备管理](DEVICE_MANAGEMENT.md)。

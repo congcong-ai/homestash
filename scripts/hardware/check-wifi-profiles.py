@@ -95,7 +95,7 @@ with tempfile.TemporaryDirectory(prefix='homestash-wifi-') as directory:
  #define CONFIG_HS_BUILD_EPOCH 0
  static const unsigned char office_ca[]="";
  ''')
- (tmp/'test.c').write_text(f'#include "{root}/firmware/freshmate-korvo/components/network/wifi_profiles.c"\n'+r'''
+ (tmp/'test.c').write_text(f'#include "{root}/firmware/common/components/network/wifi_profiles.c"\n'+r'''
  #include <setjmp.h>
  static jmp_buf end;
  static unsigned event_bits;
@@ -174,5 +174,5 @@ with tempfile.TemporaryDirectory(prefix='homestash-wifi-') as directory:
   puts("通过：自动选网、去重、保存网络优先、失败暂避、手动切换、成功后保存、错误密码不覆盖保存、连接中扫描保护、恢复自动、连接超时、开放网络、32字节SSID/64位密钥、维护暂停拒绝扫描、恢复已保存网络");
  }
  ''')
- subprocess.run(['cc','-w','-fsanitize=address,undefined','-I',str(tmp),'-I',str(root/'firmware/freshmate-korvo/components/network/include'),str(tmp/'test.c'),'-o',str(tmp/'test')],check=True)
+ subprocess.run(['cc','-w','-fsanitize=address,undefined','-I',str(tmp),'-I',str(root/'firmware/common/components/network/include'),str(tmp/'test.c'),'-o',str(tmp/'test')],check=True)
  subprocess.run([str(tmp/'test')],check=True)
