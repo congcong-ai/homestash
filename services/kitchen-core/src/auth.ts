@@ -54,7 +54,7 @@ export function registerInternalAuth(app: FastifyInstance) {
     if (["/api/auth/login", "/api/auth/session", "/api/health"].includes(path))
       return;
     if (!valid(req.headers.cookie))
-      return reply.code(401).send({ error: "请先登录内部测试后台" });
+      return reply.code(401).send({ error: "请先登录" });
   });
   app.get("/api/auth/session", async (req, reply) =>
     reply.code(valid(req.headers.cookie) ? 204 : 401).send(),

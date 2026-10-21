@@ -1,6 +1,6 @@
 # HomeStash 整体功能进度
 
-更新：2026-10-21。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
+更新：2026-10-22。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
 
 当前优先把产品主流程做齐。先实现每条主流程的可用版本，再集中做长期稳定性、功耗和样式优化；不会以更多细节优化代替缺失功能。
 
@@ -112,3 +112,11 @@ AI 菜谱和问答的真实百炼探针：`pnpm exec tsx scripts/hardware/probe-
 采购→核对入库→食谱→烹饪→明确确认消耗→再次补货已在临时库完成整链验收。修复同菜重新打开丢进度及已买待确认项重复加购，增加首页续做/继续用量确认、网页换菜确认和食谱未购计划复核。CLI额外覆盖Core多次重启、请求重放、补货再次入库、清单事务回滚及最终备份校验。全量52项测试、lint、typecheck与Web生产构建通过。
 
 详见[整链验收](DAILY_WORKFLOW_ACCEPTANCE.md)。未做新增真机或真实外部模型验收；开发板可继续断电。后续建议优先手机Web的实际访问与试用，再根据日常反馈补齐家庭存放位置和日期规则；不把这些软件验收当作多家庭账号、云同步或新板适配已完成。
+
+## 手机局域网入口增量 · 2026-10-22
+
+已新增 `pnpm dev:lan`、家庭私有IPv4绑定、强制单账号登录与本机凭据持久化，Core管理接口仍只监听127.0.0.1。启动仅清理本项目旧端口，保留外部项目服务，选择空闲端口并验证Core启动实例。HTTP非安全上下文不注册Service Worker。
+
+独立临时库的真实LAN HTTP验证通过：匿名401、未知来源403、签名会话、库存读取、文字录入2个番茄、退出清除Cookie、Core拒绝LAN直连。全量56项测试、lint、typecheck、Web生产构建及Core发布打包检查通过。日常LAN服务已启动，只读核对切换前后库存与事件一致；未修改日常库存、固件或历史migration。浏览器自动化在内置浏览器和Chrome均超时，因此手机宽度布局与真实手机操作仍待验收，不能称手机体验已完成。
+
+详见[手机局域网访问](LOCAL_MOBILE_ACCESS.md)与[结构化证据](product-evidence/mobile-web-20261022.json)。接下来优先手机真实试用与反馈，再完善家庭存放位置和日期规则；第二块板、手机BLE、功耗和长期弱网继续暂缓。开发板无需联网。

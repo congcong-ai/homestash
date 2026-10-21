@@ -443,7 +443,7 @@ export function createApp(path: string, override?: AIProvider) {
         process.env.APP_ORIGIN,
       ].includes(origin)
     )
-      return reply.code(403).send({ error: "仅允许本机界面访问" });
+      return reply.code(403).send({ error: "仅允许已配置的网页来源访问" });
   });
   app.addHook("preHandler", async (req, reply) => {
     const epoch = req.headers["x-homestash-data-epoch"];
@@ -461,6 +461,9 @@ export function createApp(path: string, override?: AIProvider) {
     ok: true,
     name: "HomeStash",
     phase: 1,
+    ...(process.env.HOMESTASH_INSTANCE_ID
+      ? { instanceId: process.env.HOMESTASH_INSTANCE_ID }
+      : {}),
   }));
   app.get("/api/state", async () => ({
     dataEpoch: repo.read("backup-data-epoch", "initial"),

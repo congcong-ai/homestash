@@ -145,8 +145,8 @@ export default function Page() {
     const id = setInterval(() => {
       void refresh().catch(() => setConnected(false));
     }, 3000);
-    if ("serviceWorker" in navigator)
-      void navigator.serviceWorker.register("/sw.js");
+    if (window.isSecureContext && "serviceWorker" in navigator)
+      void navigator.serviceWorker.register("/sw.js").catch(() => {});
     return () => clearInterval(id);
   }, [refresh]);
   async function perform(work: () => Promise<unknown>) {

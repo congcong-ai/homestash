@@ -26,7 +26,7 @@ MockAIProvider 是明确的有限中文规则解析器，无外部调用。OpenA
 
 ## Web 和服务边界
 
-Next.js 是客户端与同源 `/api` 代理，Fastify 是独立 Core。当前端口 3000/3100 只监听127.0.0.1，Core 拒绝未知浏览器 Origin。本地 Core 没有用户账号体系；真实设备另用独立监听器和 Token 认证，不能直接将本机管理接口暴露公网。手机尺寸响应式已实现；手机真机访问需后续配置局域网绑定及认证，不把本机预览称为真机验收。
+Next.js 是客户端与同源 `/api` 代理，Fastify 是独立 Core。日常 `pnpm dev` 的 Web/Core 默认仅监听127.0.0.1；显式 `pnpm dev:lan` 将 Web 绑定实际家庭私有IPv4，并强制启用已有的单账号签名Cookie登录。凭据自动生成至忽略的 `data/lan/` 或复用已有环境配置，不能通过关闭登录进入LAN模式。Core仍只监听回环地址，API由Next同源代理；Core拒绝未知浏览器Origin。真实设备另用独立监听器和设备凭据，不共享家庭网页登录会话。当前没有多家庭账号体系。手机布局和真机操作仍须验收，不能将HTTP接口验证称为手机实测。
 
 原生语义表单/按钮与Tailwind CSS 与统一组件样式构成当前界面；没有引入企业后台模板。PWA manifest、图标与离线提示已实现；Core 离线时不能写库存，不缓存 API 的旧响应伪装实时状态；浏览器每3秒刷新状态，断连显示上次读取提示。
 
@@ -117,3 +117,7 @@ InventoryService.correct仅恢复当前批次最近一次未纠正事件的befor
 同菜、同人数且尚未结束的CookingSession在再次start时直接继续原快照，包括awaiting_confirmation；不重新分配会话或改变步骤。网页对不同菜/人数的替换先展示确认，提交原sessionId/revision进行校验，旧API兼容保留。
 
 ShoppingService.syncRecipe在事务内同步特定食谱来源的未购买计划项，已齐则移除，手动及已购记录保留。已买但未入库的对应项先走待确认，不重复创建待购项，也不充当实际库存。整链和恢复验证见[日常验收](DAILY_WORKFLOW_ACCEPTANCE.md)。
+
+## 本地手机试用启动
+
+启动器在绑定前检查端口，仅停止本项目旧监听者，保留其他项目并选择空闲端口。Core健康检查包含每次启动的随机实例标识，避免把占端口的其他实例当作就绪。Web和Core端口通过环境变量传递，同源代理指向实际Core端口。局域网模式禁止生产运行；生产沿用独立HTTPS部署流程。私有IPv4只控制监听接口，不提供网络加密或家庭成员角色隔离。HTTP局域网页面不注册Service Worker；不声称具备离线写入、安装或浏览器麦克风能力。[使用与验收边界](LOCAL_MOBILE_ACCESS.md)。

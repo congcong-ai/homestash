@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-export default function InternalSession() {
+export default function InternalSession({
+  localLan = false,
+}: {
+  localLan?: boolean;
+}) {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => {
     fetch("/api/auth/session")
@@ -23,7 +27,7 @@ export default function InternalSession() {
         fontSize: 13,
       }}
     >
-      <span>内部测试后台</span>
+      <span>{localLan ? "家庭局域网访问" : "内部测试后台"}</span>
       <button
         onClick={async () => {
           await fetch("/api/auth/logout", { method: "POST" });

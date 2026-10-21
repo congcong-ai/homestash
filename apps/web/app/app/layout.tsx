@@ -7,7 +7,9 @@ export const metadata: Metadata = {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <InternalSession />
+      <InternalSession
+        localLan={process.env.HOMESTASH_LAN_ENABLED === "true"}
+      />
       {children}
     </>
   );

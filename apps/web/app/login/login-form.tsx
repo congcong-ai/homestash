@@ -2,7 +2,11 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import "./login.css";
-export default function LoginForm() {
+export default function LoginForm({
+  localLan = false,
+}: {
+  localLan?: boolean;
+}) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -35,10 +39,14 @@ export default function LoginForm() {
         <Link href="/" className="login-brand">
           ⌂ homestash
         </Link>
-        <span className="login-label">内部测试</span>
+        <span className="login-label">
+          {localLan ? "家庭局域网访问" : "内部测试"}
+        </span>
         <h1>欢迎回来</h1>
         <p>
-          此后台仅供项目内部测试。想在自己家使用？请从官网获取源码并自行部署。
+          {localLan
+            ? "使用这台HomeStash Core的家庭访问账号登录。手机与电脑需连接同一可信局域网。"
+            : "此后台仅供项目内部测试。想在自己家使用？请从官网获取源码并自行部署。"}
         </p>
         <form onSubmit={submit}>
           <label htmlFor="username">用户名</label>
@@ -65,7 +73,9 @@ export default function LoginForm() {
               {error}
             </div>
           )}
-          <button disabled={busy}>{busy ? "正在登录…" : "登录测试后台"}</button>
+          <button disabled={busy}>
+            {busy ? "正在登录…" : localLan ? "进入我的厨房" : "登录测试后台"}
+          </button>
         </form>
         <Link href="/" className="login-home">
           ← 返回项目官网
