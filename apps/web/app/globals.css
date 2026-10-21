@@ -918,3 +918,30 @@ fieldset.intake-fields {
   margin: 0 0 20px;
   min-width: 0;
 }
+
+.inventory-filters,
+.batch-actions {
+  margin-top: 1rem;
+}
+.inventory-batch h2 {
+  margin: 0 0 0.5rem;
+}
+.inventory-batch small {
+  overflow-wrap: anywhere;
+}
+.batch-action-form,
+.batch-history {
+  margin-top: 1.25rem;
+  border-top: 1px solid #e4e8e1;
+  padding-top: 1rem;
+}
+.batch-event {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f5f7ef;
+}
+.batch-event p {
+  margin: 0.4rem 0;
+  overflow-wrap: anywhere;
+}

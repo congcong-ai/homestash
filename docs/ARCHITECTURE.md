@@ -99,3 +99,9 @@ Domain 定义 `Barcode`、`ProductCandidate` 和 `ProductLookupProvider`，与�
 ShoppingService.receive通过InventoryService创建批次，在同一Repository事务中保存购物来源、实际入库快照、购物状态和库存事件；HTTP幂等回执与其一起提交。购物来源ID提供跨新请求ID的重复保护，已完成后内容不一致则拒绝。勾选已购买不等于入库，日期由用户核对。
 
 待确认中心从既有图片/条码索引、已买购物项和最小失败记录汇总，不建立平行候选数据库。失败的异步模型调用不写库存；只保存重试标识，成功时原子清除失败记录并创建候选。原图不保存，图片重试需用户重选；未完成表单草稿暂不持久化。详情见[采购与待确认](SHOPPING_AND_REVIEW.md)。
+
+## 批次与事件纠正
+
+库存卡片以InventoryItem.id为批次身份，同名物品不合并。freshnessInfo统一解释最早提醒日期和估算来源；保持既有提醒阈值。完整批次事件通过独立接口读取，避免最近50条全局摘要遗漏批次历史。
+
+InventoryService.correct仅恢复当前批次最近一次未纠正事件的before快照；误创建恢复为数量0。ITEM_CORRECTED保留原事件引用与原因，版本递增；不修改历史事件、不重开购物或烹饪任务。HTTP请求回执、库存与事件同事务提交。新库存网页动作提交expectedVersion和requestId；旧设备动作保持兼容，尚未统一版本前置条件。详见[批次与纠正](INVENTORY_BATCHES_AND_CORRECTIONS.md)。

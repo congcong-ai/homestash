@@ -63,6 +63,7 @@ export type InventoryEvent = {
   at: string;
   before: InventoryItem | null;
   after: InventoryItem;
+  correction?: { eventId: string; reason: string };
 };
 export type Household = { id: string; name: string };
 export type HouseholdMember = {
@@ -81,27 +82,52 @@ export interface Repository {
   transaction<T>(fn: () => T): T;
 }
 export const today = () => new Date().toISOString().slice(0, 10);
-export function freshness(
-  item: InventoryItem,
-  now = today(),
-): "fresh" | "eat_soon" | "urgent" | "expired" {
-  const dates = [item.expiresAt, item.bestBeforeAt];
+export function freshnessInfo(item: ItemInput, now = today()) {
+  const dates: { date: string; basis: string; estimated: boolean }[] = [];
+  if (item.expiresAt)
+    dates.push({
+      date: item.expiresAt,
+      basis: "包装到期日期",
+      estimated: false,
+    });
+  if (item.bestBeforeAt)
+    dates.push({
+      date: item.bestBeforeAt,
+      basis: "建议食用日期",
+      estimated: !!item.metadata.estimatedDate,
+    });
   if (item.category === "food" && item.openedAt)
-    dates.push(
-      new Date(Date.parse(item.openedAt) + 2 * 86400000)
+    dates.push({
+      date: new Date(Date.parse(item.openedAt) + 2 * 86400000)
         .toISOString()
         .slice(0, 10),
-    );
-  const deadline = dates.filter((v): v is string => !!v).sort()[0];
-  if (!deadline) return "fresh";
-  const days = (Date.parse(deadline) - Date.parse(now)) / 86400000;
-  return days < 0
-    ? "expired"
-    : days === 0
-      ? "urgent"
-      : days <= 3
-        ? "eat_soon"
-        : "fresh";
+      basis: "开封后2天提醒（默认规则）",
+      estimated: true,
+    });
+  const first = dates.sort((a, b) => a.date.localeCompare(b.date))[0];
+  const days = first
+    ? (Date.parse(first.date) - Date.parse(now)) / 86400000
+    : null;
+  const status: "fresh" | "eat_soon" | "urgent" | "expired" =
+    days === null
+      ? "fresh"
+      : days < 0
+        ? "expired"
+        : days === 0
+          ? "urgent"
+          : days <= 3
+            ? "eat_soon"
+            : "fresh";
+  return {
+    status,
+    deadline: first?.date ?? null,
+    basis: first?.basis ?? "未设置日期",
+    estimated: first?.estimated ?? false,
+    days,
+  };
+}
+export function freshness(item: InventoryItem, now = today()) {
+  return freshnessInfo(item, now).status;
 }
 export class DomainError extends Error {}
 export class InventoryService {
@@ -140,11 +166,56 @@ export class InventoryService {
     if (!this.repo.locations().some((l) => l.id === id))
       throw new DomainError("储存位置不存在");
   }
-  act(id: string, raw: unknown) {
+  correct(id: string, raw: unknown) {
+    const input = z
+      .object({
+        eventId: z.uuid(),
+        expectedVersion: z.number().int().positive(),
+        reason: z.string().trim().min(1).max(300),
+      })
+      .strict()
+      .parse(raw);
+    return this.repo.transaction(() => {
+      const item = this.repo.get(id);
+      if (!item) throw new DomainError("物品不存在");
+      if (item.version !== input.expectedVersion)
+        throw new DomainError("这一批库存已变化，请刷新后核对，未执行纠正");
+      const events = this.repo.events().filter((e) => e.itemId === id);
+      const event = events.find((e) => e.id === input.eventId);
+      if (
+        !event ||
+        event.after.version !== item.version ||
+        events.some((e) => e.after.version > event.after.version)
+      )
+        throw new DomainError("只能纠正这一批最近一次操作；请先核对后续变化");
+      if (
+        event.type === "ITEM_CORRECTED" ||
+        events.some((e) => e.correction?.eventId === event.id)
+      )
+        throw new DomainError("这次操作已纠正，请通过编辑调整当前库存");
+      const restored = event.before
+        ? { ...event.before, version: item.version + 1 }
+        : { ...item, quantity: 0, version: item.version + 1 };
+      this.location(restored.locationId);
+      this.repo.save(restored, {
+        id: crypto.randomUUID(),
+        itemId: id,
+        type: "ITEM_CORRECTED",
+        at: new Date().toISOString(),
+        before: item,
+        after: restored,
+        correction: { eventId: event.id, reason: input.reason },
+      });
+      return restored;
+    });
+  }
+  act(id: string, raw: unknown, expectedVersion?: number) {
     return this.repo.transaction(() => {
       const action = Action.parse(raw),
         old = this.repo.get(id);
       if (!old) throw new DomainError("物品不存在");
+      if (expectedVersion !== undefined && old.version !== expectedVersion)
+        throw new DomainError("这一批库存已变化，请刷新后重新核对");
       let item = { ...old, version: old.version + 1 };
       let type = "ITEM_UPDATED";
       switch (action.type) {

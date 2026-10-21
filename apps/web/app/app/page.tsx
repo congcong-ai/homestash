@@ -1,4 +1,5 @@
 "use client";
+import { InventoryPanel } from "../../components/inventory-panel";
 import { DeviceFleet } from "../../components/device-fleet";
 import { DeviceMaintenance } from "../../components/device-maintenance";
 import {
@@ -193,6 +194,7 @@ export default function Page() {
       unit: String(f.get("unit")),
       locationId: String(f.get("locationId")),
       purchasedAt: String(f.get("purchasedAt")) || today(),
+      ...(editing ? { openedAt: String(f.get("openedAt")) || null } : {}),
       bestBeforeAt: String(f.get("bestBeforeAt")) || null,
       expiresAt: String(f.get("expiresAt")) || null,
       metadata: editing ? { ...editing.metadata, estimatedDate: false } : {},
@@ -200,7 +202,14 @@ export default function Page() {
     await perform(async () => {
       await api(
         editing ? `/items/${editing.id}/actions` : "/items",
-        editing ? { type: "update", patch: body } : body,
+        editing
+          ? {
+              type: "update",
+              patch: body,
+              expectedVersion: editing.version,
+              requestId: crypto.randomUUID(),
+            }
+          : body,
       );
       setEditing(null);
       setTab("inventory");
@@ -680,154 +689,28 @@ export default function Page() {
           </section>
         )}
         {tab === "inventory" && (
-          <>
-            <div className="section-title">
-              <div>
-                <p className="eyebrow">新鲜有数，生活有序</p>
-                <h1>
-                  家中库存 <small>{active.length} 件</small>
-                </h1>
-              </div>
-              <button onClick={() => setTab("add")}>＋ 添加物品</button>
-            </div>
-            <div className="inventory-list">
-              {active.length ? (
-                active.map((item) => (
-                  <div key={item.id} className="inventory-entry">
-                    {itemCard(item)}
-                    <div className="actions">
-                      <button
-                        onClick={() => {
-                          setEditing(item);
-                          setTab("add");
-                        }}
-                      >
-                        编辑
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void perform(() =>
-                            api(`/items/${item.id}/actions`, {
-                              type: "consume",
-                              quantity: "all",
-                            }),
-                          )
-                        }
-                      >
-                        用完了
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void perform(() =>
-                            api(`/items/${item.id}/actions`, {
-                              type: "open",
-                              date: today(),
-                            }),
-                          )
-                        }
-                      >
-                        已开封
-                      </button>
-                      <select
-                        aria-label={`移动${item.name}`}
-                        value={item.locationId}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void perform(() =>
-                            api(`/items/${item.id}/actions`, {
-                              type: "move",
-                              locationId: e.target.value,
-                            }),
-                          )
-                        }
-                      >
-                        {state.locations.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        disabled={busy}
-                        className="danger"
-                        onClick={() =>
-                          void perform(() =>
-                            api(`/items/${item.id}/actions`, {
-                              type: "discard",
-                              quantity: "all",
-                            }),
-                          )
-                        }
-                      >
-                        丢弃
-                      </button>
-                      <label className="amount">
-                        消耗数量
-                        <input
-                          aria-label={`消耗${item.name}数量`}
-                          type="number"
-                          min="0.01"
-                          step="any"
-                          max={item.quantity}
-                          defaultValue={1}
-                          id={`consume-${item.id}`}
-                        />
-                      </label>
-                      <button
-                        disabled={busy}
-                        onClick={() => {
-                          const input = document.getElementById(
-                            `consume-${item.id}`,
-                          ) as HTMLInputElement;
-                          void perform(() =>
-                            api(`/items/${item.id}/actions`, {
-                              type: "consume",
-                              quantity: Number(input.value),
-                            }),
-                          );
-                        }}
-                      >
-                        确认消耗
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty">还没有库存，去添点新鲜吧。</div>
-              )}
-            </div>
-            <details>
-              <summary>查看最近库存记录</summary>
-              {state.events.map((e) => (
-                <p key={e.id}>
-                  {new Date(e.at).toLocaleString("zh-CN")} · {e.after.name} ·{" "}
-                  {
-                    (
-                      {
-                        ITEM_CREATED: "添加",
-                        ITEM_UPDATED: "修改",
-                        ITEM_CONSUMED: "消耗",
-                        ITEM_DISCARDED: "丢弃",
-                        ITEM_MOVED: "移动",
-                        ITEM_OPENED: "开封",
-                        ITEM_EXPIRED: "过期",
-                        ITEM_RESTOCKED: "补货",
-                      } as Record<string, string>
-                    )[e.type]
-                  }{" "}
-                  · 剩余 {e.after.quantity}
-                  {e.after.unit}
-                </p>
-              ))}
-            </details>
-          </>
+          <InventoryPanel
+            items={state.items}
+            locations={state.locations}
+            onChanged={refresh}
+            onAdd={() => {
+              setEditing(null);
+              setTab("add");
+            }}
+            onEdit={(item) => {
+              setEditing(item);
+              setTab("add");
+            }}
+          />
         )}
         {tab === "add" && (
           <>
             <p className="eyebrow">给家里的新鲜，留个位置</p>
-            <h1>{editing ? "修改物品" : "添点新鲜"}</h1>
+            <h1>
+              {editing
+                ? `修改物品 · 批次 ${editing.id.slice(0, 8)}`
+                : "添点新鲜"}
+            </h1>
             {!editing && voiceBox()}
             <form
               className="panel form-grid"
@@ -898,6 +781,16 @@ export default function Page() {
                   defaultValue={editing?.purchasedAt ?? today()}
                 />
               </label>
+              {editing && (
+                <label>
+                  开封日期（清空表示未开封）
+                  <input
+                    name="openedAt"
+                    type="date"
+                    defaultValue={editing.openedAt ?? ""}
+                  />
+                </label>
+              )}
               <label>
                 建议食用日期
                 <input

@@ -459,9 +459,50 @@ export function createApp(path: string, override?: AIProvider) {
     household: { id: "local", name: "我的家" },
   }));
   app.post("/api/items", async (req) => inventory.create(req.body));
-  app.post("/api/items/:id/actions", async (req) =>
-    inventory.act(z.object({ id: z.uuid() }).parse(req.params).id, req.body),
-  );
+  app.get("/api/items/:id/events", async (req) => {
+    const id = z.object({ id: z.uuid() }).parse(req.params).id;
+    if (!repo.get(id)) throw new DomainError("物品不存在");
+    return repo
+      .events()
+      .filter((e) => e.itemId === id)
+      .sort((a, b) => b.after.version - a.after.version);
+  });
+  app.post("/api/items/:id/corrections", async (req) => {
+    const id = z.object({ id: z.uuid() }).parse(req.params).id;
+    const body = z
+      .object({
+        requestId: z.uuid(),
+        eventId: z.uuid(),
+        expectedVersion: z.number().int().positive(),
+        reason: z.string().trim().min(1).max(300),
+      })
+      .strict()
+      .parse(req.body);
+    const { requestId, ...input } = body;
+    return once(
+      `correction:${requestId}`,
+      { id, ...input },
+      async () => () => inventory.correct(id, input),
+    );
+  });
+  app.post("/api/items/:id/actions", async (req) => {
+    const id = z.object({ id: z.uuid() }).parse(req.params).id;
+    const { requestId, expectedVersion, ...action } = z
+      .object({
+        requestId: z.uuid().optional(),
+        expectedVersion: z.number().int().positive().optional(),
+      })
+      .passthrough()
+      .parse(req.body);
+    const work = () => inventory.act(id, action, expectedVersion);
+    return requestId
+      ? once(
+          `item-action:${requestId}`,
+          { id, expectedVersion, action },
+          async () => work,
+        )
+      : work();
+  });
   app.post("/api/voice", async (req) => {
     const b = z
       .object({ requestId: z.uuid(), text: z.string().trim().min(1).max(2000) })
