@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { registerIntakeCenter } from "./intake-center";
 import { registerDevices } from "./devices";
 import { dirname, resolve } from "node:path";
 import { registerFirmware } from "./firmware";
@@ -7,6 +8,7 @@ import { z } from "zod";
 import { SQLiteRepository } from "@homestash/database";
 import {
   InventoryService,
+  ItemInput,
   DomainError,
   freshness,
   ShoppingInput,
@@ -467,6 +469,24 @@ export function createApp(path: string, override?: AIProvider) {
     return once(b.requestId, b, () => voice(b.text));
   });
   app.get("/api/shopping", async () => assistant.shopping.list());
+  app.post("/api/shopping/:id/receive", async (req) => {
+    const id = z.object({ id: z.uuid() }).parse(req.params).id;
+    const body = z
+      .object({
+        requestId: z.uuid(),
+        item: ItemInput.extend({
+          quantity: z.number().finite().positive().max(1000000),
+          unit: z.string().trim().min(1).max(20),
+        }),
+      })
+      .strict()
+      .parse(req.body);
+    return once(
+      `shopping-receive:${body.requestId}`,
+      { id, item: body.item },
+      async () => () => assistant.shopping.receive(id, body.item, inventory),
+    );
+  });
   app.post("/api/shopping", async (req) => {
     const b = z
       .discriminatedUnion("action", [
@@ -654,6 +674,7 @@ export function createApp(path: string, override?: AIProvider) {
   );
   const imageIntake = registerImageIntake(app, repo, inventory, once, ai);
   registerBarcodeIntake(app, repo, inventory, once);
+  registerIntakeCenter(app, repo);
   app.addHook("onClose", async () => repo.close());
   return {
     app,

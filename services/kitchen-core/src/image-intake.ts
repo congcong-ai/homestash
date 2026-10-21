@@ -1,3 +1,4 @@
+import { intakeFailure, clearIntakeFailure } from "./intake-center";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
@@ -85,8 +86,15 @@ export function registerImageIntake(
           throw new DomainError(
             "当前 Mock 模式没有图片识别能力，请在设置中启用外部 AI 并配置视觉模型",
           );
-        const result = ImageRecognition.parse(await ai.recognizeImage(dataUrl));
+        let result: ImageRecognition;
+        try {
+          result = ImageRecognition.parse(await ai.recognizeImage(dataUrl));
+        } catch (error) {
+          intakeFailure(repo, "image", requestId);
+          throw error;
+        }
         return () => {
+          clearIntakeFailure(repo, "image", requestId);
           const review: ImageReview = {
             id: crypto.randomUUID(),
             status: "pending",
@@ -110,10 +118,10 @@ export function registerImageIntake(
     );
     return get(review.id);
   };
+  app.get("/api/intake/images/:id", async (req) => get(idFrom(req.params)));
   app.get("/api/intake/images", async () =>
     repo
       .read<string[]>("image-intake-index", [])
-      .slice(-20)
       .reverse()
       .map((id) => get(id)),
   );

@@ -59,10 +59,14 @@ async function imageData(file: File): Promise<string> {
 }
 export function ImageIntake({
   locations,
+  selectedId,
+  retryId,
   onChanged,
   onViewInventory,
 }: {
   locations: Location[];
+  selectedId?: string;
+  retryId?: string;
   onChanged: () => Promise<void>;
   onViewInventory: () => void;
 }) {
@@ -73,6 +77,7 @@ export function ImageIntake({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{ dataUrl: string; id: string } | null>(null);
+  const retryCompleted = useRef(false);
   const confirmation = useRef<{ signature: string; id: string } | null>(null);
   function open(result: ImageReview, preservePreview = false) {
     if (!preservePreview) setDataUrl("");
@@ -107,11 +112,15 @@ export function ImageIntake({
     void api<ImageReview[]>("/intake/images")
       .then((results) => {
         setHistory(results);
-        const waiting = results.find((r) => r.status === "pending");
+        const waiting = selectedId
+          ? results.find((r) => r.id === selectedId)
+          : !retryId
+            ? results.find((r) => r.status === "pending")
+            : undefined;
         if (waiting) open(waiting);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "候选读取失败"));
-  }, []);
+  }, [selectedId, retryId]);
   async function refreshDevicePhotos() {
     setBusy(true);
     setError("");
@@ -137,11 +146,15 @@ export function ImageIntake({
     setError("");
     try {
       if (pending.current?.dataUrl !== dataUrl)
-        pending.current = { dataUrl, id: crypto.randomUUID() };
+        pending.current = {
+          dataUrl,
+          id: (!retryCompleted.current && retryId) || crypto.randomUUID(),
+        };
       const result = await api<ImageReview>("/intake/images", {
         requestId: pending.current.id,
         dataUrl,
       });
+      retryCompleted.current = true;
       open(result, true);
       setHistory((old) => [result, ...old.filter((r) => r.id !== result.id)]);
     } catch (e) {

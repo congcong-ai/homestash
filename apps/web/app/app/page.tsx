@@ -8,6 +8,8 @@ import {
   useRef,
   type FormEvent,
 } from "react";
+import { ShoppingReceive } from "../../components/shopping-receive";
+import { IntakeCenter } from "../../components/intake-center";
 import { ImageIntake } from "../../components/image-intake";
 import { BarcodeIntake } from "../../components/barcode-intake";
 import { api } from "@homestash/api-client";
@@ -64,6 +66,7 @@ const tabs = [
   ["home", "今日"],
   ["inventory", "家中库存"],
   ["add", "添点新鲜"],
+  ["reviews", "待确认"],
   ["photos", "拍照入库"],
   ["barcodes", "条码入库"],
   ["recipes", "今晚吃什么"],
@@ -90,6 +93,7 @@ const emoji = (name: string) =>
             ? "🥬"
             : "🧺";
 export default function Page() {
+  const [receiving, setReceiving] = useState<ShoppingItem | null>(null);
   const pendingShopping = useRef(new Map<string, string>());
   const pendingCooking = useRef(new Map<string, string>());
   const pendingVoice = useRef<{ text: string; id: string } | null>(null);
@@ -367,7 +371,7 @@ export default function Page() {
         </a>
         <p className="brand-note tracking-wide">把新鲜，留在日常里。</p>
         <nav aria-label="主导航">
-          {tabs.map(([key, label], i) => (
+          {tabs.map(([key, label]) => (
             <button
               key={key}
               className={tab === key ? "selected" : ""}
@@ -376,7 +380,22 @@ export default function Page() {
                 setEditing(null);
               }}
             >
-              <span>{["⌂", "▦", "＋", "◉", "▥", "♧", "✓", "▣", "⚙"][i]}</span>
+              <span>
+                {
+                  {
+                    home: "⌂",
+                    inventory: "▦",
+                    add: "＋",
+                    reviews: "✓",
+                    photos: "◉",
+                    barcodes: "▥",
+                    recipes: "♧",
+                    shopping: "✓",
+                    device: "▣",
+                    settings: "⚙",
+                  }[key]
+                }
+              </span>
               {label}
             </button>
           ))}
@@ -492,6 +511,13 @@ export default function Page() {
             {voiceBox()}
           </>
         )}
+        {tab === "reviews" && (
+          <IntakeCenter
+            locations={state.locations}
+            onChanged={refresh}
+            onViewInventory={() => setTab("inventory")}
+          />
+        )}
         {tab === "barcodes" && (
           <BarcodeIntake
             locations={state.locations}
@@ -511,7 +537,7 @@ export default function Page() {
             <p className="eyebrow">出门前，看看还缺什么</p>
             <h1>购物清单</h1>
             <p>
-              按食谱添加缺少的食材，也可以记下家里要补的东西。标记买到后，库存不会自动增加。
+              按食谱添加缺少的食材，也可以记下家里要补的东西。买到后核对实际数量、位置和日期，确认才会入库。
             </p>
             <form
               className="shopping-form panel"
@@ -567,6 +593,15 @@ export default function Page() {
                 加入清单
               </button>
             </form>
+            {receiving && (
+              <ShoppingReceive
+                key={receiving.id}
+                entry={receiving}
+                locations={state.locations}
+                onChanged={refresh}
+                onClose={() => setReceiving(null)}
+              />
+            )}
             <div className="inventory-list">
               {!(state.shopping ?? []).length && (
                 <div className="empty panel">
@@ -586,7 +621,7 @@ export default function Page() {
                       type="checkbox"
                       aria-label={`${item.name}已买到`}
                       checked={item.checked}
-                      disabled={busy}
+                      disabled={busy || !!item.inventoryItemId}
                       onChange={() =>
                         void perform(() =>
                           shoppingAction({
@@ -606,22 +641,21 @@ export default function Page() {
                     </span>
                   </label>
                   <small>
-                    {item.checked
-                      ? "已买到，请核对实物后入库"
-                      : item.source === "manual"
-                        ? "自己记下的"
-                        : "来自食谱缺货清单"}
+                    {item.inventoryItemId
+                      ? "已入库，可到家中库存查看这一批"
+                      : item.checked
+                        ? "已买到，请核对实物后入库"
+                        : item.source === "manual"
+                          ? "自己记下的"
+                          : "来自食谱缺货清单"}
                   </small>
                   <div className="row">
-                    {item.checked && (
+                    {item.checked && !item.inventoryItemId && (
                       <button
                         className="secondary"
                         disabled={busy}
                         onClick={() => {
-                          setText(
-                            `买了${item.quantity}${item.unit}${item.name}`,
-                          );
-                          setTab("add");
+                          setReceiving(item);
                         }}
                       >
                         去入库确认

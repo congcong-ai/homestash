@@ -11,14 +11,20 @@ import {
 
 export function BarcodeIntake({
   locations,
+  selectedId,
+  retryId,
+  initialBarcode,
   onChanged,
   onViewInventory,
 }: {
   locations: Location[];
+  selectedId?: string;
+  retryId?: string;
+  initialBarcode?: string;
   onChanged: () => Promise<void>;
   onViewInventory: () => void;
 }) {
-  const [barcode, setBarcode] = useState("");
+  const [barcode, setBarcode] = useState(initialBarcode ?? "");
   const [review, setReview] = useState<BarcodeReview | null>(null);
   const [history, setHistory] = useState<BarcodeReview[]>([]);
   const [external, setExternal] = useState<string | null>(null);
@@ -34,6 +40,7 @@ export function BarcodeIntake({
     bestBeforeAt: "",
   });
   const lookup = useRef<{ barcode: string; id: string } | null>(null);
+  const retryCompleted = useRef(false);
   const confirmation = useRef<{ signature: string; id: string } | null>(null);
   function open(value: BarcodeReview) {
     setReview(value);
@@ -63,13 +70,17 @@ export function BarcodeIntake({
       .then((data) => {
         setExternal(data.externalProvider);
         setHistory(data.reviews);
-        const waiting = data.reviews.find((r) => r.status === "pending");
+        const waiting = selectedId
+          ? data.reviews.find((r) => r.id === selectedId)
+          : !retryId
+            ? data.reviews.find((r) => r.status === "pending")
+            : undefined;
         if (waiting) open(waiting);
       })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "条码记录读取失败"),
       );
-  }, []);
+  }, [selectedId, retryId]);
   async function perform(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -87,11 +98,15 @@ export function BarcodeIntake({
       throw Error("请输入校验位正确的8、12、13或14位商品条码。");
     const code = parsed.data;
     if (lookup.current?.barcode !== code)
-      lookup.current = { barcode: code, id: crypto.randomUUID() };
+      lookup.current = {
+        barcode: code,
+        id: (!retryCompleted.current && retryId) || crypto.randomUUID(),
+      };
     const value = await api<BarcodeReview>("/intake/barcodes", {
       barcode: code,
       requestId: lookup.current.id,
     });
+    retryCompleted.current = true;
     open(value);
     setHistory((old) => [value, ...old.filter((r) => r.id !== value.id)]);
   }

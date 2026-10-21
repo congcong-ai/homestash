@@ -93,3 +93,9 @@ Domain 定义 `Barcode`、`ProductCandidate` 和 `ProductLookupProvider`，与�
 后台通过managed-devices分别保存设备身份、凭据摘要、状态和能力；设备接口按认证身份隔离幂等回执、TTS任务和缓存。physical-device仅保留最近通信的兼容投影，不再作为新设备管理的唯一事实来源。旧环境凭据只导入一次；撤销或重新签发不会被Core重启覆盖。复用现有app_state，不改历史migration。
 
 固件应用位于firmware/apps/freshmate_app，公共ESP-IDF能力位于firmware/common/components；Korvo工程只负责目标配置、板级实现与入口。device_port是编译时接口，板型由目标manifest和镜像内标记绑定；公共应用不引用BSP、GPIO或LVGL。后台按boardId独立维护固件与下载权限。具体取舍、SDK边界、可选硬件、兼容和验证见 [固件复用](FIRMWARE_PORTABILITY.md) 与 [设备管理](DEVICE_MANAGEMENT.md)。
+
+## 采购与统一待确认
+
+ShoppingService.receive通过InventoryService创建批次，在同一Repository事务中保存购物来源、实际入库快照、购物状态和库存事件；HTTP幂等回执与其一起提交。购物来源ID提供跨新请求ID的重复保护，已完成后内容不一致则拒绝。勾选已购买不等于入库，日期由用户核对。
+
+待确认中心从既有图片/条码索引、已买购物项和最小失败记录汇总，不建立平行候选数据库。失败的异步模型调用不写库存；只保存重试标识，成功时原子清除失败记录并创建候选。原图不保存，图片重试需用户重选；未完成表单草稿暂不持久化。详情见[采购与待确认](SHOPPING_AND_REVIEW.md)。

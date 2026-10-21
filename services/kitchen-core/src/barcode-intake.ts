@@ -1,3 +1,4 @@
+import { intakeFailure, clearIntakeFailure } from "./intake-center";
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { SQLiteRepository } from "@homestash/database";
@@ -46,13 +47,10 @@ export function registerBarcodeIntake(
   };
   const idFrom = (params: unknown) =>
     z.object({ id: z.uuid() }).parse(params).id;
+  app.get("/api/intake/barcodes/:id", async (req) => get(idFrom(req.params)));
   app.get("/api/intake/barcodes", async () => ({
     externalProvider: external?.kind ?? null,
-    reviews: repo
-      .read<string[]>("barcode-intake-index", [])
-      .slice(-20)
-      .reverse()
-      .map(get),
+    reviews: repo.read<string[]>("barcode-intake-index", []).reverse().map(get),
   }));
   app.post("/api/intake/barcodes", async (req) => {
     const body = z
@@ -63,14 +61,25 @@ export function registerBarcodeIntake(
       `barcode-lookup:${body.requestId}`,
       { barcode: body.barcode },
       async () => {
-        const product =
-          (await local.lookup(body.barcode)) ??
-          (await external?.lookup(body.barcode)) ??
-          null;
-        if (product && barcodeKey(product.barcode) !== barcodeKey(body.barcode))
-          throw new DomainError("查询商品条码不匹配，库存未改变");
-        const candidate = product ? ProductCandidate.parse(product) : null;
+        let product: ProductCandidate | null;
+        try {
+          product =
+            (await local.lookup(body.barcode)) ??
+            (await external?.lookup(body.barcode)) ??
+            null;
+          if (
+            product &&
+            barcodeKey(product.barcode) !== barcodeKey(body.barcode)
+          )
+            throw new DomainError("查询商品条码不匹配，库存未改变");
+          if (product) product = ProductCandidate.parse(product);
+        } catch (error) {
+          intakeFailure(repo, "barcode", body.requestId, body.barcode);
+          throw error;
+        }
+        const candidate = product;
         return () => {
+          clearIntakeFailure(repo, "barcode", body.requestId);
           const review: BarcodeReview = {
             id: crypto.randomUUID(),
             barcode: body.barcode,
