@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { registerBackups } from "./backups";
 import { registerIntakeCenter } from "./intake-center";
 import { registerDevices } from "./devices";
 import { dirname, resolve } from "node:path";
@@ -372,12 +373,24 @@ export function createApp(path: string, override?: AIProvider) {
   }
   // 同一进程串行提交异步意图，重放结果落 SQLite；网络重试不能重复增加库存。
   let tail: Promise<unknown> = Promise.resolve();
+  let dataGeneration = 0;
   function once<T>(
     key: string,
     body: unknown,
     work: () => Promise<() => T> | (() => T),
   ): Promise<T> {
+    const admittedGeneration = dataGeneration;
     const execute = async () => {
+      if (admittedGeneration !== dataGeneration)
+        throw new DomainError("家庭数据刚刚恢复，请重新核对后操作");
+      if (
+        repo
+          .read<string[]>("backup-blocked-requests", [])
+          .includes(`request:${key}`)
+      )
+        throw new DomainError(
+          "此请求属于恢复前已处理的数据，请重新核对后发起新操作",
+        );
       const signature = JSON.stringify(body);
       const cached = repo.read<{ signature: string; result: T } | null>(
         `request:${key}`,
@@ -389,6 +402,8 @@ export function createApp(path: string, override?: AIProvider) {
         return cached.result;
       }
       const commit = await work();
+      if (admittedGeneration !== dataGeneration)
+        throw new DomainError("家庭数据刚刚恢复，请重新核对后操作");
       return repo.transaction(() => {
         const result = commit();
         repo.write(`request:${key}`, { signature, result });
@@ -409,7 +424,7 @@ export function createApp(path: string, override?: AIProvider) {
         })),
       });
     if ((err as { statusCode?: number }).statusCode === 413)
-      return reply.code(413).send({ error: "请求内容过大，请选择更小的图片" });
+      return reply.code(413).send({ error: "请求内容过大，请选择更小的文件" });
     if ((err as { statusCode?: number }).statusCode === 400)
       return reply.code(400).send({ error: "请求不是有效的 JSON" });
     if (err instanceof DomainError)
@@ -430,12 +445,25 @@ export function createApp(path: string, override?: AIProvider) {
     )
       return reply.code(403).send({ error: "仅允许本机界面访问" });
   });
+  app.addHook("preHandler", async (req, reply) => {
+    const epoch = req.headers["x-homestash-data-epoch"];
+    if (
+      req.method === "POST" &&
+      !req.url.startsWith("/api/backups/") &&
+      epoch &&
+      epoch !== repo.read("backup-data-epoch", "initial")
+    )
+      return reply
+        .code(409)
+        .send({ error: "家庭数据已恢复，请刷新页面并重新核对后操作" });
+  });
   app.get("/api/health", async () => ({
     ok: true,
     name: "HomeStash",
     phase: 1,
   }));
   app.get("/api/state", async () => ({
+    dataEpoch: repo.read("backup-data-epoch", "initial"),
     items: repo.list(),
     locations: repo.locations(),
     events: repo.events().slice(-50).reverse(),
@@ -620,9 +648,7 @@ export function createApp(path: string, override?: AIProvider) {
           preparedAnswer,
         );
     };
-    return b.requestId
-      ? once(`cooking:${b.requestId}`, b, work)
-      : repo.transaction(await work());
+    return once(`cooking:${b.requestId ?? crypto.randomUUID()}`, b, work);
   });
   app.post("/api/settings", async (req) => {
     const s = settingsSchema.parse(req.body);
@@ -716,6 +742,9 @@ export function createApp(path: string, override?: AIProvider) {
   const imageIntake = registerImageIntake(app, repo, inventory, once, ai);
   registerBarcodeIntake(app, repo, inventory, once);
   registerIntakeCenter(app, repo);
+  registerBackups(app, repo, path, once, () => {
+    dataGeneration++;
+  });
   app.addHook("onClose", async () => repo.close());
   return {
     app,

@@ -1,5 +1,6 @@
 "use client";
 import { InventoryPanel } from "../../components/inventory-panel";
+import { DataBackups } from "../../components/data-backups";
 import { DeviceFleet } from "../../components/device-fleet";
 import { DeviceMaintenance } from "../../components/device-maintenance";
 import {
@@ -44,6 +45,7 @@ type Settings = {
   keyConfigured?: boolean;
 };
 type State = {
+  dataEpoch: string;
   items: InventoryItem[];
   shopping: ShoppingItem[];
   locations: Location[];
@@ -95,6 +97,7 @@ const emoji = (name: string) =>
             : "🧺";
 export default function Page() {
   const [receiving, setReceiving] = useState<ShoppingItem | null>(null);
+  const observedEpoch = useRef<string | null>(null);
   const pendingShopping = useRef(new Map<string, string>());
   const pendingCooking = useRef(new Map<string, string>());
   const pendingVoice = useRef<{ text: string; id: string } | null>(null);
@@ -111,7 +114,22 @@ export default function Page() {
     [question, setQuestion] = useState("放多少？"),
     [recipeRequirements, setRecipeRequirements] = useState("");
   const refresh = useCallback(async () => {
-    setState(await api<State>("/state"));
+    const next = await api<State>("/state");
+    if (
+      observedEpoch.current !== null &&
+      observedEpoch.current !== next.dataEpoch
+    ) {
+      setEditing(null);
+      setReceiving(null);
+      pendingShopping.current.clear();
+      pendingCooking.current.clear();
+      pendingVoice.current = null;
+      pendingEvents.current.clear();
+      setTab((current) => (current === "settings" ? "settings" : "home"));
+      setMessage("家庭数据已恢复，请重新核对库存后继续操作。");
+    }
+    observedEpoch.current = next.dataEpoch;
+    setState(next);
     setConnected(true);
   }, []);
   useEffect(() => {
@@ -1251,6 +1269,7 @@ export default function Page() {
               </p>
               <button disabled={busy}>保存设置</button>
             </form>
+            <DataBackups onChanged={refresh} />
           </>
         )}
         <footer>
