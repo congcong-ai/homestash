@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 import {
   Barcode,
   categories,
@@ -100,7 +100,7 @@ export function BarcodeIntake({
     if (lookup.current?.barcode !== code)
       lookup.current = {
         barcode: code,
-        id: (!retryCompleted.current && retryId) || crypto.randomUUID(),
+        id: (!retryCompleted.current && retryId) || createRequestId(),
       };
     const value = await api<BarcodeReview>("/intake/barcodes", {
       barcode: code,
@@ -164,7 +164,7 @@ export function BarcodeIntake({
       };
       const signature = JSON.stringify(item);
       if (confirmation.current?.signature !== signature)
-        confirmation.current = { signature, id: crypto.randomUUID() };
+        confirmation.current = { signature, id: createRequestId() };
       const result = await api<BarcodeReview>(
         `/intake/barcodes/${review.id}/confirm`,
         { requestId: confirmation.current.id, item },

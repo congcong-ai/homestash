@@ -14,7 +14,7 @@ import { ShoppingReceive } from "../../components/shopping-receive";
 import { IntakeCenter } from "../../components/intake-center";
 import { ImageIntake } from "../../components/image-intake";
 import { BarcodeIntake } from "../../components/barcode-intake";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
@@ -165,7 +165,7 @@ export default function Page() {
     const key = JSON.stringify(payload);
     const request = pendingEvents.current.get(key) ?? {
       version: 1,
-      eventId: crypto.randomUUID(),
+      eventId: createRequestId(),
       deviceId: "korvo-simulator",
       at: new Date().toISOString(),
       payload,
@@ -177,7 +177,7 @@ export default function Page() {
   }
   async function sendVoice(fromDevice = false, utterance = text) {
     if (pendingVoice.current?.text !== utterance)
-      pendingVoice.current = { text: utterance, id: crypto.randomUUID() };
+      pendingVoice.current = { text: utterance, id: createRequestId() };
     await perform(async () => {
       const r = fromDevice
         ? await event({
@@ -199,7 +199,7 @@ export default function Page() {
   }
   async function shoppingAction(body: Record<string, unknown>) {
     const key = JSON.stringify(body),
-      requestId = pendingShopping.current.get(key) ?? crypto.randomUUID();
+      requestId = pendingShopping.current.get(key) ?? createRequestId();
     pendingShopping.current.set(key, requestId);
     const result = await api<ShoppingItem[]>("/shopping", {
       ...body,
@@ -231,7 +231,7 @@ export default function Page() {
               type: "update",
               patch: body,
               expectedVersion: editing.version,
-              requestId: crypto.randomUUID(),
+              requestId: createRequestId(),
             }
           : body,
       );
@@ -271,7 +271,7 @@ export default function Page() {
       ...extra,
     };
     const key = JSON.stringify(body);
-    const requestId = pendingCooking.current.get(key) ?? crypto.randomUUID();
+    const requestId = pendingCooking.current.get(key) ?? createRequestId();
     pendingCooking.current.set(key, requestId);
     const result = await api<CookingSession>("/cooking", {
       ...body,

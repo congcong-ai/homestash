@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
@@ -148,7 +148,7 @@ export function ImageIntake({
       if (pending.current?.dataUrl !== dataUrl)
         pending.current = {
           dataUrl,
-          id: (!retryCompleted.current && retryId) || crypto.randomUUID(),
+          id: (!retryCompleted.current && retryId) || createRequestId(),
         };
       const result = await api<ImageReview>("/intake/images", {
         requestId: pending.current.id,
@@ -187,7 +187,7 @@ export function ImageIntake({
       if (!items.length) throw Error("请至少选择一个需要入库的候选。");
       const signature = JSON.stringify(items);
       if (confirmation.current?.signature !== signature)
-        confirmation.current = { signature, id: crypto.randomUUID() };
+        confirmation.current = { signature, id: createRequestId() };
       const result = await api<ImageReview>(
         `/intake/images/${review.id}/confirm`,
         { requestId: confirmation.current.id, items },

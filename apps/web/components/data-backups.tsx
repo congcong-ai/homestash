@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 type Summary = {
   items: number;
   events: number;
@@ -46,7 +46,7 @@ export function DataBackups({ onChanged }: { onChanged: () => Promise<void> }) {
     if (!preview) return;
     const key = preview.sha256 + preview.currentFingerprint;
     if (request.current?.key !== key)
-      request.current = { key, id: crypto.randomUUID() };
+      request.current = { key, id: createRequestId() };
     const result = await api<{ snapshotId: string; message: string }>(
       "/backups/restore",
       {

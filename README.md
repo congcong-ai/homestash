@@ -147,7 +147,7 @@ pnpm dev:lan
 
 用手机打开日志中的 `/app` 地址。首次未配置账号时，登录凭据自动生成并保存在本机 `data/lan/access.txt`；已有有效登录配置时沿用。Core 管理接口仍仅监听本机。
 
-这是 HTTP 开发试用入口，不用于公网。当前已验证 LAN HTTP 登录与 API 链路，手机布局、手持操作、安装与离线能力仍待验收。详见 [手机局域网访问](docs/LOCAL_MOBILE_ACCESS.md)。
+这是 HTTP 开发试用入口，不用于公网。当前已验证 LAN HTTP 登录与 API 链路，手机布局、手持操作、安装与离线能力仍待验收。详见 [手机局域网访问](docs/LOCAL_MOBILE_ACCESS.md)和[手机模拟验收](docs/MOBILE_WEB_ACCEPTANCE.md)。
 
 ### 配置模型与语音
 

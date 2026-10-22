@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
@@ -38,7 +38,7 @@ export function ShoppingReceive({
     };
     const signature = JSON.stringify(item);
     if (pending.current?.signature !== signature)
-      pending.current = { signature, id: crypto.randomUUID() };
+      pending.current = { signature, id: createRequestId() };
     setBusy(true);
     setError("");
     try {

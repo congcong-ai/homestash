@@ -61,6 +61,10 @@ select {
   color: var(--ink);
   max-width: 100%;
 }
+input[type="file"] {
+  width: 100%;
+  min-width: 0;
+}
 input:focus,
 textarea:focus,
 select:focus {
@@ -474,8 +478,12 @@ header {
 .people label {
   display: block;
 }
-.people input {
+.people input[type="number"] {
   width: 65px;
+}
+.people input:not([type="number"]) {
+  width: 320px;
+  max-width: 100%;
 }
 .cooking h3 {
   font-size: 25px;
@@ -632,6 +640,22 @@ footer {
   }
 }
 @media (max-width: 760px) {
+  .row,
+  .section-title {
+    flex-wrap: wrap;
+  }
+  .row button,
+  .section-title button {
+    white-space: nowrap;
+  }
+  .section-title > div {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .people label {
+    max-width: 100%;
+  }
   aside {
     position: static;
     width: 100%;
@@ -868,6 +892,7 @@ footer {
 
 .image-upload {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   margin: 1.5rem 0;
 }

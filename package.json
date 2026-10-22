@@ -25,12 +25,14 @@
     "server:deploy": "bash scripts/deploy-remote.sh",
     "server:ports": "python3 scripts/server-port-audit.py",
     "hardware:acceptance": "tsx scripts/hardware/accept-phase1.ts",
-    "dev:lan": "node scripts/dev.mjs --lan"
+    "dev:lan": "node scripts/dev.mjs --lan",
+    "test:mobile": "node scripts/verify-mobile-web.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "esbuild": "0.25.12",
     "eslint": "^9.39.0",
+    "playwright": "1.64.1",
     "prettier": "^3.9.10",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

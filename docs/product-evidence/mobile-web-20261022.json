@@ -58,5 +58,6 @@
     "typecheck": "通过",
     "Web生产构建": "通过",
     "Core发布bundle": "通过"
-  }
+  },
+  "后续验收": "用户授权本地Playwright后，手机视口与交互已通过，参见mobile-web-browser-20261022.json；真机按要求跳过"
 }

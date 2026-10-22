@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@homestash/api-client";
+import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
@@ -263,7 +263,7 @@ function InventoryBatch({
   }, [historyOpen, item.id, item.version]);
   async function submit(path: string, body: Record<string, unknown>) {
     const key = JSON.stringify({ path, version: item.version, ...body }),
-      requestId = pending.current.get(key) ?? crypto.randomUUID();
+      requestId = pending.current.get(key) ?? createRequestId();
     pending.current.set(key, requestId);
     setBusy(true);
     setError("");

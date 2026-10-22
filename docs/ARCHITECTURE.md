@@ -26,7 +26,7 @@ MockAIProvider 是明确的有限中文规则解析器，无外部调用。OpenA
 
 ## Web 和服务边界
 
-Next.js 是客户端与同源 `/api` 代理，Fastify 是独立 Core。日常 `pnpm dev` 的 Web/Core 默认仅监听127.0.0.1；显式 `pnpm dev:lan` 将 Web 绑定实际家庭私有IPv4，并强制启用已有的单账号签名Cookie登录。凭据自动生成至忽略的 `data/lan/` 或复用已有环境配置，不能通过关闭登录进入LAN模式。Core仍只监听回环地址，API由Next同源代理；Core拒绝未知浏览器Origin。真实设备另用独立监听器和设备凭据，不共享家庭网页登录会话。当前没有多家庭账号体系。手机布局和真机操作仍须验收，不能将HTTP接口验证称为手机实测。
+Next.js 是客户端与同源 `/api` 代理，Fastify 是独立 Core。日常 `pnpm dev` 的 Web/Core 默认仅监听127.0.0.1；显式 `pnpm dev:lan` 将 Web 绑定实际家庭私有IPv4，并强制启用已有的单账号签名Cookie登录。凭据自动生成至忽略的 `data/lan/` 或复用已有环境配置，不能通过关闭登录进入LAN模式。Core仍只监听回环地址，API由Next同源代理；Core拒绝未知浏览器Origin。真实设备另用独立监听器和设备凭据，不共享家庭网页登录会话。当前没有多家庭账号体系。手机尺寸与主要交互已通过Chrome触屏仿真验收，真实手机按用户要求跳过；不能将仿真或HTTP接口验证称为真机实测。
 
 原生语义表单/按钮与Tailwind CSS 与统一组件样式构成当前界面；没有引入企业后台模板。PWA manifest、图标与离线提示已实现；Core 离线时不能写库存，不缓存 API 的旧响应伪装实时状态；浏览器每3秒刷新状态，断连显示上次读取提示。
 
@@ -121,3 +121,7 @@ ShoppingService.syncRecipe在事务内同步特定食谱来源的未购买计划
 ## 本地手机试用启动
 
 启动器在绑定前检查端口，仅停止本项目旧监听者，保留其他项目并选择空闲端口。Core健康检查包含每次启动的随机实例标识，避免把占端口的其他实例当作就绪。Web和Core端口通过环境变量传递，同源代理指向实际Core端口。局域网模式禁止生产运行；生产沿用独立HTTPS部署流程。私有IPv4只控制监听接口，不提供网络加密或家庭成员角色隔离。HTTP局域网页面不注册Service Worker；不声称具备离线写入、安装或浏览器麦克风能力。[使用与验收边界](LOCAL_MOBILE_ACCESS.md)。
+
+## HTTP局域网客户端兼容
+
+浏览器请求ID统一由api-client生成，安全上下文优先使用randomUUID，HTTP环境使用getRandomValues生成UUID v4，无安全随机数则拒绝操作。各组件仍保存原待重试ID，不因刷新消息或请求失败重发不同ID；服务端幂等协议不变。窄屏行布局允许换行，文件输入不依赖原生最小宽度。[仿真与验证边界](MOBILE_WEB_ACCEPTANCE.md)。
