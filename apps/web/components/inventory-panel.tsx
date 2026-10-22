@@ -170,7 +170,7 @@ export function InventoryPanel({
           </label>
         </div>
         <p className="muted">
-          不同批次分别管理，不合并不同单位的数量。日期仅作提醒；开封后2天为默认估算规则，请核对包装与实际状态。
+          不同批次分别管理，不合并不同单位的数量。日期仅作提醒；食品默认开封后2天提醒，可在编辑批次中自定义或关闭；请核对包装与实际状态。
         </p>
       </div>
       {notice && (
@@ -240,7 +240,7 @@ function InventoryBatch({
   const loc = (id: string) => locations.find((l) => l.id === id)?.name ?? id;
   const snapshot = (value: InventoryItem | null) =>
     value
-      ? `${value.name} ${value.quantity}${value.unit} · ${loc(value.locationId)} · 开封 ${value.openedAt ?? "未开封"} · 建议 ${value.bestBeforeAt ?? "未设置"} · 到期 ${value.expiresAt ?? "未设置"}`
+      ? `${value.name} ${value.quantity}${value.unit} · ${loc(value.locationId)} · 开封 ${value.openedAt ?? "未开封"} · 建议 ${value.bestBeforeAt ?? "未设置"} · 到期 ${value.expiresAt ?? "未设置"} · 开封提醒 ${value.openedReminderDays === null ? "关闭" : typeof value.openedReminderDays === "number" ? `${value.openedReminderDays}天` : "默认"}`
       : "尚未添加";
   useEffect(() => {
     if (!historyOpen) return;
@@ -324,6 +324,16 @@ function InventoryBatch({
       <small>
         建议食用 {item.bestBeforeAt ?? "未设置"} · 包装到期{" "}
         {item.expiresAt ?? "未设置"} · 开封 {item.openedAt ?? "未开封"}
+      </small>
+      <small>
+        开封提醒：
+        {item.openedReminderDays === null
+          ? "已关闭"
+          : typeof item.openedReminderDays === "number"
+            ? `自定义${item.openedReminderDays}天`
+            : item.category === "food"
+              ? "默认2天"
+              : "默认不启用"}
       </small>
       <div className="row batch-actions">
         {item.quantity > 0 && (

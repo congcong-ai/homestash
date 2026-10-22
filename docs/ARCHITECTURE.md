@@ -14,7 +14,7 @@ SQLite 保存物品快照、不可覆盖的事件、设备、设置、烹饪会�
 
 ## 推荐和日期
 
-Freshness Engine 按到期日期、建议食用日期、食品开封后2天的最早时间计算 fresh/eat_soon/urgent/expired。默认日期按 UTC 日界线，Phase 0 不支持家庭时区设置。规则只作提醒，包装日期可以手动修改，不能保证食品安全。模拟解析器建议日期标记 estimatedDate，用户可以覆盖。过期食品不进入可用食谱库存。
+Freshness Engine 按到期日期、建议食用日期、批次开封提醒（食品默认2天，可自定义或关闭）的最早时间计算 fresh/eat_soon/urgent/expired。默认日期按 UTC 日界线，Phase 0 不支持家庭时区设置。规则只作提醒，包装日期可以手动修改，不能保证食品安全。模拟解析器建议日期标记 estimatedDate，用户可以覆盖。过期食品不进入可用食谱库存。
 
 本地 Recipe Engine 从4个明确模板匹配现有食材，返回3道菜，按人数缩放，标注已有/缺少食材；单位无法匹配时要求核对，不猜换算。缺货清单由食谱推导，无预测采购。Cooking Mode 保存食谱快照、当前步骤和问答；烹饪不自动扣库存，由用户确认实际消耗。
 
@@ -125,3 +125,7 @@ ShoppingService.syncRecipe在事务内同步特定食谱来源的未购买计划
 ## HTTP局域网客户端兼容
 
 浏览器请求ID统一由api-client生成，安全上下文优先使用randomUUID，HTTP环境使用getRandomValues生成UUID v4，无安全随机数则拒绝操作。各组件仍保存原待重试ID，不因刷新消息或请求失败重发不同ID；服务端幂等协议不变。窄屏行布局允许换行，文件输入不依赖原生最小宽度。[仿真与验证边界](MOBILE_WEB_ACCEPTANCE.md)。
+
+## 家庭位置与批次规则
+
+LocationService属于HomeStash Domain，校验唯一名称、当前名称冲突与数量上限；既有locations表保存名称和稳定ID，Core通过同源/登录/数据代次检查及once事务提交。语音Provider上下文提供当前有限的位置ID/名称列表，真实库存变更仍由InventoryService执行。开封规则是可选库存字段，旧数据不回填；库存事件、纠正、备份以及统一freshnessInfo共同使用该字段，不在Web或设备另建日期算法。具体范围见[家庭位置与日期规则](HOUSEHOLD_LOCATIONS_AND_DATES.md)。

@@ -78,6 +78,13 @@ export class SQLiteRepository implements Repository {
       .prepare("SELECT id, household_id as householdId, name FROM locations")
       .all() as Location[];
   }
+  saveLocation(location: Location) {
+    this.sqlite
+      .prepare(
+        "INSERT INTO locations(id,household_id,name) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name",
+      )
+      .run(location.id, location.householdId, location.name);
+  }
   transaction<T>(fn: () => T): T {
     return this.sqlite.transaction(fn)();
   }

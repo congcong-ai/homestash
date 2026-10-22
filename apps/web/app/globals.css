@@ -995,3 +995,17 @@ fieldset.intake-fields {
   border: 1px solid #e4e8e1;
   border-radius: 12px;
 }
+
+.location-form {
+  margin: 1rem 0;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.location-form label {
+  flex: 1;
+  min-width: min(100%, 180px);
+}
+.location-form input {
+  width: 100%;
+  min-width: 0;
+}

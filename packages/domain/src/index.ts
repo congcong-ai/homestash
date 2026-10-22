@@ -4,6 +4,9 @@ export { Barcode, barcodeKey, ProductCandidate } from "./products";
 export type { ProductLookupProvider, BarcodeReview } from "./products";
 export { categories, categoryNames } from "./categories";
 export const date = z.iso.date();
+export const openedReminderDays = z
+  .union([z.literal("default"), z.number().int().min(0).max(3650)])
+  .nullable();
 export const ItemInput = z
   .object({
     name: z.string().trim().min(1).max(80),
@@ -13,6 +16,7 @@ export const ItemInput = z
     locationId: z.string().min(1).default("fridge"),
     purchasedAt: date.optional(),
     openedAt: date.nullable().optional(),
+    openedReminderDays: openedReminderDays.optional(),
     bestBeforeAt: date.nullable().optional(),
     expiresAt: date.nullable().optional(),
     source: z
@@ -40,6 +44,7 @@ export const Action = z.discriminatedUnion("type", [
         locationId: z.string().min(1).optional(),
         purchasedAt: date.optional(),
         openedAt: date.nullable().optional(),
+        openedReminderDays: openedReminderDays.optional(),
         bestBeforeAt: date.nullable().optional(),
         expiresAt: date.nullable().optional(),
         metadata: z.record(z.string(), z.unknown()).optional(),
@@ -96,12 +101,20 @@ export function freshnessInfo(item: ItemInput, now = today()) {
       basis: "建议食用日期",
       estimated: !!item.metadata.estimatedDate,
     });
-  if (item.category === "food" && item.openedAt)
+  const openingDays =
+    typeof item.openedReminderDays === "number"
+      ? item.openedReminderDays
+      : item.openedReminderDays === null
+        ? null
+        : item.category === "food"
+          ? 2
+          : null;
+  if (openingDays !== null && item.openedAt)
     dates.push({
-      date: new Date(Date.parse(item.openedAt) + 2 * 86400000)
+      date: new Date(Date.parse(item.openedAt) + openingDays * 86400000)
         .toISOString()
         .slice(0, 10),
-      basis: "开封后2天提醒（默认规则）",
+      basis: `开封后${openingDays}天提醒（${typeof item.openedReminderDays === "number" ? "自定义规则" : "默认规则"}）`,
       estimated: true,
     });
   const first = dates.sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -260,3 +273,59 @@ export { ShoppingService, ShoppingInput, type ShoppingItem } from "./shopping";
 export { ImageRecognition, type ImageReview } from "./image-intake";
 
 export type { IntakeEntry, IntakeFailure } from "./intake";
+
+export const LocationAction = z.discriminatedUnion("action", [
+  z
+    .object({
+      action: z.literal("create"),
+      name: z.string().trim().min(1).max(32),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("rename"),
+      id: z.string().min(1).max(40),
+      name: z.string().trim().min(1).max(32),
+      expectedName: z.string().min(1).max(32),
+    })
+    .strict(),
+]);
+export class LocationService {
+  constructor(
+    readonly repo: Pick<Repository, "locations" | "transaction"> & {
+      saveLocation(location: Location): void;
+    },
+  ) {}
+  act(raw: unknown): Location {
+    const action = LocationAction.parse(raw);
+    return this.repo.transaction(() => {
+      const all = this.repo.locations();
+      const old =
+        action.action === "rename"
+          ? all.find((l) => l.id === action.id)
+          : undefined;
+      if (
+        action.action === "rename" &&
+        (!old || old.name !== action.expectedName)
+      )
+        throw new DomainError("位置已变化，请刷新后重新核对");
+      const canonical = (name: string) =>
+        name.normalize("NFKC").toLocaleLowerCase();
+      if (
+        all.some(
+          (l) =>
+            l.id !== old?.id && canonical(l.name) === canonical(action.name),
+        )
+      )
+        throw new DomainError("已有同名位置，请使用不同名称");
+      if (!old && all.length >= 100) throw new DomainError("存放位置最多100个");
+      const location = {
+        id: old?.id ?? `loc_${crypto.randomUUID()}`,
+        householdId: "local",
+        name: action.name,
+      };
+      this.repo.saveLocation(location);
+      return location;
+    });
+  }
+}

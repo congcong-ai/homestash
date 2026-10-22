@@ -9,6 +9,8 @@ import { z } from "zod";
 import { SQLiteRepository } from "@homestash/database";
 import {
   InventoryService,
+  LocationService,
+  LocationAction,
   ItemInput,
   DomainError,
   freshness,
@@ -77,6 +79,7 @@ export function createApp(path: string, override?: AIProvider) {
   const repo = new SQLiteRepository(path);
   const devices = registerDevices(app, repo);
   const inventory = new InventoryService(repo);
+  const locations = new LocationService(repo);
   const assistant = inventoryAssistant(repo, inventory);
   const defaults: Settings = {
     persona: "default",
@@ -290,6 +293,7 @@ export function createApp(path: string, override?: AIProvider) {
     const people = repo.read("recipe-people", 2);
     const intent = Intent.parse(
       await provider.structuredOutput(text, s.persona, {
+        locations: repo.locations().map(({ id, name }) => ({ id, name })),
         recipeNames: recipeCatalog(repo, people).map((r) => r.name),
         people,
         cooking: session
@@ -489,6 +493,18 @@ export function createApp(path: string, override?: AIProvider) {
     settings: { ...settings(), keyConfigured: !!process.env.AI_API_KEY },
     household: { id: "local", name: "我的家" },
   }));
+  app.post("/api/locations", async (req) => {
+    const { requestId, ...raw } = z
+      .object({ requestId: z.uuid() })
+      .passthrough()
+      .parse(req.body);
+    const input = LocationAction.parse(raw);
+    return once(
+      `location:${requestId}`,
+      input,
+      async () => () => locations.act(input),
+    );
+  });
   app.post("/api/items", async (req) => inventory.create(req.body));
   app.get("/api/items/:id/events", async (req) => {
     const id = z.object({ id: z.uuid() }).parse(req.params).id;

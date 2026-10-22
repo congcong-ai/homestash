@@ -1,4 +1,6 @@
 "use client";
+import { HouseholdLocations } from "../../components/household-locations";
+import { OpenedReminderFields } from "../../components/opened-reminder-fields";
 import { InventoryPanel } from "../../components/inventory-panel";
 import { DataBackups } from "../../components/data-backups";
 import { DeviceFleet } from "../../components/device-fleet";
@@ -219,6 +221,12 @@ export default function Page() {
       locationId: String(f.get("locationId")),
       purchasedAt: String(f.get("purchasedAt")) || today(),
       ...(editing ? { openedAt: String(f.get("openedAt")) || null } : {}),
+      openedReminderDays:
+        f.get("openedReminderMode") === "off"
+          ? null
+          : f.get("openedReminderMode") === "custom"
+            ? Number(f.get("openedReminderDays"))
+            : "default",
       bestBeforeAt: String(f.get("bestBeforeAt")) || null,
       expiresAt: String(f.get("expiresAt")) || null,
       metadata: editing ? { ...editing.metadata, estimatedDate: false } : {},
@@ -872,6 +880,7 @@ export default function Page() {
                   defaultValue={editing?.expiresAt ?? ""}
                 />
               </label>
+              <OpenedReminderFields item={editing} />
               <p className="muted full">
                 建议日期不代表食品安全保证，请以包装、保存情况和实际状态为准。药品仅管理库存，不提供服用建议。
               </p>
@@ -1350,6 +1359,10 @@ export default function Page() {
               </p>
               <button disabled={busy}>保存设置</button>
             </form>
+            <HouseholdLocations
+              locations={state.locations}
+              onChanged={refresh}
+            />
             <DataBackups onChanged={refresh} />
           </>
         )}
