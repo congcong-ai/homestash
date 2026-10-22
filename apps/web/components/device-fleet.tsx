@@ -17,9 +17,11 @@ const capabilityNames: Record<string, string> = {
 };
 export function DeviceFleet({
   devices,
+  timeZone = "UTC",
   onChanged,
 }: {
   devices: ManagedDevice[];
+  timeZone?: string;
   onChanged: () => Promise<void>;
 }) {
   const [error, setError] = useState("");
@@ -121,7 +123,8 @@ export function DeviceFleet({
           )}
           {d.lastSeen && (
             <small>
-              最近通信：{new Date(d.lastSeen).toLocaleString("zh-CN")}
+              最近通信：
+              {new Date(d.lastSeen).toLocaleString("zh-CN", { timeZone })}
             </small>
           )}
           <button

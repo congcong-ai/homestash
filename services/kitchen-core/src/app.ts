@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { householdCalendar } from "./calendar";
 import { registerBackups } from "./backups";
 import { registerIntakeCenter } from "./intake-center";
 import { registerDevices } from "./devices";
@@ -11,6 +12,7 @@ import {
   InventoryService,
   LocationService,
   LocationAction,
+  TimeZone,
   ItemInput,
   DomainError,
   freshness,
@@ -69,7 +71,11 @@ type VoiceResult = {
   candidates?: InventoryItem[];
 };
 type Settings = z.infer<typeof settingsSchema>;
-export function createApp(path: string, override?: AIProvider) {
+export function createApp(
+  path: string,
+  override?: AIProvider,
+  options: { now?: () => Date } = {},
+) {
   const app = Fastify({
     logger: false,
     bodyLimit: 65536,
@@ -77,10 +83,14 @@ export function createApp(path: string, override?: AIProvider) {
   });
   registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
+  const { current: calendar, change: changeCalendar } = householdCalendar(
+    repo,
+    options.now,
+  );
   const devices = registerDevices(app, repo);
   const inventory = new InventoryService(repo);
   const locations = new LocationService(repo);
-  const assistant = inventoryAssistant(repo, inventory);
+  const assistant = inventoryAssistant(repo, inventory, () => calendar().date);
   const defaults: Settings = {
     persona: "default",
     provider: {
@@ -105,6 +115,7 @@ export function createApp(path: string, override?: AIProvider) {
     repo,
     inventory,
     updateScreen,
+    () => calendar().date,
   );
   function updateScreen(text: string) {
     repo.write("device", { ...device(), screen: text });
@@ -121,23 +132,26 @@ export function createApp(path: string, override?: AIProvider) {
           ))
     );
   }
-  const currentRecipes = () => {
+  const currentRecipes = (asOf = calendar().date) => {
     const generated = repo.read<Recipe[]>("recipe-catalog", []);
     return generated.length
-      ? generated.map((r) => refreshRecipe(r, repo.list()))
-      : recommend(repo.list());
+      ? generated.map((r) => refreshRecipe(r, repo.list(), r.people, asOf))
+      : recommend(repo.list(), 2, asOf);
   };
   async function generateRecipes(
     provider: AIProvider,
     people: number,
     requirements: string,
   ) {
-    if (!provider.generateRecipes) return recommend(repo.list(), people);
+    const asOf = calendar().date;
+    if (!provider.generateRecipes) return recommend(repo.list(), people, asOf);
     const food = repo
       .list()
       .filter(
         (i) =>
-          i.category === "food" && i.quantity > 0 && freshness(i) !== "expired",
+          i.category === "food" &&
+          i.quantity > 0 &&
+          freshness(i, asOf) !== "expired",
       );
     const drafts = await provider.generateRecipes(
       {
@@ -172,6 +186,8 @@ export function createApp(path: string, override?: AIProvider) {
           missing: [],
         },
         repo.list(),
+        people,
+        asOf,
       );
     });
   }
@@ -256,7 +272,8 @@ export function createApp(path: string, override?: AIProvider) {
       }
       case "recommend_recipe": {
         const recipes =
-          preparedRecipes ?? recommend(repo.list(), intent.people);
+          preparedRecipes ??
+          recommend(repo.list(), intent.people, calendar().date);
         repo.write("recipe-people", intent.people);
         message = `${intent.people}人份建议：${recipes.map((r) => r.name).join("、")}。请核对缺少的食材。`;
         message = respond(message, settings().persona);
@@ -291,10 +308,15 @@ export function createApp(path: string, override?: AIProvider) {
       throw new DomainError("请先配置模型名称");
     const session = cooking();
     const people = repo.read("recipe-people", 2);
+    const contextCalendar = calendar();
     const intent = Intent.parse(
       await provider.structuredOutput(text, s.persona, {
+        date: contextCalendar.date,
+        timeZone: contextCalendar.timeZone,
         locations: repo.locations().map(({ id, name }) => ({ id, name })),
-        recipeNames: recipeCatalog(repo, people).map((r) => r.name),
+        recipeNames: recipeCatalog(repo, people, contextCalendar.date).map(
+          (r) => r.name,
+        ),
         people,
         cooking: session
           ? {
@@ -333,7 +355,7 @@ export function createApp(path: string, override?: AIProvider) {
     if (
       intent.intent === "cooking" &&
       intent.action === "start" &&
-      !recipeCatalog(repo, intent.people ?? people).some(
+      !recipeCatalog(repo, intent.people ?? people, contextCalendar.date).some(
         (r) =>
           r.name === (intent.recipeName ?? intent.question) ||
           r.id === (intent.recipeName ?? intent.question),
@@ -384,6 +406,16 @@ export function createApp(path: string, override?: AIProvider) {
     work: () => Promise<() => T> | (() => T),
   ): Promise<T> {
     const admittedGeneration = dataGeneration;
+    const admittedCalendar = calendar();
+    const assertCalendar = () => {
+      const current = calendar();
+      if (
+        current.date !== admittedCalendar.date ||
+        current.revision !== admittedCalendar.revision ||
+        current.timeZone !== admittedCalendar.timeZone
+      )
+        throw new DomainError("家庭日期或时区已变化，请重新确认后再操作");
+    };
     const execute = async () => {
       if (admittedGeneration !== dataGeneration)
         throw new DomainError("家庭数据刚刚恢复，请重新核对后操作");
@@ -405,7 +437,9 @@ export function createApp(path: string, override?: AIProvider) {
           throw new DomainError("相同请求 ID 不能用于不同内容");
         return cached.result;
       }
+      assertCalendar();
       const commit = await work();
+      assertCalendar();
       if (admittedGeneration !== dataGeneration)
         throw new DomainError("家庭数据刚刚恢复，请重新核对后操作");
       return repo.transaction(() => {
@@ -469,30 +503,49 @@ export function createApp(path: string, override?: AIProvider) {
       ? { instanceId: process.env.HOMESTASH_INSTANCE_ID }
       : {}),
   }));
-  app.get("/api/state", async () => ({
-    dataEpoch: repo.read("backup-data-epoch", "initial"),
-    items: repo.list(),
-    locations: repo.locations(),
-    events: repo.events().slice(-50).reverse(),
-    todayFirst: repo
-      .list()
-      .filter((i) => i.category === "food" && i.quantity > 0)
-      .map((i) => ({ ...i, freshness: freshness(i) }))
-      .filter((i) => i.freshness !== "fresh")
-      .sort(
-        (a, b) =>
-          ["expired", "urgent", "eat_soon"].indexOf(a.freshness) -
-          ["expired", "urgent", "eat_soon"].indexOf(b.freshness),
-      ),
-    recipes: currentRecipes(),
-    shopping: assistant.shopping.list(),
-    cooking: cooking(),
-    device: device(),
-    physicalDevice: repo.read("physical-device", null),
-    physicalDevices: devices.list(),
-    settings: { ...settings(), keyConfigured: !!process.env.AI_API_KEY },
-    household: { id: "local", name: "我的家" },
-  }));
+  app.get("/api/state", async () => {
+    const day = calendar();
+    return {
+      calendar: day,
+      dataEpoch: repo.read("backup-data-epoch", "initial"),
+      items: repo.list(),
+      locations: repo.locations(),
+      events: repo.events().slice(-50).reverse(),
+      todayFirst: repo
+        .list()
+        .filter((i) => i.category === "food" && i.quantity > 0)
+        .map((i) => ({ ...i, freshness: freshness(i, day.date) }))
+        .filter((i) => ["urgent", "eat_soon"].includes(i.freshness))
+        .sort(
+          (a, b) =>
+            ["expired", "urgent", "eat_soon"].indexOf(a.freshness) -
+            ["expired", "urgent", "eat_soon"].indexOf(b.freshness),
+        ),
+      recipes: currentRecipes(day.date),
+      shopping: assistant.shopping.list(),
+      cooking: cooking(),
+      device: device(),
+      physicalDevice: repo.read("physical-device", null),
+      physicalDevices: devices.list(),
+      settings: { ...settings(), keyConfigured: !!process.env.AI_API_KEY },
+      household: { id: "local", name: "我的家" },
+    };
+  });
+  app.post("/api/calendar", async (req) => {
+    const body = z
+      .object({
+        requestId: z.uuid(),
+        timeZone: TimeZone,
+        expectedRevision: z.number().int().positive(),
+      })
+      .strict()
+      .parse(req.body);
+    return once(
+      `calendar:${body.requestId}`,
+      { timeZone: body.timeZone, expectedRevision: body.expectedRevision },
+      async () => () => changeCalendar(body.timeZone, body.expectedRevision),
+    );
+  });
   app.post("/api/locations", async (req) => {
     const { requestId, ...raw } = z
       .object({ requestId: z.uuid() })
@@ -761,9 +814,16 @@ export function createApp(path: string, override?: AIProvider) {
   const imageIntake = registerImageIntake(app, repo, inventory, once, ai);
   registerBarcodeIntake(app, repo, inventory, once);
   registerIntakeCenter(app, repo);
-  registerBackups(app, repo, path, once, () => {
-    dataGeneration++;
-  });
+  registerBackups(
+    app,
+    repo,
+    path,
+    once,
+    () => {
+      dataGeneration++;
+    },
+    () => calendar().date,
+  );
   app.addHook("onClose", async () => repo.close());
   return {
     app,
@@ -774,7 +834,9 @@ export function createApp(path: string, override?: AIProvider) {
     imageIntake,
     devices,
     firmware,
-    deviceScreen: (page: DevicePage) =>
-      deviceScreen(repo, currentRecipes(), page),
+    deviceScreen: (page: DevicePage) => {
+      const day = calendar().date;
+      return deviceScreen(repo, currentRecipes(day), page, day);
+    },
   };
 }

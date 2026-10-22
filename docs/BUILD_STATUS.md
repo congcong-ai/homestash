@@ -1,6 +1,6 @@
 # HomeStash 整体功能进度
 
-更新：2026-10-22。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
+更新：2026-10-23。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
 
 当前优先把产品主流程做齐。先实现每条主流程的可用版本，再集中做长期稳定性、功耗和样式优化；不会以更多细节优化代替缺失功能。
 
@@ -134,3 +134,11 @@ AI 菜谱和问答的真实百炼探针：`pnpm exec tsx scripts/hardware/probe-
 新增4组测试，全量61项、lint、typecheck及build均通过；独立Mock临时库完成390/320像素的位置→入库→自定义→关闭→恢复默认→刷新保留，原74项手机基线也通过。详见[功能与边界](HOUSEHOLD_LOCATIONS_AND_DATES.md)及[证据](product-evidence/household-rules-20261022.json)。真实手机及真实外部模型本轮未测。
 
 下一步可推进家庭时区与日期日界线统一，目前仍沿用UTC日界线；位置删除/归档、多人账号及按商品推断保质期未实现。开发板继续无需联网。
+
+## 家庭时区与日界线统一 · 2026-10-23
+
+设置页支持常用时区和其他IANA名称，保留旧数据默认UTC；统一库存临期、首页、食谱、烹饪、语音、Web默认日期及设备投影。切换只重新计算家庭今天，不改库存日期。异步请求跨午夜或时区版本变化拒绝提交，已完成请求跨日重放不重复入库；备份包含配置，旧备份缺配置恢复UTC。
+
+新增9组测试，全量70项、lint、typecheck和生产build通过；Chrome手机模拟专项8项与原74项手机基线通过。详见[功能说明](HOUSEHOLD_CALENDAR.md)。未改日常数据、历史migration、SmartBadge或固件；真实手机与外部模型本轮未测。
+
+下一步建议优先补齐订单截图的专用候选字段和人工核对流程，复用图片识别、待确认中心及批次入库，继续完善产品主流程。位置归档、多人账号、新板适配、手机BLE、长期弱网和功耗暂缓。开发板无需联网。

@@ -1,4 +1,5 @@
 "use client";
+import { HouseholdCalendar } from "../../components/household-calendar";
 import { HouseholdLocations } from "../../components/household-locations";
 import { OpenedReminderFields } from "../../components/opened-reminder-fields";
 import { InventoryPanel } from "../../components/inventory-panel";
@@ -21,7 +22,6 @@ import {
   categories,
   categoryNames,
   freshness,
-  today,
   type InventoryItem,
   type InventoryEvent,
   type Location,
@@ -47,6 +47,7 @@ type Settings = {
   keyConfigured?: boolean;
 };
 type State = {
+  calendar: { date: string; timeZone: string; revision: number };
   dataEpoch: string;
   items: InventoryItem[];
   shopping: ShoppingItem[];
@@ -219,7 +220,7 @@ export default function Page() {
       quantity: Number(f.get("quantity")),
       unit: String(f.get("unit")),
       locationId: String(f.get("locationId")),
-      purchasedAt: String(f.get("purchasedAt")) || today(),
+      purchasedAt: String(f.get("purchasedAt")) || state!.calendar.date,
       ...(editing ? { openedAt: String(f.get("openedAt")) || null } : {}),
       openedReminderDays:
         f.get("openedReminderMode") === "off"
@@ -261,7 +262,7 @@ export default function Page() {
   const active = state.items.filter((i) => i.quantity > 0);
   const allRecipes = state.recipes.some((r) => r.origin === "ai")
     ? state.recipes
-    : recommend(state.items, people);
+    : recommend(state.items, people, state.calendar.date);
   const status = state.device;
   const cooking = state.cooking;
   const cookingActive =
@@ -409,8 +410,8 @@ export default function Page() {
       <div className="grow">
         <div className="row">
           <h3>{item.name}</h3>
-          <span className={`pill ${freshness(item)}`}>
-            {freshnessNames[freshness(item)]}
+          <span className={`pill ${freshness(item, state.calendar.date)}`}>
+            {freshnessNames[freshness(item, state.calendar.date)]}
           </span>
         </div>
         <p>
@@ -595,6 +596,7 @@ export default function Page() {
         )}
         {tab === "reviews" && (
           <IntakeCenter
+            calendar={state.calendar}
             locations={state.locations}
             onChanged={refresh}
             onViewInventory={() => setTab("inventory")}
@@ -609,6 +611,7 @@ export default function Page() {
         )}
         {tab === "photos" && (
           <ImageIntake
+            timeZone={state.calendar.timeZone}
             locations={state.locations}
             onChanged={refresh}
             onViewInventory={() => setTab("inventory")}
@@ -680,6 +683,7 @@ export default function Page() {
                 key={receiving.id}
                 entry={receiving}
                 locations={state.locations}
+                date={state.calendar.date}
                 onChanged={refresh}
                 onClose={() => setReceiving(null)}
               />
@@ -764,6 +768,7 @@ export default function Page() {
         {tab === "inventory" && (
           <InventoryPanel
             items={state.items}
+            calendar={state.calendar}
             locations={state.locations}
             onChanged={refresh}
             onAdd={() => {
@@ -851,7 +856,7 @@ export default function Page() {
                 <input
                   name="purchasedAt"
                   type="date"
-                  defaultValue={editing?.purchasedAt ?? today()}
+                  defaultValue={editing?.purchasedAt ?? state.calendar.date}
                 />
               </label>
               {editing && (
@@ -1124,6 +1129,7 @@ export default function Page() {
             <h1>FreshMate 冰箱贴</h1>
             <p className="muted">Korvo LCD 模拟屏幕 · 800 × 480 比例</p>
             <DeviceFleet
+              timeZone={state.calendar.timeZone}
               devices={state.physicalDevices ?? []}
               onChanged={refresh}
             />
@@ -1359,11 +1365,16 @@ export default function Page() {
               </p>
               <button disabled={busy}>保存设置</button>
             </form>
+            <HouseholdCalendar
+              key={state.calendar.revision}
+              calendar={state.calendar}
+              onChanged={refresh}
+            />
             <HouseholdLocations
               locations={state.locations}
               onChanged={refresh}
             />
-            <DataBackups onChanged={refresh} />
+            <DataBackups onChanged={refresh} timeZone={state.calendar.timeZone} />
           </>
         )}
         <footer>

@@ -61,12 +61,14 @@ export function ImageIntake({
   locations,
   selectedId,
   retryId,
+  timeZone = "UTC",
   onChanged,
   onViewInventory,
 }: {
   locations: Location[];
   selectedId?: string;
   retryId?: string;
+  timeZone?: string;
   onChanged: () => Promise<void>;
   onViewInventory: () => void;
 }) {
@@ -298,7 +300,7 @@ export function ImageIntake({
                 className="secondary"
                 onClick={() => open(r)}
               >
-                {new Date(r.createdAt).toLocaleString("zh-CN")} ·{" "}
+                {new Date(r.createdAt).toLocaleString("zh-CN", { timeZone })} ·{" "}
                 {r.candidates.length} 个候选
               </button>
             ))}

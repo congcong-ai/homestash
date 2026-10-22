@@ -2,6 +2,7 @@ import { recipeCatalog } from "./recipe-catalog";
 import {
   DomainError,
   freshness,
+  today,
   type InventoryService,
 } from "@homestash/domain";
 import type { SQLiteRepository } from "@homestash/database";
@@ -24,6 +25,7 @@ export function cookingService(
   repo: SQLiteRepository,
   inventory: InventoryService,
   screen: (text: string) => void,
+  date: () => string = () => today(),
 ) {
   const current = () => repo.read<CookingSession | null>("cooking", null);
   function act(
@@ -34,6 +36,7 @@ export function cookingService(
     expected?: { id: string | null; step?: number; revision?: number },
     preparedAnswer?: string,
   ) {
+    const asOf = date();
     let session = current();
     if (expected && (session?.id ?? null) !== expected.id)
       throw new DomainError("做饭任务已变化，请重新说一次指令");
@@ -55,7 +58,7 @@ export function cookingService(
         screen(cookingText(session));
         return session;
       }
-      const recipe = recipeCatalog(repo, people).find(
+      const recipe = recipeCatalog(repo, people, asOf).find(
         (r) =>
           r.id === recipeId || r.name === recipeId?.replace("西红柿", "番茄"),
       );
@@ -73,7 +76,7 @@ export function cookingService(
       session = structuredClone(session);
       if (session.status === "completed") return session;
       if (action === "finish") {
-        const plan = consumptionPlan(session.recipe, repo.list());
+        const plan = consumptionPlan(session.recipe, repo.list(), asOf);
         session.status = "awaiting_confirmation";
         session.consumption = plan;
         session.answer = plan.missing.length
@@ -97,7 +100,7 @@ export function cookingService(
             !item ||
             item.version !== line.version ||
             item.category !== "food" ||
-            freshness(item) === "expired" ||
+            freshness(item, asOf) === "expired" ||
             item.quantity < line.quantity
           )
             throw new DomainError(

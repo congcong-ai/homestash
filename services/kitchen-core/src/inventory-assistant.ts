@@ -16,6 +16,7 @@ type ShoppingIntent = Extract<Intent, { intent: "shopping" }>;
 export function inventoryAssistant(
   repo: SQLiteRepository,
   inventory: InventoryService,
+  date: () => string = () => today(),
 ) {
   const shopping = new ShoppingService(repo);
   const named = (name: string) => name.trim().replace(/西红柿/g, "番茄");
@@ -29,6 +30,7 @@ export function inventoryAssistant(
       .join("；") +
     (items.length > 6 ? `；另有${items.length - 6}批，请查看库存页。` : "。");
   function query(input: Query) {
+    const asOf = date();
     const candidates = repo
       .list()
       .filter(
@@ -38,13 +40,13 @@ export function inventoryAssistant(
           (!input.category || i.category === input.category) &&
           (!input.locationId || i.locationId === input.locationId),
       );
-    const expired = candidates.filter((i) => freshness(i) === "expired");
+    const expired = candidates.filter((i) => freshness(i, asOf) === "expired");
     const items = candidates
       .filter((i) =>
         input.filter === "expired"
-          ? freshness(i) === "expired"
+          ? freshness(i, asOf) === "expired"
           : input.filter === "expiring"
-            ? ["urgent", "eat_soon"].includes(freshness(i))
+            ? ["urgent", "eat_soon"].includes(freshness(i, asOf))
             : true,
       )
       .sort(
@@ -67,6 +69,7 @@ export function inventoryAssistant(
     return { message, items };
   }
   function act(input: ItemAction) {
+    const asOf = date();
     const matches = repo
       .list()
       .filter(
@@ -106,7 +109,7 @@ export function inventoryAssistant(
       inventory.act(
         item.id,
         input.action === "open"
-          ? { type: "open", date: input.date ?? today() }
+          ? { type: "open", date: input.date ?? asOf }
           : input.action === "move"
             ? { type: "move", locationId: input.locationId }
             : { type: input.action, quantity: input.quantity ?? "all" },
@@ -115,7 +118,7 @@ export function inventoryAssistant(
     return {
       message:
         input.action === "open"
-          ? `已记录${item.name}于${input.date ?? today()}开封。`
+          ? `已记录${item.name}于${input.date ?? asOf}开封。`
           : input.action === "move"
             ? `已将${item.name}移到${repo.locations().find((l) => l.id === input.locationId)?.name}。`
             : input.action === "discard"
@@ -125,10 +128,11 @@ export function inventoryAssistant(
     };
   }
   function shortage(recipeName?: string, people?: number, add = false) {
+    const asOf = date();
     const session = repo.read<CookingSession | null>("cooking", null);
     const count =
       people ?? session?.recipe.people ?? repo.read("recipe-people", 2);
-    const recipes = recipeCatalog(repo, count);
+    const recipes = recipeCatalog(repo, count, asOf);
     const recipe = recipeName
       ? recipes.find((r) => r.name === named(recipeName) || r.id === recipeName)
       : session?.recipe;
@@ -140,7 +144,9 @@ export function inventoryAssistant(
       .list()
       .filter(
         (i) =>
-          i.category === "food" && i.quantity > 0 && freshness(i) !== "expired",
+          i.category === "food" &&
+          i.quantity > 0 &&
+          freshness(i, asOf) !== "expired",
       );
     const missing = recipe.ingredients
       .map((i) => ({

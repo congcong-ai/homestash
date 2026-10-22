@@ -15,7 +15,13 @@ type Preview = Summary & {
   current: Summary;
 };
 type Snapshot = Summary & { id: string; createdAt: string };
-export function DataBackups({ onChanged }: { onChanged: () => Promise<void> }) {
+export function DataBackups({
+  onChanged,
+  timeZone = "UTC",
+}: {
+  onChanged: () => Promise<void>;
+  timeZone?: string;
+}) {
   const [file, setFile] = useState<unknown>(null),
     [preview, setPreview] = useState<Preview | null>(null),
     [busy, setBusy] = useState(false),
@@ -112,7 +118,8 @@ export function DataBackups({ onChanged }: { onChanged: () => Promise<void> }) {
       {preview && (
         <div className="backup-preview">
           <h3>
-            恢复预览 · {new Date(preview.createdAt).toLocaleString("zh-CN")}
+            恢复预览 ·{" "}
+            {new Date(preview.createdAt).toLocaleString("zh-CN", { timeZone })}
           </h3>
           <p>
             备份：{preview.items} 批库存、{preview.events} 条记录、
@@ -172,8 +179,8 @@ export function DataBackups({ onChanged }: { onChanged: () => Promise<void> }) {
         {snapshots.map((s) => (
           <p key={s.id}>
             <a href={`/api/backups/snapshots/${s.id}`} download>
-              {new Date(s.createdAt).toLocaleString("zh-CN")} · {s.items} 批库存
-              / {s.events} 条记录
+              {new Date(s.createdAt).toLocaleString("zh-CN", { timeZone })} ·{" "}
+              {s.items} 批库存 / {s.events} 条记录
             </a>
           </p>
         ))}

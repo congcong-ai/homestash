@@ -18,10 +18,12 @@ const statusNames = {
   failed: "需重试",
 };
 export function IntakeCenter({
+  calendar,
   locations,
   onChanged,
   onViewInventory,
 }: {
+  calendar: { date: string; timeZone: string };
   locations: Location[];
   onChanged: () => Promise<void>;
   onViewInventory: () => void;
@@ -99,6 +101,7 @@ export function IntakeCenter({
         )}
         {selected.kind === "image" && (
           <ImageIntake
+            timeZone={calendar.timeZone}
             key={selected.id}
             locations={locations}
             selectedId={selected.status === "failed" ? undefined : selected.id}
@@ -120,6 +123,7 @@ export function IntakeCenter({
         )}
         {selected.kind === "shopping" && shopping && (
           <ShoppingReceive
+            date={calendar.date}
             entry={shopping}
             locations={locations}
             onChanged={changed}
@@ -177,7 +181,9 @@ export function IntakeCenter({
           <article className="panel" key={`${entry.kind}:${entry.id}`}>
             <small>
               {kindNames[entry.kind]} · {statusNames[entry.status]} ·{" "}
-              {new Date(entry.createdAt).toLocaleString("zh-CN")}
+              {new Date(entry.createdAt).toLocaleString("zh-CN", {
+                timeZone: calendar.timeZone,
+              })}
             </small>
             <h2>{entry.title}</h2>
             <p>{entry.note}</p>

@@ -1,4 +1,4 @@
-import { freshness, type InventoryItem } from "@homestash/domain";
+import { freshness, today, type InventoryItem } from "@homestash/domain";
 export type Recipe = {
   id: string;
   origin?: "local" | "ai";
@@ -65,10 +65,16 @@ const templates = [
     ],
   },
 ];
-export function recommend(items: InventoryItem[], people = 2): Recipe[] {
+export function recommend(
+  items: InventoryItem[],
+  people = 2,
+  asOf = today(),
+): Recipe[] {
   const food = items.filter(
     (i) =>
-      i.category === "food" && i.quantity > 0 && freshness(i) !== "expired",
+      i.category === "food" &&
+      i.quantity > 0 &&
+      freshness(i, asOf) !== "expired",
   );
   return templates
     .map((t) => {
@@ -121,6 +127,7 @@ export function cookingText(s: CookingSession) {
 export function consumptionPlan(
   recipe: Recipe,
   items: InventoryItem[],
+  asOf = today(),
 ): NonNullable<CookingSession["consumption"]> {
   const lines: NonNullable<CookingSession["consumption"]>["lines"] = [];
   const missing: string[] = [];
@@ -133,7 +140,7 @@ export function consumptionPlan(
           i.name === ingredient.name &&
           i.unit === ingredient.unit &&
           i.quantity > 0 &&
-          freshness(i) !== "expired",
+          freshness(i, asOf) !== "expired",
       )
       .sort(
         (a, b) =>
@@ -174,10 +181,13 @@ export function refreshRecipe(
   recipe: Recipe,
   items: InventoryItem[],
   people = recipe.people,
+  asOf = today(),
 ): Recipe {
   const food = items.filter(
     (i) =>
-      i.category === "food" && i.quantity > 0 && freshness(i) !== "expired",
+      i.category === "food" &&
+      i.quantity > 0 &&
+      freshness(i, asOf) !== "expired",
   );
   const ingredients = recipe.ingredients.map((i) => ({
     ...i,

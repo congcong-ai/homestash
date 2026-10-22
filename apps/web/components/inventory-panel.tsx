@@ -29,12 +29,14 @@ const statuses = {
 };
 export function InventoryPanel({
   items,
+  calendar = { date: today(), timeZone: "UTC" },
   locations,
   onChanged,
   onEdit,
   onAdd,
 }: {
   items: InventoryItem[];
+  calendar?: { date: string; timeZone: string };
   locations: Location[];
   onChanged: () => Promise<void>;
   onEdit: (item: InventoryItem) => void;
@@ -49,14 +51,17 @@ export function InventoryPanel({
   const active = items.filter((i) => i.quantity > 0);
   const counts = {
     soon: active.filter((i) =>
-      ["urgent", "eat_soon"].includes(freshnessInfo(i).status),
+      ["urgent", "eat_soon"].includes(freshnessInfo(i, calendar.date).status),
     ).length,
-    expired: active.filter((i) => freshnessInfo(i).status === "expired").length,
-    undated: active.filter((i) => !freshnessInfo(i).deadline).length,
+    expired: active.filter(
+      (i) => freshnessInfo(i, calendar.date).status === "expired",
+    ).length,
+    undated: active.filter((i) => !freshnessInfo(i, calendar.date).deadline)
+      .length,
   };
   const visible = items
     .filter((i) => {
-      const info = freshnessInfo(i);
+      const info = freshnessInfo(i, calendar.date);
       return (
         (!query ||
           i.name.includes(query.trim()) ||
@@ -76,8 +81,8 @@ export function InventoryPanel({
     .sort((a, b) =>
       sort === "newest"
         ? b.createdAt.localeCompare(a.createdAt)
-        : (freshnessInfo(a).deadline ?? "9999").localeCompare(
-            freshnessInfo(b).deadline ?? "9999",
+        : (freshnessInfo(a, calendar.date).deadline ?? "9999").localeCompare(
+            freshnessInfo(b, calendar.date).deadline ?? "9999",
           ) || a.createdAt.localeCompare(b.createdAt),
     );
   return (
@@ -204,6 +209,7 @@ export function InventoryPanel({
                 "库存已保存。如批次已离开当前筛选，可切换在库或已用完列表查看。",
               );
             }}
+            calendar={calendar}
             onEdit={onEdit}
           />
         ))}
@@ -213,12 +219,14 @@ export function InventoryPanel({
 }
 function InventoryBatch({
   item,
+  calendar,
   sameName,
   locations,
   onChanged,
   onEdit,
 }: {
   item: InventoryItem;
+  calendar: { date: string; timeZone: string };
   sameName: number;
   locations: Location[];
   onChanged: () => Promise<void>;
@@ -236,7 +244,7 @@ function InventoryBatch({
   const [useAll, setUseAll] = useState(false);
   const pending = useRef(new Map<string, string>());
   const batch = item.id.slice(0, 8),
-    info = freshnessInfo(item);
+    info = freshnessInfo(item, calendar.date);
   const loc = (id: string) => locations.find((l) => l.id === id)?.name ?? id;
   const snapshot = (value: InventoryItem | null) =>
     value
@@ -314,7 +322,9 @@ function InventoryBatch({
       </div>
       <p>
         {loc(item.locationId)} · 购买 {item.purchasedAt ?? "未记录"} · 入库{" "}
-        {new Date(item.createdAt).toLocaleString("zh-CN")}
+        {new Date(item.createdAt).toLocaleString("zh-CN", {
+          timeZone: calendar.timeZone,
+        })}
       </p>
       <p>
         {info.deadline
@@ -444,7 +454,7 @@ function InventoryBatch({
                 <input
                   name="date"
                   type="date"
-                  defaultValue={today()}
+                  defaultValue={calendar.date}
                   required
                 />
               </label>
@@ -516,7 +526,9 @@ function InventoryBatch({
           {events.map((event) => (
             <div key={event.id} className="batch-event">
               <strong>{names[event.type] ?? event.type}</strong> ·{" "}
-              {new Date(event.at).toLocaleString("zh-CN")}
+              {new Date(event.at).toLocaleString("zh-CN", {
+                timeZone: calendar.timeZone,
+              })}
               <p>之前：{snapshot(event.before)}</p>
               <p>之后：{snapshot(event.after)}</p>
               {event.correction && (

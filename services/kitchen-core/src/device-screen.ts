@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { freshness } from "@homestash/domain";
+import { freshness, today } from "@homestash/domain";
 import type { SQLiteRepository } from "@homestash/database";
 import {
   cookingText,
@@ -23,6 +23,7 @@ export function deviceScreen(
   repo: SQLiteRepository,
   recipes: Recipe[],
   page: DevicePage,
+  asOf = today(),
 ) {
   const items = repo.list().filter((i) => i.quantity > 0);
   const locations = repo.locations();
@@ -30,10 +31,11 @@ export function deviceScreen(
     `${short(i.name, 12)} ${i.quantity}${short(i.unit, 4)}`;
   const soon = items.filter(
     (i) =>
-      i.category === "food" && ["urgent", "eat_soon"].includes(freshness(i)),
+      i.category === "food" &&
+      ["urgent", "eat_soon"].includes(freshness(i, asOf)),
   );
   const expired = items.filter(
-    (i) => i.category === "food" && freshness(i) === "expired",
+    (i) => i.category === "food" && freshness(i, asOf) === "expired",
   );
   let lines: string[];
   switch (page) {

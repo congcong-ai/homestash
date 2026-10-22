@@ -12,11 +12,13 @@ import {
 export function ShoppingReceive({
   entry,
   locations,
+  date = today(),
   onChanged,
   onClose,
 }: {
   entry: ShoppingItem;
   locations: Location[];
+  date?: string;
   onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -115,12 +117,7 @@ export function ShoppingReceive({
         </label>
         <label>
           购买日期
-          <input
-            name="purchasedAt"
-            type="date"
-            defaultValue={today()}
-            required
-          />
+          <input name="purchasedAt" type="date" defaultValue={date} required />
         </label>
         <label>
           建议食用日期

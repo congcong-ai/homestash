@@ -1,3 +1,4 @@
+import { CalendarPreferences } from "@homestash/domain";
 import { createHash } from "node:crypto";
 import {
   mkdirSync,
@@ -214,6 +215,7 @@ const scoped = (id: string) =>
     "cooking",
     "recipe-catalog",
     "recipe-people",
+    "household-calendar",
     "image-intake-index",
     "barcode-intake-index",
     "intake-failures",
@@ -319,7 +321,8 @@ export function validateBackup(raw: unknown) {
   const records = new Map(p.state.map((r) => [r.id, r.data]));
   for (const r of p.state) {
     if (!scoped(r.id)) throw new DomainError("备份包含不允许恢复的系统配置");
-    if (r.id === "backup-blocked-requests")
+    if (r.id === "household-calendar") CalendarPreferences.parse(r.data);
+    else if (r.id === "backup-blocked-requests")
       z.array(z.string().startsWith("request:")).parse(r.data);
     else if (r.id === "shopping") {
       const items = z.array(Shopping).parse(r.data);
@@ -399,6 +402,7 @@ export function registerBackups(
   path: string,
   once: Once,
   restored: () => void,
+  date: () => string = () => new Date().toISOString().slice(0, 10),
 ) {
   const directory = resolve(
     process.env.BACKUP_DIRECTORY ?? join(dirname(path), "backups"),
@@ -452,7 +456,7 @@ export function registerBackups(
       .header("Cache-Control", "no-store")
       .header(
         "Content-Disposition",
-        `attachment; filename="homestash-${new Date().toISOString().slice(0, 10)}.json"`,
+        `attachment; filename="homestash-${date()}.json"`,
       )
       .send(exportFile()),
   );

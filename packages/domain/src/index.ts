@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { calendarDate, addCalendarDays } from "./calendar";
+export {
+  TimeZone,
+  CalendarPreferences,
+  calendarDate,
+  addCalendarDays,
+  type HouseholdCalendar,
+} from "./calendar";
 import { categories } from "./categories";
 export { Barcode, barcodeKey, ProductCandidate } from "./products";
 export type { ProductLookupProvider, BarcodeReview } from "./products";
@@ -86,7 +94,8 @@ export interface Repository {
   locations(): Location[];
   transaction<T>(fn: () => T): T;
 }
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = (timeZone = "UTC", instant = new Date()) =>
+  calendarDate(timeZone, instant);
 export function freshnessInfo(item: ItemInput, now = today()) {
   const dates: { date: string; basis: string; estimated: boolean }[] = [];
   if (item.expiresAt)
@@ -111,9 +120,7 @@ export function freshnessInfo(item: ItemInput, now = today()) {
           : null;
   if (openingDays !== null && item.openedAt)
     dates.push({
-      date: new Date(Date.parse(item.openedAt) + openingDays * 86400000)
-        .toISOString()
-        .slice(0, 10),
+      date: addCalendarDays(item.openedAt, openingDays),
       basis: `开封后${openingDays}天提醒（${typeof item.openedReminderDays === "number" ? "自定义规则" : "默认规则"}）`,
       estimated: true,
     });
