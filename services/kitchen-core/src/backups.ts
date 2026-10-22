@@ -22,6 +22,9 @@ import {
   ImageIntakeKind,
   OrderDetails,
   OrderRecognition,
+  OrderFulfillment,
+  orderAmount,
+  orderFulfillmentComplete,
   ProductCandidate,
   Barcode,
 } from "@homestash/domain";
@@ -122,6 +125,7 @@ const Image = z
     imageHash: z.string().regex(/^[a-f0-9]{64}$/),
     kind: ImageIntakeKind.optional(),
     order: OrderDetails.optional(),
+    fulfillment: OrderFulfillment.optional(),
     notes: z.string(),
     candidates: z.array(
       ImageRecognition.shape.candidates.element.extend({ id: z.uuid() }),
@@ -369,6 +373,58 @@ export function validateBackup(raw: unknown) {
           OrderRecognition.shape.candidates.element.shape.orderLine.parse(
             candidate.orderLine,
           );
+      }
+      if (review.fulfillment) {
+        if (review.kind !== "order")
+          throw new DomainError("分批收货记录必须属于订单");
+        const progress = review.fulfillment;
+        if (review.status === "cancelled" && review.confirmedItems?.length)
+          throw new DomainError("已收货订单不能作为可重新识别的取消记录恢复");
+        unique(progress.lines.map((l) => l.candidateId));
+        unique((review.confirmedItems ?? []).map((i) => i.id));
+        if (
+          progress.lines.length !== review.candidates.length ||
+          progress.lines.some(
+            (l) => !review.candidates.some((c) => c.id === l.candidateId),
+          )
+        )
+          throw new DomainError("订单收货候选引用不完整");
+        for (const line of progress.lines) {
+          const items = (review.confirmedItems ?? []).filter(
+            (i) =>
+              (i.metadata.imageIntake as { candidateId?: string })
+                ?.candidateId === line.candidateId,
+          );
+          const total = orderAmount(
+            items.reduce((sum, item) => sum + item.quantity, 0),
+          );
+          if (
+            total !== line.receivedQuantity ||
+            (line.receivedQuantity > 0 &&
+              (line.expectedQuantity === null || line.unit === null)) ||
+            (line.expectedQuantity !== null &&
+              line.receivedQuantity > line.expectedQuantity) ||
+            items.some((i) => i.source !== "order" || i.unit !== line.unit)
+          )
+            throw new DomainError("订单累计收货与批次记录不一致");
+        }
+        if (
+          (review.confirmedItems ?? []).some(
+            (i) =>
+              !progress.lines.some(
+                (l) =>
+                  l.candidateId ===
+                  (i.metadata.imageIntake as { candidateId?: string })
+                    ?.candidateId,
+              ),
+          )
+        )
+          throw new DomainError("订单批次关联无效");
+        if (
+          (review.status === "pending") ===
+          orderFulfillmentComplete(progress)
+        )
+          throw new DomainError("订单状态与剩余收货不一致");
       }
       if (
         !z

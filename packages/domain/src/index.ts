@@ -342,3 +342,13 @@ export class LocationService {
     });
   }
 }
+
+export {
+  OrderFulfillment,
+  OrderQuantity,
+  orderFulfillment,
+  orderAmount,
+  orderLineBlocked,
+  remainingOrderQuantity,
+  orderFulfillmentComplete,
+} from "./order-fulfillment";

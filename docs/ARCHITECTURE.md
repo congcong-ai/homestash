@@ -132,4 +132,4 @@ LocationService属于HomeStash Domain，校验唯一名称、当前名称冲突�
 
 ## 订单截图录入
 
-图片候选扩展可选kind/order/orderLine，保持旧照片与备份兼容。Provider按订单Schema提取规格、购买日期和状态；所有候选仍交由用户核对，Core强制实收确认并拒绝退款/取消行。入库共用InventoryService、事件与事务，来源为order。订单模式按图片哈希复用未取消的候选及确认结果，未使用订单号或个人信息对账；分批收货仍为单次确认边界。详见[订单截图入库](ORDER_SCREENSHOT_INTAKE.md)。
+图片候选扩展可选kind/order/orderLine，保持旧照片与备份兼容。Provider按订单Schema提取规格、购买日期和状态；所有候选仍交由用户核对，Core强制实收确认并拒绝退款/取消行。入库共用InventoryService、事件与事务，来源为order。订单模式按图片哈希复用未取消的候选及确认结果，未使用订单号或个人信息对账；分批收货使用可选fulfillment行进度与版本号，每次实收独立成批，进度和事件在同一事务提交；库存消耗不反向修改累计收货。结束剩余收货保留已入库批次，备份校验进度与原始批次快照。详见[订单截图入库](ORDER_SCREENSHOT_INTAKE.md)。

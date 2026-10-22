@@ -8,6 +8,13 @@ import {
   ImageRecognition,
   ImageIntakeKind,
   OrderRecognition,
+  OrderQuantity,
+  OrderFulfillment,
+  orderFulfillment,
+  orderAmount,
+  orderLineBlocked,
+  remainingOrderQuantity,
+  orderFulfillmentComplete,
   type ImageReview,
   type InventoryService,
 } from "@homestash/domain";
@@ -176,11 +183,13 @@ export function registerImageIntake(
       .object({
         requestId: z.uuid(),
         received: z.boolean().optional(),
+        expectedRevision: z.number().int().positive().optional(),
         items: z
           .array(
             z
               .object({
                 candidateId: z.uuid(),
+                totalQuantity: OrderQuantity.positive().optional(),
                 item: ItemInput.refine(
                   (i) => i.quantity > 0,
                   "入库数量必须大于0",
@@ -205,9 +214,19 @@ export function registerImageIntake(
         id,
         selection,
         ...(b.received !== undefined ? { received: b.received } : {}),
+        ...(b.expectedRevision !== undefined
+          ? { expectedRevision: b.expectedRevision }
+          : {}),
       },
       async () => () => {
         const review = get(id);
+        const partial =
+          review.kind === "order" && b.expectedRevision !== undefined;
+        if (review.fulfillment && !partial)
+          throw new DomainError("此订单已启用分批收货，请刷新后核对收货进度");
+        const progress = partial ? orderFulfillment(review) : undefined;
+        if (progress && progress.revision !== b.expectedRevision)
+          throw new DomainError("订单收货进度已变化，请刷新并重新核对剩余数量");
         if (review.status === "confirmed") {
           if (review.confirmationSignature !== signature)
             throw new DomainError(
@@ -221,23 +240,43 @@ export function registerImageIntake(
           throw new DomainError("请确认已实际收到所选商品，再核对数量入库");
         if (
           review.kind === "order" &&
-          selection.some((line) => {
-            const candidate = review.candidates.find(
-              (c) => c.id === line.candidateId,
-            );
-            const status = candidate?.orderLine?.status;
-            return (
-              status === "cancelled" ||
-              status === "refunded" ||
-              review.order?.status === "cancelled" ||
-              review.order?.status === "refunded"
-            );
-          })
+          selection.some((line) => orderLineBlocked(review, line.candidateId))
         )
           throw new DomainError("已取消或退款的订单商品不能入库，请取消勾选");
         for (const line of selection)
           if (!review.candidates.some((c) => c.id === line.candidateId))
             throw new DomainError("选中了不属于这张图片的候选，库存未改变");
+        if (progress) {
+          for (const line of selection) {
+            const entry = progress.lines.find(
+              (l) => l.candidateId === line.candidateId,
+            )!;
+            if (entry.closed || remainingOrderQuantity(entry) === 0)
+              throw new DomainError("所选商品已经收齐或结束收货，请刷新");
+            OrderQuantity.positive().parse(line.item.quantity);
+            const total = line.totalQuantity ?? entry.expectedQuantity;
+            if (total === null)
+              throw new DomainError("请先核对订单总量，再确认本次实收");
+            if (entry.receivedQuantity > 0 && entry.unit !== line.item.unit)
+              throw new DomainError(
+                "已收货商品不能更换计数单位，请保持原单位核对",
+              );
+            if (
+              total < entry.receivedQuantity ||
+              orderAmount(entry.receivedQuantity + line.item.quantity) > total
+            )
+              throw new DomainError(
+                "本次实收超过订单剩余数量，请核对订单总量和已收数量",
+              );
+            entry.expectedQuantity = total;
+            entry.unit = line.item.unit;
+            entry.receivedQuantity = orderAmount(
+              entry.receivedQuantity + line.item.quantity,
+            );
+          }
+          progress.revision++;
+          OrderFulfillment.parse(progress);
+        }
         const items = selection.map((line) => {
           const candidate = review.candidates.find(
             (c) => c.id === line.candidateId,
@@ -258,6 +297,9 @@ export function registerImageIntake(
                       order: review.order,
                       orderLine: candidate.orderLine,
                       receivedConfirmed: true,
+                      ...(progress
+                        ? { receiptRevision: progress.revision }
+                        : {}),
                     }
                   : {}),
               },
@@ -266,12 +308,48 @@ export function registerImageIntake(
         });
         const confirmed: ImageReview = {
           ...review,
-          status: "confirmed",
+          status:
+            progress && !orderFulfillmentComplete(progress)
+              ? "pending"
+              : "confirmed",
           confirmationSignature: signature,
-          confirmedItems: items,
+          confirmedItems: [...(review.confirmedItems ?? []), ...items],
+          ...(progress ? { fulfillment: progress } : {}),
         };
         repo.write(key(id), confirmed);
         return confirmed;
+      },
+    );
+  });
+  app.post("/api/intake/images/:id/finish-order", async (req) => {
+    const id = idFrom(req.params);
+    const body = z
+      .object({
+        requestId: z.uuid(),
+        expectedRevision: z.number().int().positive(),
+        confirmation: z.literal("结束剩余收货"),
+      })
+      .strict()
+      .parse(req.body);
+    return once(
+      `order-finish:${body.requestId}`,
+      { id, expectedRevision: body.expectedRevision },
+      async () => () => {
+        const review = get(id);
+        if (review.kind !== "order" || review.status !== "pending")
+          throw new DomainError("这次订单已经结束，请刷新");
+        const progress = orderFulfillment(review);
+        if (progress.revision !== body.expectedRevision)
+          throw new DomainError("订单收货进度已变化，请刷新并重新核对");
+        progress.revision++;
+        for (const line of progress.lines) line.closed = true;
+        const finished: ImageReview = {
+          ...review,
+          fulfillment: progress,
+          status: review.confirmedItems?.length ? "confirmed" : "cancelled",
+        };
+        repo.write(key(id), finished);
+        return finished;
       },
     );
   });
@@ -279,6 +357,10 @@ export function registerImageIntake(
     const id = idFrom(req.params);
     return repo.transaction(() => {
       const review = get(id);
+      if (review.fulfillment)
+        throw new DomainError(
+          "分批收货订单请使用结束剩余收货，已入库批次会保留",
+        );
       if (review.status === "confirmed")
         throw new DomainError("已经入库的图片不能取消，请到库存中管理物品");
       const cancelled: ImageReview = { ...review, status: "cancelled" };

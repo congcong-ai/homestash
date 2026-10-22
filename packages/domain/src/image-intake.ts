@@ -64,6 +64,7 @@ export type ImageReview = {
   imageHash: string;
   kind?: ImageIntakeKind;
   order?: z.infer<typeof OrderDetails>;
+  fulfillment?: import("./order-fulfillment").OrderFulfillment;
   notes: string;
   candidates: (ImageRecognition["candidates"][number] & { id: string })[];
   confirmationSignature?: string;

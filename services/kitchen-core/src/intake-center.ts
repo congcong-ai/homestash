@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { orderFulfillment, remainingOrderQuantity } from "@homestash/domain";
 import type { FastifyInstance } from "fastify";
 import type { SQLiteRepository } from "@homestash/database";
 import type {
@@ -80,7 +81,9 @@ export function registerIntakeCenter(
                 .join("、") || "已确认入库"
             : r.status === "cancelled"
               ? "已取消，库存未改变"
-              : r.notes || `${r.candidates.length} 个候选，核对后入库`,
+              : r.fulfillment
+                ? `已入库 ${r.confirmedItems?.length ?? 0} 批，剩余 ${orderFulfillment(r).lines.filter((l) => !l.closed && remainingOrderQuantity(l) !== 0).length} 项待收货`
+                : r.notes || `${r.candidates.length} 个候选，核对后入库`,
       })),
       ...barcodes.map((r) => ({
         id: r.id,

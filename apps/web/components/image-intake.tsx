@@ -4,6 +4,9 @@ import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
+  orderFulfillment,
+  remainingOrderQuantity,
+  orderLineBlocked,
   type ImageReview,
   type ImageIntakeKind,
   type ItemInput,
@@ -15,6 +18,7 @@ type Editable = {
   name: string;
   category: ItemInput["category"];
   quantity: string;
+  totalQuantity: string;
   unit: string;
   locationId: string;
   bestBeforeAt: string;
@@ -85,6 +89,8 @@ export function ImageIntake({
 }) {
   const [kind, setKind] = useState<ImageIntakeKind>(initialKind);
   const [received, setReceived] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const finishRequest = useRef<{ signature: string; id: string } | null>(null);
   const [dataUrl, setDataUrl] = useState("");
   const [review, setReview] = useState<ImageReview | null>(null);
   const [history, setHistory] = useState<ImageReview[]>([]);
@@ -103,32 +109,60 @@ export function ImageIntake({
     setReview(result);
     setKind(result.kind ?? "photo");
     setReceived(false);
+    setClosing(false);
     confirmation.current = null;
     setRows(
-      result.candidates.map((candidate) => ({
-        candidateId: candidate.id,
-        selected:
-          result.kind !== "order" &&
-          candidate.confidence === "high" &&
-          candidate.quantity !== null &&
-          candidate.unit !== null,
-        name: candidate.name,
-        category: candidate.category,
-        quantity: candidate.quantity === null ? "" : String(candidate.quantity),
-        unit: candidate.unit ?? "",
-        locationId:
-          candidate.category === "medicine" ||
-          candidate.category === "supplement"
-            ? "medicine"
-            : candidate.category === "cosmetic"
-              ? "bathroom"
-              : candidate.category === "food"
-                ? "fridge"
-                : "other",
-        bestBeforeAt: candidate.bestBeforeAt ?? "",
-        expiresAt: candidate.expiresAt ?? "",
-        purchasedAt: result.order?.purchasedAt ?? "",
-      })),
+      result.candidates.map((candidate) => {
+        const progress =
+          result.kind === "order"
+            ? orderFulfillment(result).lines.find(
+                (l) => l.candidateId === candidate.id,
+              )
+            : undefined;
+        const remaining = progress ? remainingOrderQuantity(progress) : null;
+        const last = result.confirmedItems?.findLast(
+          (i) =>
+            (i.metadata.imageIntake as { candidateId?: string })
+              ?.candidateId === candidate.id,
+        );
+        return {
+          candidateId: candidate.id,
+          selected:
+            result.kind !== "order" &&
+            candidate.confidence === "high" &&
+            candidate.quantity !== null &&
+            candidate.unit !== null,
+          name: last?.name ?? candidate.name,
+          category: last?.category ?? candidate.category,
+          quantity:
+            result.kind === "order"
+              ? remaining === null
+                ? ""
+                : String(remaining)
+              : candidate.quantity === null
+                ? ""
+                : String(candidate.quantity),
+          totalQuantity:
+            progress?.expectedQuantity === null ||
+            progress?.expectedQuantity === undefined
+              ? ""
+              : String(progress.expectedQuantity),
+          unit: progress?.unit ?? candidate.unit ?? "",
+          locationId:
+            last?.locationId ??
+            (candidate.category === "medicine" ||
+            candidate.category === "supplement"
+              ? "medicine"
+              : candidate.category === "cosmetic"
+                ? "bathroom"
+                : candidate.category === "food"
+                  ? "fridge"
+                  : "other"),
+          bestBeforeAt: candidate.bestBeforeAt ?? "",
+          expiresAt: candidate.expiresAt ?? "",
+          purchasedAt: last?.purchasedAt ?? result.order?.purchasedAt ?? "",
+        };
+      }),
     );
   }
   useEffect(() => {
@@ -200,6 +234,9 @@ export function ImageIntake({
         .filter((row) => row.selected)
         .map((row) => ({
           candidateId: row.candidateId,
+          ...(review.kind === "order"
+            ? { totalQuantity: Number(row.totalQuantity) }
+            : {}),
           item: {
             name: row.name,
             category: row.category,
@@ -210,13 +247,18 @@ export function ImageIntake({
             expiresAt: row.expiresAt || null,
             source: review.kind === "order" ? "order" : "camera",
             ...(review.kind === "order"
-              ? { purchasedAt: row.purchasedAt || null }
+              ? row.purchasedAt
+                ? { purchasedAt: row.purchasedAt }
+                : {}
               : {}),
             metadata: {},
           },
         }));
       if (!items.length) throw Error("请至少选择一个需要入库的候选。");
-      const orderConfirmation = review.kind === "order" ? { received } : {};
+      const orderConfirmation =
+        review.kind === "order"
+          ? { received, expectedRevision: orderFulfillment(review).revision }
+          : {};
       const signature = JSON.stringify({ items, ...orderConfirmation });
       if (confirmation.current?.signature !== signature)
         confirmation.current = { signature, id: createRequestId() };
@@ -224,11 +266,53 @@ export function ImageIntake({
         `/intake/images/${review.id}/confirm`,
         { requestId: confirmation.current.id, items, ...orderConfirmation },
       );
-      setReview(result);
-      setHistory((old) => old.map((r) => (r.id === result.id ? result : r)));
+      const latest =
+        review.kind === "order"
+          ? await api<ImageReview>(`/intake/images/${result.id}`)
+          : result;
+      open(latest);
+      setHistory((old) => old.map((r) => (r.id === latest.id ? latest : r)));
       await onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : "确认失败，已保留候选供重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function refreshOrder() {
+    if (!review) return;
+    setBusy(true);
+    setError("");
+    try {
+      open(await api<ImageReview>(`/intake/images/${review.id}`));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "刷新失败，请重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function finishOrder() {
+    if (!review) return;
+    const body = {
+      expectedRevision: orderFulfillment(review).revision,
+      confirmation: "结束剩余收货",
+    };
+    const signature = JSON.stringify({ id: review.id, ...body });
+    if (finishRequest.current?.signature !== signature)
+      finishRequest.current = { signature, id: createRequestId() };
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<ImageReview>(
+        `/intake/images/${review.id}/finish-order`,
+        { ...body, requestId: finishRequest.current.id },
+      );
+      open(result);
+      setHistory((old) => old.map((r) => (r.id === result.id ? result : r)));
+      finishRequest.current = null;
+      await onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "结束收货失败，请重试");
     } finally {
       setBusy(false);
     }
@@ -291,6 +375,8 @@ export function ImageIntake({
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              // 清空原生文件选择值，允许再次选择同一个文件触发读取。
+              e.currentTarget.value = "";
               setBusy(true);
               setError("");
               setDataUrl("");
@@ -389,8 +475,20 @@ export function ImageIntake({
               </p>
               <p>
                 逐项勾选已收到的商品。规格仅供核对；例如一箱12盒 ×
-                2箱，应填2箱，不会自动拆成24盒。确认后本次截图完成；分批收货的其余商品，请收到后手动添加或上传新的截图。
+                2箱，应填2箱，不会自动拆成24盒。可以分批填写本次实收；剩余商品会继续留在待确认中。订单总量可人工校正，已有收货后单位保持不变。
               </p>
+              <p role="status">
+                已入库 {review.confirmedItems?.length ?? 0}{" "}
+                批；请核对剩余商品后继续。
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => void refreshOrder()}
+              >
+                刷新收货进度
+              </button>
               <label className="row">
                 <input
                   type="checkbox"
@@ -416,14 +514,20 @@ export function ImageIntake({
             const candidate = review.candidates.find(
               (c) => c.id === row.candidateId,
             )!;
+            const progress =
+              review.kind === "order"
+                ? orderFulfillment(review).lines.find(
+                    (l) => l.candidateId === row.candidateId,
+                  )
+                : undefined;
+            const remaining = progress
+              ? remainingOrderQuantity(progress)
+              : null;
             const blocked =
               review.kind === "order" &&
-              (["cancelled", "refunded"].includes(
-                candidate.orderLine?.status ?? "unknown",
-              ) ||
-                ["cancelled", "refunded"].includes(
-                  review.order?.status ?? "unknown",
-                ));
+              (orderLineBlocked(review, row.candidateId) ||
+                progress?.closed === true ||
+                remaining === 0);
             return (
               <article className="panel intake-candidate" key={row.candidateId}>
                 <label className="row">
@@ -452,7 +556,15 @@ export function ImageIntake({
                   <p className="notice">
                     规格：{candidate.orderLine?.specification ?? "未识别"} ·{" "}
                     {orderStatusNames[candidate.orderLine?.status ?? "unknown"]}
-                    {blocked ? " · 不可入库" : ""}
+                    {blocked ? " · 不再待收货" : ""}
+                  </p>
+                )}
+                {progress && (
+                  <p>
+                    累计已收 {progress.receivedQuantity}
+                    {progress.unit ?? ""} · 剩余 {remaining ?? "待核对总量"}
+                    {remaining === null ? "" : (progress.unit ?? "")}
+                    {progress.closed ? " · 已结束" : ""}
                   </p>
                 )}
                 <div className="intake-fields">
@@ -488,14 +600,35 @@ export function ImageIntake({
                       ))}
                     </select>
                   </label>
+                  {review.kind === "order" && (
+                    <label>
+                      订单总量
+                      <input
+                        aria-label={`候选${index + 1}订单总量`}
+                        type="number"
+                        min="0.000001"
+                        max="1000000"
+                        step="0.000001"
+                        value={row.totalQuantity}
+                        placeholder="请核对"
+                        disabled={busy || !row.selected}
+                        required
+                        onChange={(e) =>
+                          patch(row.candidateId, {
+                            totalQuantity: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  )}
                   <label>
-                    数量
+                    {review.kind === "order" ? "本次实收数量" : "数量"}
                     <input
                       aria-label={`候选${index + 1}数量`}
                       type="number"
-                      min="0.001"
+                      min="0.000001"
                       max="1000000"
-                      step="any"
+                      step={review.kind === "order" ? "0.000001" : "any"}
                       value={row.quantity}
                       placeholder="请确认"
                       disabled={busy || !row.selected}
@@ -512,7 +645,11 @@ export function ImageIntake({
                       value={row.unit}
                       placeholder="请确认"
                       maxLength={20}
-                      disabled={busy || !row.selected}
+                      disabled={
+                        busy ||
+                        !row.selected ||
+                        (progress?.receivedQuantity ?? 0) > 0
+                      }
                       required
                       onChange={(e) =>
                         patch(row.candidateId, { unit: e.target.value })
@@ -595,11 +732,37 @@ export function ImageIntake({
               type="button"
               className="secondary"
               disabled={busy}
-              onClick={() => void cancel()}
+              onClick={() =>
+                review.kind === "order" ? setClosing(true) : void cancel()
+              }
             >
-              取消这次识别
+              {review.kind === "order" ? "结束剩余收货" : "取消这次识别"}
             </button>
           </div>
+          {closing && review.kind === "order" && (
+            <div role="dialog" aria-label="结束剩余收货" className="panel">
+              <p>
+                已入库批次保留，未收到的剩余商品将结束待确认，不会扣减库存。确认结束？
+              </p>
+              <div className="row">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void finishOrder()}
+                >
+                  确认结束剩余收货
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => setClosing(false)}
+                >
+                  继续等待收货
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       )}
       {review?.status === "confirmed" && (
