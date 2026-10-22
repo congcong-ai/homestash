@@ -15,6 +15,7 @@ export function intakeFailure(
   kind: IntakeFailure["kind"],
   id: string,
   barcode?: string,
+  imageKind?: "photo" | "order",
 ) {
   repo.transaction(() => {
     const old = repo.read<IntakeFailure[]>("intake-failures", []);
@@ -26,6 +27,7 @@ export function intakeFailure(
         status: "failed",
         createdAt: new Date().toISOString(),
         ...(barcode ? { barcode } : {}),
+        ...(imageKind ? { imageKind } : {}),
       },
     ]);
   });
@@ -64,6 +66,7 @@ export function registerIntakeCenter(
       ...images.map((r) => ({
         id: r.id,
         kind: "image" as const,
+        ...(r.kind === "order" ? { imageKind: "order" as const } : {}),
         status: r.status,
         createdAt: r.createdAt,
         title:
@@ -109,7 +112,9 @@ export function registerIntakeCenter(
         ...r,
         title:
           r.kind === "image"
-            ? "图片识别未完成"
+            ? r.imageKind === "order"
+              ? "订单截图识别未完成"
+              : "图片识别未完成"
             : `条码查询未完成 · ${r.barcode}`,
         note:
           r.kind === "image"

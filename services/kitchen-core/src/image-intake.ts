@@ -6,6 +6,8 @@ import {
   DomainError,
   ItemInput,
   ImageRecognition,
+  ImageIntakeKind,
+  OrderRecognition,
   type ImageReview,
   type InventoryService,
 } from "@homestash/domain";
@@ -75,12 +77,37 @@ export function registerImageIntake(
   };
   const idFrom = (params: unknown) =>
     z.object({ id: z.uuid() }).parse(params).id;
-  const analyze = async (requestId: string, dataUrl: string) => {
+  const analyze = async (
+    requestId: string,
+    dataUrl: string,
+    kind: ImageIntakeKind = "photo",
+  ) => {
     const image = validateImage(dataUrl);
     const review = await once(
       `image-analysis:${requestId}`,
-      { hash: image.hash, mime: image.mime },
+      {
+        hash: image.hash,
+        mime: image.mime,
+        ...(kind === "order" ? { kind } : {}),
+      },
       async () => {
+        // 同一订单截图换请求ID仍复用候选；不同截图不猜测属于同一订单。
+        if (kind === "order") {
+          const existing = repo
+            .read<string[]>("image-intake-index", [])
+            .map(get)
+            .find(
+              (r) =>
+                r.kind === "order" &&
+                r.imageHash === image.hash &&
+                r.status !== "cancelled",
+            );
+          if (existing)
+            return () => {
+              clearIntakeFailure(repo, "image", requestId);
+              return existing;
+            };
+        }
         const ai = provider();
         if (!ai.recognizeImage)
           throw new DomainError(
@@ -88,9 +115,11 @@ export function registerImageIntake(
           );
         let result: ImageRecognition;
         try {
-          result = ImageRecognition.parse(await ai.recognizeImage(dataUrl));
+          result = (
+            kind === "order" ? OrderRecognition : ImageRecognition
+          ).parse(await ai.recognizeImage(dataUrl, kind));
         } catch (error) {
-          intakeFailure(repo, "image", requestId);
+          intakeFailure(repo, "image", requestId, undefined, kind);
           throw error;
         }
         return () => {
@@ -100,6 +129,7 @@ export function registerImageIntake(
             status: "pending",
             createdAt: new Date().toISOString(),
             imageHash: image.hash,
+            ...(kind === "order" ? { kind, order: result.order! } : {}),
             notes: result.notes,
             candidates: result.candidates.map((candidate) => ({
               ...candidate,
@@ -130,10 +160,14 @@ export function registerImageIntake(
     { bodyLimit: 5 * 1024 * 1024 },
     async (req) => {
       const b = z
-        .object({ requestId: z.uuid(), dataUrl: z.string().max(4300000) })
+        .object({
+          requestId: z.uuid(),
+          dataUrl: z.string().max(4300000),
+          kind: ImageIntakeKind.default("photo"),
+        })
         .strict()
         .parse(req.body);
-      return analyze(b.requestId, b.dataUrl);
+      return analyze(b.requestId, b.dataUrl, b.kind);
     },
   );
   app.post("/api/intake/images/:id/confirm", async (req) => {
@@ -141,6 +175,7 @@ export function registerImageIntake(
     const b = z
       .object({
         requestId: z.uuid(),
+        received: z.boolean().optional(),
         items: z
           .array(
             z
@@ -166,7 +201,11 @@ export function registerImageIntake(
     const signature = JSON.stringify(selection);
     return once(
       `image-confirm:${b.requestId}`,
-      { id, selection },
+      {
+        id,
+        selection,
+        ...(b.received !== undefined ? { received: b.received } : {}),
+      },
       async () => () => {
         const review = get(id);
         if (review.status === "confirmed") {
@@ -178,6 +217,24 @@ export function registerImageIntake(
         }
         if (review.status !== "pending")
           throw new DomainError("这次图片识别已取消，请重新识别");
+        if (review.kind === "order" && b.received !== true)
+          throw new DomainError("请确认已实际收到所选商品，再核对数量入库");
+        if (
+          review.kind === "order" &&
+          selection.some((line) => {
+            const candidate = review.candidates.find(
+              (c) => c.id === line.candidateId,
+            );
+            const status = candidate?.orderLine?.status;
+            return (
+              status === "cancelled" ||
+              status === "refunded" ||
+              review.order?.status === "cancelled" ||
+              review.order?.status === "refunded"
+            );
+          })
+        )
+          throw new DomainError("已取消或退款的订单商品不能入库，请取消勾选");
         for (const line of selection)
           if (!review.candidates.some((c) => c.id === line.candidateId))
             throw new DomainError("选中了不属于这张图片的候选，库存未改变");
@@ -187,7 +244,7 @@ export function registerImageIntake(
           )!;
           return inventory.create({
             ...line.item,
-            source: "camera",
+            source: review.kind === "order" ? "order" : "camera",
             metadata: {
               ...line.item.metadata,
               imageIntake: {
@@ -195,6 +252,14 @@ export function registerImageIntake(
                 candidateId: candidate.id,
                 evidence: candidate.evidence,
                 confidence: candidate.confidence,
+                ...(review.kind === "order"
+                  ? {
+                      kind: "order",
+                      order: review.order,
+                      orderLine: candidate.orderLine,
+                      receivedConfirmed: true,
+                    }
+                  : {}),
               },
             },
           });

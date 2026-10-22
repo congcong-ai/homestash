@@ -19,6 +19,9 @@ import {
   ItemInput,
   ShoppingInput,
   ImageRecognition,
+  ImageIntakeKind,
+  OrderDetails,
+  OrderRecognition,
   ProductCandidate,
   Barcode,
 } from "@homestash/domain";
@@ -117,6 +120,8 @@ const Image = z
     status: z.enum(["pending", "confirmed", "cancelled"]),
     createdAt: z.iso.datetime(),
     imageHash: z.string().regex(/^[a-f0-9]{64}$/),
+    kind: ImageIntakeKind.optional(),
+    order: OrderDetails.optional(),
     notes: z.string(),
     candidates: z.array(
       ImageRecognition.shape.candidates.element.extend({ id: z.uuid() }),
@@ -141,6 +146,7 @@ const Failure = z
   .object({
     id: z.string().min(1).max(200),
     kind: z.enum(["image", "barcode"]),
+    imageKind: ImageIntakeKind.optional(),
     status: z.literal("failed"),
     createdAt: z.iso.datetime(),
     barcode: Barcode.optional(),
@@ -357,6 +363,13 @@ export function validateBackup(raw: unknown) {
         throw new DomainError("待确认索引引用缺失");
     } else if (r.id.startsWith("image-intake:")) {
       const review = Image.parse(r.data);
+      if (review.kind === "order") {
+        OrderRecognition.shape.order.parse(review.order);
+        for (const candidate of review.candidates)
+          OrderRecognition.shape.candidates.element.shape.orderLine.parse(
+            candidate.orderLine,
+          );
+      }
       if (
         !z
           .array(z.string())

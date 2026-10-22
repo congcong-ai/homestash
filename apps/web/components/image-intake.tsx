@@ -5,6 +5,7 @@ import {
   categories,
   categoryNames,
   type ImageReview,
+  type ImageIntakeKind,
   type ItemInput,
   type Location,
 } from "@homestash/domain";
@@ -18,6 +19,14 @@ type Editable = {
   locationId: string;
   bestBeforeAt: string;
   expiresAt: string;
+  purchasedAt: string;
+};
+const orderStatusNames = {
+  received: "已收货",
+  pending: "待付款 / 待发货 / 运输中",
+  cancelled: "已取消",
+  refunded: "已退款",
+  unknown: "状态不明",
 };
 const maxBytes = 3 * 1024 * 1024;
 async function imageData(file: File): Promise<string> {
@@ -59,6 +68,7 @@ async function imageData(file: File): Promise<string> {
 }
 export function ImageIntake({
   locations,
+  initialKind = "photo",
   selectedId,
   retryId,
   timeZone = "UTC",
@@ -66,29 +76,39 @@ export function ImageIntake({
   onViewInventory,
 }: {
   locations: Location[];
+  initialKind?: ImageIntakeKind;
   selectedId?: string;
   retryId?: string;
   timeZone?: string;
   onChanged: () => Promise<void>;
   onViewInventory: () => void;
 }) {
+  const [kind, setKind] = useState<ImageIntakeKind>(initialKind);
+  const [received, setReceived] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
   const [review, setReview] = useState<ImageReview | null>(null);
   const [history, setHistory] = useState<ImageReview[]>([]);
   const [rows, setRows] = useState<Editable[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const pending = useRef<{ dataUrl: string; id: string } | null>(null);
+  const pending = useRef<{
+    dataUrl: string;
+    kind: ImageIntakeKind;
+    id: string;
+  } | null>(null);
   const retryCompleted = useRef(false);
   const confirmation = useRef<{ signature: string; id: string } | null>(null);
   function open(result: ImageReview, preservePreview = false) {
     if (!preservePreview) setDataUrl("");
     setReview(result);
+    setKind(result.kind ?? "photo");
+    setReceived(false);
     confirmation.current = null;
     setRows(
       result.candidates.map((candidate) => ({
         candidateId: candidate.id,
         selected:
+          result.kind !== "order" &&
           candidate.confidence === "high" &&
           candidate.quantity !== null &&
           candidate.unit !== null,
@@ -107,6 +127,7 @@ export function ImageIntake({
                 : "other",
         bestBeforeAt: candidate.bestBeforeAt ?? "",
         expiresAt: candidate.expiresAt ?? "",
+        purchasedAt: result.order?.purchasedAt ?? "",
       })),
     );
   }
@@ -147,14 +168,19 @@ export function ImageIntake({
     setBusy(true);
     setError("");
     try {
-      if (pending.current?.dataUrl !== dataUrl)
+      if (
+        pending.current?.dataUrl !== dataUrl ||
+        pending.current?.kind !== kind
+      )
         pending.current = {
           dataUrl,
+          kind,
           id: (!retryCompleted.current && retryId) || createRequestId(),
         };
       const result = await api<ImageReview>("/intake/images", {
         requestId: pending.current.id,
         dataUrl,
+        kind,
       });
       retryCompleted.current = true;
       open(result, true);
@@ -182,17 +208,21 @@ export function ImageIntake({
             locationId: row.locationId,
             bestBeforeAt: row.bestBeforeAt || null,
             expiresAt: row.expiresAt || null,
-            source: "camera",
+            source: review.kind === "order" ? "order" : "camera",
+            ...(review.kind === "order"
+              ? { purchasedAt: row.purchasedAt || null }
+              : {}),
             metadata: {},
           },
         }));
       if (!items.length) throw Error("请至少选择一个需要入库的候选。");
-      const signature = JSON.stringify(items);
+      const orderConfirmation = review.kind === "order" ? { received } : {};
+      const signature = JSON.stringify({ items, ...orderConfirmation });
       if (confirmation.current?.signature !== signature)
         confirmation.current = { signature, id: createRequestId() };
       const result = await api<ImageReview>(
         `/intake/images/${review.id}/confirm`,
-        { requestId: confirmation.current.id, items },
+        { requestId: confirmation.current.id, items, ...orderConfirmation },
       );
       setReview(result);
       setHistory((old) => old.map((r) => (r.id === result.id ? result : r)));
@@ -223,9 +253,34 @@ export function ImageIntake({
   return (
     <section className="image-intake">
       <p className="eyebrow">拍一下，确认后记下来</p>
-      <h1>拍照入库</h1>
-      <p>支持物品照片、包装和购物小票。识别只是候选，核对后才会添加到库存。</p>
+      <h1>{kind === "order" ? "订单截图入库" : "拍照入库"}</h1>
+      <p>
+        支持物品照片、小票和订单截图。识别只是候选，核对实收物品后才会添加到库存。
+      </p>
       <div className="panel image-upload">
+        <label>
+          图片内容
+          <select
+            aria-label="图片内容"
+            value={kind}
+            disabled={busy}
+            onChange={(e) => {
+              setKind(e.target.value as ImageIntakeKind);
+              setReview(null);
+              setRows([]);
+              setReceived(false);
+              pending.current = null;
+            }}
+          >
+            <option value="photo">物品照片 / 包装 / 小票</option>
+            <option value="order">订单截图</option>
+          </select>
+        </label>
+        {kind === "order" && (
+          <p className="notice">
+            上传前建议裁掉姓名、电话、地址和订单号。订单数量不等于实收数量，退款或取消商品不要入库。
+          </p>
+        )}
         <label>
           拍照或选择图片
           <input
@@ -268,20 +323,22 @@ export function ImageIntake({
           {busy ? "正在处理，请稍候…" : "识别图片"}
         </button>
       </div>
-      <div className="panel">
-        <h2>从冰箱贴拍照</h2>
-        <p>
-          将物品放入 Korvo 镜头视野，按 MODE
-          拍照。设备显示识别完成后，刷新并核对候选，确认前不会入库。
-        </p>
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() => void refreshDevicePhotos()}
-        >
-          刷新设备照片
-        </button>
-      </div>
+      {kind === "photo" && (
+        <div className="panel">
+          <h2>从冰箱贴拍照</h2>
+          <p>
+            将物品放入 Korvo 镜头视野，按 MODE
+            拍照。设备显示识别完成后，刷新并核对候选，确认前不会入库。
+          </p>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => void refreshDevicePhotos()}
+          >
+            刷新设备照片
+          </button>
+        </div>
+      )}
       {error && (
         <p role="alert" className="alert">
           {error}
@@ -301,6 +358,7 @@ export function ImageIntake({
                 onClick={() => open(r)}
               >
                 {new Date(r.createdAt).toLocaleString("zh-CN", { timeZone })} ·{" "}
+                {r.kind === "order" ? "订单截图 · " : ""}
                 {r.candidates.length} 个候选
               </button>
             ))}
@@ -319,6 +377,31 @@ export function ImageIntake({
             </h2>
           </div>
           <p>{review.notes || "请核对物品信息。"}</p>
+          {review.kind === "order" && (
+            <div className="panel">
+              <h3>核对订单与实收物品</h3>
+              <p>
+                {review.order?.platform ?? "平台未识别"} ·{" "}
+                {review.order
+                  ? orderStatusNames[review.order.status]
+                  : "状态不明"}{" "}
+                · 购买日期 {review.order?.purchasedAt ?? "未识别，请核对"}
+              </p>
+              <p>
+                逐项勾选已收到的商品。规格仅供核对；例如一箱12盒 ×
+                2箱，应填2箱，不会自动拆成24盒。确认后本次截图完成；分批收货的其余商品，请收到后手动添加或上传新的截图。
+              </p>
+              <label className="row">
+                <input
+                  type="checkbox"
+                  checked={received}
+                  disabled={busy}
+                  onChange={(e) => setReceived(e.target.checked)}
+                />
+                我已实际收到所选商品，已核对数量
+              </label>
+            </div>
+          )}
           {!dataUrl && (
             <small>
               原图未存储，这里恢复的是识别候选，请对照你保留的图片核对。
@@ -333,6 +416,14 @@ export function ImageIntake({
             const candidate = review.candidates.find(
               (c) => c.id === row.candidateId,
             )!;
+            const blocked =
+              review.kind === "order" &&
+              (["cancelled", "refunded"].includes(
+                candidate.orderLine?.status ?? "unknown",
+              ) ||
+                ["cancelled", "refunded"].includes(
+                  review.order?.status ?? "unknown",
+                ));
             return (
               <article className="panel intake-candidate" key={row.candidateId}>
                 <label className="row">
@@ -340,7 +431,7 @@ export function ImageIntake({
                     type="checkbox"
                     aria-label={`选择候选${index + 1}`}
                     checked={row.selected}
-                    disabled={busy}
+                    disabled={busy || blocked}
                     onChange={(e) =>
                       patch(row.candidateId, { selected: e.target.checked })
                     }
@@ -357,6 +448,13 @@ export function ImageIntake({
                 <p className="intake-evidence">
                   识别依据：{candidate.evidence}
                 </p>
+                {review.kind === "order" && (
+                  <p className="notice">
+                    规格：{candidate.orderLine?.specification ?? "未识别"} ·{" "}
+                    {orderStatusNames[candidate.orderLine?.status ?? "unknown"]}
+                    {blocked ? " · 不可入库" : ""}
+                  </p>
+                )}
                 <div className="intake-fields">
                   <label>
                     名称
@@ -438,6 +536,22 @@ export function ImageIntake({
                       ))}
                     </select>
                   </label>
+                  {review.kind === "order" && (
+                    <label>
+                      购买日期
+                      <input
+                        aria-label={`候选${index + 1}购买日期`}
+                        type="date"
+                        value={row.purchasedAt}
+                        disabled={busy || !row.selected}
+                        onChange={(e) =>
+                          patch(row.candidateId, {
+                            purchasedAt: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  )}
                   <label>
                     建议食用日期
                     <input
@@ -469,7 +583,11 @@ export function ImageIntake({
           <div className="row">
             <button
               type="submit"
-              disabled={busy || !rows.some((r) => r.selected)}
+              disabled={
+                busy ||
+                !rows.some((r) => r.selected) ||
+                (review.kind === "order" && !received)
+              }
             >
               确认添加所选物品
             </button>

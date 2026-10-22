@@ -4,6 +4,7 @@ export type IntakeFailure = {
   status: "failed";
   createdAt: string;
   barcode?: string;
+  imageKind?: "photo" | "order";
 };
 export type IntakeEntry = {
   id: string;
@@ -13,4 +14,5 @@ export type IntakeEntry = {
   title: string;
   note: string;
   barcode?: string;
+  imageKind?: "photo" | "order";
 };

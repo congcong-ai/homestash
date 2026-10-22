@@ -102,6 +102,7 @@ export function IntakeCenter({
         {selected.kind === "image" && (
           <ImageIntake
             timeZone={calendar.timeZone}
+            initialKind={selected.imageKind ?? "photo"}
             key={selected.id}
             locations={locations}
             selectedId={selected.status === "failed" ? undefined : selected.id}
@@ -180,7 +181,8 @@ export function IntakeCenter({
         {visible.map((entry) => (
           <article className="panel" key={`${entry.kind}:${entry.id}`}>
             <small>
-              {kindNames[entry.kind]} · {statusNames[entry.status]} ·{" "}
+              {entry.imageKind === "order" ? "订单截图" : kindNames[entry.kind]}{" "}
+              · {statusNames[entry.status]} ·{" "}
               {new Date(entry.createdAt).toLocaleString("zh-CN", {
                 timeZone: calendar.timeZone,
               })}

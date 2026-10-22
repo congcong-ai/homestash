@@ -277,7 +277,13 @@ export class InventoryService {
 
 export { ShoppingService, ShoppingInput, type ShoppingItem } from "./shopping";
 
-export { ImageRecognition, type ImageReview } from "./image-intake";
+export {
+  ImageRecognition,
+  ImageIntakeKind,
+  OrderRecognition,
+  OrderDetails,
+  type ImageReview,
+} from "./image-intake";
 
 export type { IntakeEntry, IntakeFailure } from "./intake";
 

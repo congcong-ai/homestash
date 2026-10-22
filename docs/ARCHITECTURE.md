@@ -129,3 +129,7 @@ ShoppingService.syncRecipe在事务内同步特定食谱来源的未购买计划
 ## 家庭位置与批次规则
 
 LocationService属于HomeStash Domain，校验唯一名称、当前名称冲突与数量上限；既有locations表保存名称和稳定ID，Core通过同源/登录/数据代次检查及once事务提交。语音Provider上下文提供当前有限的位置ID/名称列表，真实库存变更仍由InventoryService执行。开封规则是可选库存字段，旧数据不回填；库存事件、纠正、备份以及统一freshnessInfo共同使用该字段，不在Web或设备另建日期算法。具体范围见[家庭位置与日期规则](HOUSEHOLD_LOCATIONS_AND_DATES.md)。
+
+## 订单截图录入
+
+图片候选扩展可选kind/order/orderLine，保持旧照片与备份兼容。Provider按订单Schema提取规格、购买日期和状态；所有候选仍交由用户核对，Core强制实收确认并拒绝退款/取消行。入库共用InventoryService、事件与事务，来源为order。订单模式按图片哈希复用未取消的候选及确认结果，未使用订单号或个人信息对账；分批收货仍为单次确认边界。详见[订单截图入库](ORDER_SCREENSHOT_INTAKE.md)。
