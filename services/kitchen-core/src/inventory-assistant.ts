@@ -2,6 +2,7 @@ import { recipeCatalog } from "./recipe-catalog";
 import {
   DomainError,
   ShoppingService,
+  shoppingRemaining,
   freshness,
   today,
   type InventoryItem,
@@ -239,7 +240,10 @@ export function inventoryAssistant(
       message: items.length
         ? `待购买：${items
             .slice(0, 8)
-            .map((i) => `${i.name}${i.quantity}${i.unit}`)
+            .map(
+              (i) =>
+                `${i.name}${shoppingRemaining(i)}${i.unit}${i.receipts?.length ? "（已有订单实收，请核对剩余）" : ""}`,
+            )
             .join("、")}${items.length > 8 ? "等，请查看清单。" : "。"}`
         : "购物清单暂时没有待购买物品。",
       shopping: shopping.list(),

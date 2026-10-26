@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { freshness, today } from "@homestash/domain";
+import {
+  freshness,
+  today,
+  shoppingRemaining,
+  type ShoppingItem,
+} from "@homestash/domain";
 import type { SQLiteRepository } from "@homestash/database";
 import {
   cookingText,
@@ -98,15 +103,16 @@ export function deviceScreen(
     }
     case "shopping": {
       const list = repo
-        .read<
-          { name: string; quantity: number; unit: string; checked: boolean }[]
-        >("shopping", [])
+        .read<ShoppingItem[]>("shopping", [])
         .filter((i) => !i.checked);
       lines = [
         `待采购 · ${list.length} 项`,
         ...list
           .slice(0, 5)
-          .map((i) => `${short(i.name, 16)} ${i.quantity}${short(i.unit, 4)}`),
+          .map(
+            (i) =>
+              `${short(i.name, 16)} ${shoppingRemaining(i)}${short(i.unit, 4)}${i.receipts?.length ? " 待核对" : ""}`,
+          ),
       ];
       break;
     }

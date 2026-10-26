@@ -9,6 +9,7 @@ import {
   ImageIntakeKind,
   OrderRecognition,
   OrderQuantity,
+  ShoppingService,
   OrderFulfillment,
   orderFulfillment,
   orderAmount,
@@ -76,6 +77,7 @@ export function registerImageIntake(
   once: Once,
   provider: () => AIProvider,
 ) {
+  const shopping = new ShoppingService(repo);
   const key = (id: string) => `image-intake:${id}`;
   const get = (id: string) => {
     const review = repo.read<ImageReview | null>(key(id), null);
@@ -190,12 +192,20 @@ export function registerImageIntake(
               .object({
                 candidateId: z.uuid(),
                 totalQuantity: OrderQuantity.positive().optional(),
+                shoppingId: z.uuid().optional(),
+                shoppingRevision: z.number().int().positive().optional(),
                 item: ItemInput.refine(
                   (i) => i.quantity > 0,
                   "入库数量必须大于0",
                 ),
               })
-              .strict(),
+              .strict()
+              .refine(
+                (line) =>
+                  (line.shoppingId === undefined) ===
+                  (line.shoppingRevision === undefined),
+                "关联采购项时必须同时提供当前版本",
+              ),
           )
           .min(1)
           .max(20),
@@ -277,15 +287,23 @@ export function registerImageIntake(
           progress.revision++;
           OrderFulfillment.parse(progress);
         }
+        if (selection.some((line) => line.shoppingId) && !partial)
+          throw new DomainError("关联采购清单需要使用分批收货版本，请刷新页面");
+        const links = selection
+          .filter((line) => line.shoppingId)
+          .map((line) => line.shoppingId);
+        if (new Set(links).size !== links.length)
+          throw new DomainError("一次确认不能把多行商品重复关联到同一采购项");
         const items = selection.map((line) => {
           const candidate = review.candidates.find(
             (c) => c.id === line.candidateId,
           )!;
-          return inventory.create({
+          const item = inventory.create({
             ...line.item,
             source: review.kind === "order" ? "order" : "camera",
             metadata: {
               ...line.item.metadata,
+              ...(line.shoppingId ? { shopping: { id: line.shoppingId } } : {}),
               imageIntake: {
                 reviewId: id,
                 candidateId: candidate.id,
@@ -305,6 +323,14 @@ export function registerImageIntake(
               },
             },
           });
+          if (line.shoppingId)
+            shopping.recordReceipt(
+              line.shoppingId,
+              line.shoppingRevision!,
+              item,
+              { orderReviewId: id, candidateId: candidate.id },
+            );
+          return item;
         });
         const confirmed: ImageReview = {
           ...review,

@@ -22,6 +22,8 @@ import {
   categories,
   categoryNames,
   freshness,
+  shoppingRemaining,
+  shoppingReceived,
   type InventoryItem,
   type InventoryEvent,
   type Location,
@@ -722,18 +724,23 @@ export default function Page() {
                         textDecoration: item.checked ? "line-through" : "none",
                       }}
                     >
-                      {item.name} {item.quantity}
+                      {item.name}{" "}
+                      {item.receipts?.length && !item.inventoryItemId
+                        ? shoppingRemaining(item)
+                        : item.quantity}
                       {item.unit}
                     </span>
                   </label>
                   <small>
-                    {item.inventoryItemId
-                      ? "已入库，可到家中库存查看这一批"
-                      : item.checked
-                        ? "已买到，请核对实物后入库"
-                        : item.source === "manual"
-                          ? "自己记下的"
-                          : "来自食谱缺货清单"}
+                    {item.receipts?.length
+                      ? `已入库 ${shoppingReceived(item)}${item.unit} · ${shoppingRemaining(item) ? `还需核对 ${shoppingRemaining(item)}${item.unit}，可从订单续收或另买后确认` : "采购已完成"}`
+                      : item.inventoryItemId
+                        ? "已入库，可到家中库存查看这一批"
+                        : item.checked
+                          ? "已买到，请核对实物后入库"
+                          : item.source === "manual"
+                            ? "自己记下的"
+                            : "来自食谱缺货清单"}
                   </small>
                   <div className="row">
                     {item.checked && !item.inventoryItemId && (
@@ -749,7 +756,7 @@ export default function Page() {
                     )}
                     <button
                       className="link"
-                      disabled={busy}
+                      disabled={busy || !!item.receipts?.length}
                       onClick={() =>
                         void perform(() =>
                           shoppingAction({ action: "remove", id: item.id }),
@@ -1374,7 +1381,10 @@ export default function Page() {
               locations={state.locations}
               onChanged={refresh}
             />
-            <DataBackups onChanged={refresh} timeZone={state.calendar.timeZone} />
+            <DataBackups
+              onChanged={refresh}
+              timeZone={state.calendar.timeZone}
+            />
           </>
         )}
         <footer>

@@ -615,6 +615,7 @@ export function createApp(
     const body = z
       .object({
         requestId: z.uuid(),
+        expectedRevision: z.number().int().positive().optional(),
         item: ItemInput.extend({
           quantity: z.number().finite().positive().max(1000000),
           unit: z.string().trim().min(1).max(20),
@@ -624,8 +625,20 @@ export function createApp(
       .parse(req.body);
     return once(
       `shopping-receive:${body.requestId}`,
-      { id, item: body.item },
-      async () => () => assistant.shopping.receive(id, body.item, inventory),
+      {
+        id,
+        item: body.item,
+        ...(body.expectedRevision !== undefined
+          ? { expectedRevision: body.expectedRevision }
+          : {}),
+      },
+      async () => () =>
+        assistant.shopping.receive(
+          id,
+          body.item,
+          inventory,
+          body.expectedRevision,
+        ),
     );
   });
   app.post("/api/shopping", async (req) => {

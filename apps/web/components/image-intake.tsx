@@ -4,6 +4,10 @@ import { api, createRequestId } from "@homestash/api-client";
 import {
   categories,
   categoryNames,
+  purchaseMatches,
+  shoppingRemaining,
+  shoppingRevision,
+  type ShoppingItem,
   orderFulfillment,
   remainingOrderQuantity,
   orderLineBlocked,
@@ -19,6 +23,7 @@ type Editable = {
   category: ItemInput["category"];
   quantity: string;
   totalQuantity: string;
+  shoppingId: string;
   unit: string;
   locationId: string;
   bestBeforeAt: string;
@@ -93,6 +98,7 @@ export function ImageIntake({
   const finishRequest = useRef<{ signature: string; id: string } | null>(null);
   const [dataUrl, setDataUrl] = useState("");
   const [review, setReview] = useState<ImageReview | null>(null);
+  const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [history, setHistory] = useState<ImageReview[]>([]);
   const [rows, setRows] = useState<Editable[]>([]);
   const [busy, setBusy] = useState(false);
@@ -127,6 +133,7 @@ export function ImageIntake({
         );
         return {
           candidateId: candidate.id,
+          shoppingId: "",
           selected:
             result.kind !== "order" &&
             candidate.confidence === "high" &&
@@ -166,6 +173,11 @@ export function ImageIntake({
     );
   }
   useEffect(() => {
+    void api<ShoppingItem[]>("/shopping")
+      .then(setShopping)
+      .catch(() =>
+        setError("采购清单暂时无法读取，可以不关联清单入库或稍后刷新"),
+      );
     void api<ImageReview[]>("/intake/images")
       .then((results) => {
         setHistory(results);
@@ -196,7 +208,17 @@ export function ImageIntake({
   }
   const patch = (id: string, change: Partial<Editable>) =>
     setRows((old) =>
-      old.map((row) => (row.candidateId === id ? { ...row, ...change } : row)),
+      old.map((row) =>
+        row.candidateId === id
+          ? {
+              ...row,
+              ...change,
+              ...(change.name !== undefined || change.unit !== undefined
+                ? { shoppingId: "" }
+                : {}),
+            }
+          : row,
+      ),
     );
   async function analyze() {
     setBusy(true);
@@ -225,6 +247,13 @@ export function ImageIntake({
       setBusy(false);
     }
   }
+  function purchaseLink(row: Editable) {
+    if (!row.shoppingId) return {};
+    const entry = shopping.find((item) => item.id === row.shoppingId);
+    if (!entry || !purchaseMatches(entry, row.name, row.unit))
+      throw new Error("关联采购项已变化，请刷新后重新选择");
+    return { shoppingId: entry.id, shoppingRevision: shoppingRevision(entry) };
+  }
   async function confirm() {
     if (!review) return;
     setBusy(true);
@@ -234,6 +263,7 @@ export function ImageIntake({
         .filter((row) => row.selected)
         .map((row) => ({
           candidateId: row.candidateId,
+          ...purchaseLink(row),
           ...(review.kind === "order"
             ? { totalQuantity: Number(row.totalQuantity) }
             : {}),
@@ -270,6 +300,7 @@ export function ImageIntake({
         review.kind === "order"
           ? await api<ImageReview>(`/intake/images/${result.id}`)
           : result;
+      setShopping(await api<ShoppingItem[]>("/shopping"));
       open(latest);
       setHistory((old) => old.map((r) => (r.id === latest.id ? latest : r)));
       await onChanged();
@@ -284,7 +315,12 @@ export function ImageIntake({
     setBusy(true);
     setError("");
     try {
-      open(await api<ImageReview>(`/intake/images/${review.id}`));
+      const [latest, purchases] = await Promise.all([
+        api<ImageReview>(`/intake/images/${review.id}`),
+        api<ShoppingItem[]>("/shopping"),
+      ]);
+      setShopping(purchases);
+      open(latest);
     } catch (e) {
       setError(e instanceof Error ? e.message : "刷新失败，请重试");
     } finally {
@@ -673,6 +709,35 @@ export function ImageIntake({
                       ))}
                     </select>
                   </label>
+                  {review.kind === "order" && (
+                    <label>
+                      同时记到采购清单
+                      <select
+                        aria-label={`候选${index + 1}关联采购项`}
+                        value={row.shoppingId}
+                        disabled={busy || !row.selected}
+                        onChange={(e) =>
+                          patch(row.candidateId, { shoppingId: e.target.value })
+                        }
+                      >
+                        <option value="">不关联，只记入库存</option>
+                        {shopping
+                          .filter((entry) =>
+                            purchaseMatches(entry, row.name, row.unit),
+                          )
+                          .map((entry) => (
+                            <option key={entry.id} value={entry.id}>
+                              {entry.name} · 待补齐{shoppingRemaining(entry)}
+                              {entry.unit} ·{" "}
+                              {entry.source === "manual" ? "手动" : "食谱"}
+                            </option>
+                          ))}
+                      </select>
+                      <small>
+                        仅显示同名同单位项。实收最多满足清单剩余量，多出的数量仍正常入库；不会重复新建库存。
+                      </small>
+                    </label>
+                  )}
                   {review.kind === "order" && (
                     <label>
                       购买日期

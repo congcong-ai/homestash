@@ -352,3 +352,13 @@ export {
   remainingOrderQuantity,
   orderFulfillmentComplete,
 } from "./order-fulfillment";
+
+export {
+  purchaseQuantity,
+  shoppingRevision,
+  shoppingReceived,
+  shoppingRemaining,
+  purchaseNamesMatch,
+  purchaseMatches,
+  type PurchaseReceipt,
+} from "./purchase-receipts";

@@ -5,6 +5,14 @@ import {
   type InventoryItem,
   type InventoryService,
 } from "./index";
+import {
+  purchaseQuantity,
+  shoppingRevision,
+  shoppingReceived,
+  shoppingRemaining,
+  purchaseMatches,
+  type PurchaseReceipt,
+} from "./purchase-receipts";
 export const ShoppingInput = z
   .object({
     name: z.string().trim().min(1).max(80),
@@ -21,6 +29,8 @@ export type ShoppingItem = z.infer<typeof ShoppingInput> & {
   inventoryItemId?: string;
   receivedItem?: InventoryItem;
   confirmationSignature?: string;
+  revision?: number;
+  receipts?: PurchaseReceipt[];
 };
 export interface ShoppingRepository {
   read<T>(key: string, fallback: T): T;
@@ -39,6 +49,7 @@ export class ShoppingService {
       const index = items.findIndex(
         (i) =>
           !i.checked &&
+          !i.receipts?.length &&
           i.name === input.name &&
           i.unit === input.unit &&
           i.source === source,
@@ -54,6 +65,7 @@ export class ShoppingService {
             }
           : {
               ...items[index],
+              revision: shoppingRevision(items[index]) + 1,
               quantity:
                 source === "manual"
                   ? items[index].quantity + input.quantity
@@ -75,16 +87,98 @@ export class ShoppingService {
         (item) =>
           item.source !== source ||
           item.checked ||
+          !!item.receipts?.length ||
           missing.some(
             (line) => line.name === item.name && line.unit === item.unit,
           ),
       );
       this.repo.write("shopping", retained);
-      for (const line of missing) this.add(line, source);
+      for (const line of missing) {
+        const alreadyPlanned = retained
+          .filter(
+            (item) =>
+              item.source === source &&
+              !item.checked &&
+              item.receipts?.length &&
+              item.name === line.name &&
+              item.unit === line.unit,
+          )
+          .reduce((sum, item) => sum + shoppingRemaining(item), 0);
+        const remaining = Math.max(
+          0,
+          Number((line.quantity - alreadyPlanned).toFixed(6)),
+        );
+        if (remaining > 0) this.add({ ...line, quantity: remaining }, source);
+        else
+          this.repo.write(
+            "shopping",
+            this.list().filter(
+              (item) =>
+                item.source !== source ||
+                item.name !== line.name ||
+                item.unit !== line.unit ||
+                item.checked ||
+                !!item.receipts?.length,
+            ),
+          );
+      }
       return this.list();
     });
   }
-  receive(id: string, raw: unknown, inventory: InventoryService) {
+  recordReceipt(
+    id: string,
+    expectedRevision: number,
+    item: InventoryItem,
+    order?: { orderReviewId: string; candidateId: string },
+  ) {
+    return this.repo.transaction(() => {
+      const entries = this.list(),
+        index = entries.findIndex((entry) => entry.id === id);
+      if (index < 0)
+        throw new DomainError("关联的采购项已移除，请刷新后重新选择");
+      const old = entries[index];
+      if (shoppingRevision(old) !== expectedRevision)
+        throw new DomainError("采购清单已变化，请刷新后重新核对");
+      if (!purchaseMatches(old, item.name, item.unit))
+        throw new DomainError("采购项已收齐或名称、单位不匹配，请重新核对");
+      if ((item.metadata.shopping as { id?: string })?.id !== id)
+        throw new DomainError("库存批次与采购项关联不一致");
+      purchaseQuantity.parse(old.quantity);
+      purchaseQuantity.parse(item.quantity);
+      if (
+        entries.some((entry) =>
+          entry.receipts?.some((receipt) => receipt.item.id === item.id),
+        )
+      )
+        throw new DomainError("这一库存批次已经关联过采购清单");
+      const quantity = Math.min(item.quantity, shoppingRemaining(old));
+      const receipts = [...(old.receipts ?? []), { quantity, item, ...order }];
+      const complete =
+        Number((shoppingReceived(old) + quantity).toFixed(6)) >= old.quantity;
+      const next: ShoppingItem = {
+        ...old,
+        receipts,
+        revision: shoppingRevision(old) + 1,
+        checked: complete,
+        ...(complete
+          ? {
+              inventoryItemId: item.id,
+              receivedItem: item,
+              stockedAt: new Date().toISOString(),
+            }
+          : {}),
+      };
+      entries[index] = next;
+      this.repo.write("shopping", entries);
+      return next;
+    });
+  }
+  receive(
+    id: string,
+    raw: unknown,
+    inventory: InventoryService,
+    expectedRevision?: number,
+  ) {
     const input = ItemInput.extend({
       quantity: z.number().finite().positive().max(1000000),
       unit: z.string().trim().min(1).max(20),
@@ -95,6 +189,31 @@ export class ShoppingService {
       const index = items.findIndex((item) => item.id === id);
       if (index < 0) throw new DomainError("购物清单中没有找到这一项");
       const entry = items[index];
+      if (
+        (expectedRevision !== undefined &&
+          shoppingRevision(entry) !== expectedRevision) ||
+        (entry.receipts?.length && expectedRevision === undefined)
+      )
+        throw new DomainError("采购清单已变化，请刷新后重新核对");
+      if (entry.receipts?.length && !entry.inventoryItemId) {
+        if (!entry.checked)
+          throw new DomainError("请先标记剩余物品已买到，再核对入库");
+        const item = inventory.create({
+          ...input,
+          source: "manual",
+          metadata: {
+            ...input.metadata,
+            shopping: {
+              id: entry.id,
+              source: entry.source,
+              plannedQuantity: entry.quantity,
+              plannedUnit: entry.unit,
+            },
+          },
+        });
+        const shopping = this.recordReceipt(id, shoppingRevision(entry), item);
+        return { shopping, item };
+      }
       if (entry.inventoryItemId) {
         if (entry.confirmationSignature !== signature)
           throw new DomainError(
@@ -123,6 +242,7 @@ export class ShoppingService {
       });
       const result = {
         ...entry,
+        revision: shoppingRevision(entry) + 1,
         stockedAt: new Date().toISOString(),
         inventoryItemId: item.id,
         receivedItem: item,
@@ -142,8 +262,15 @@ export class ShoppingService {
         throw new DomainError(
           "已入库的购物项不能改回待购买，请到库存中管理物品",
         );
+      if (action === "remove" && items[index].receipts?.length)
+        throw new DomainError("订单关联的采购记录需保留收货历史，不能移除");
       if (action === "remove") items.splice(index, 1);
-      else items[index] = { ...items[index], checked: action === "check" };
+      else
+        items[index] = {
+          ...items[index],
+          checked: action === "check",
+          revision: shoppingRevision(items[index]) + 1,
+        };
       this.repo.write("shopping", items);
       return items;
     });

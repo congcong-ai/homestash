@@ -102,6 +102,8 @@ pnpm hardware:build:generic --board korvo-s31
 
 “拍照入库”新增订单截图模式：核对商品规格、购买日期与收货状态，明确确认实收后才入库；退款/取消项不可选择，同图重复上传复用原结果。支持分批实收、剩余商品续做与结束收货，见[分批收货](docs/ORDER_PARTIAL_RECEIVING.md)。详见[订单截图入库](docs/ORDER_SCREENSHOT_INTAKE.md)。
 
+订单实收可明确关联采购清单，分批抵扣剩余计划；不足部分可以另买后手动补齐，不重复创建库存。见[采购与入库闭环](docs/PURCHASE_TO_STOCK.md)。后续按[大功能交付计划](docs/FEATURE_DELIVERY_PLAN.md)推进，先完成主功能，再集中做细节优化。
+
 日期与新鲜度仅供提醒，应结合包装、储存条件和实际状态判断；药品分类仅用于库存管理。
 
 ### 软件技术栈

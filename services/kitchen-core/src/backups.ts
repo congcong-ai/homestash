@@ -22,6 +22,8 @@ import {
   ImageIntakeKind,
   OrderDetails,
   OrderRecognition,
+  purchaseQuantity,
+  shoppingReceived,
   OrderFulfillment,
   orderAmount,
   orderFulfillmentComplete,
@@ -68,6 +70,25 @@ const Shopping = ShoppingInput.extend({
   inventoryItemId: z.uuid().optional(),
   receivedItem: Item.optional(),
   confirmationSignature: z.string().optional(),
+  revision: z.number().int().positive().optional(),
+  receipts: z
+    .array(
+      z
+        .object({
+          quantity: purchaseQuantity,
+          item: Item,
+          orderReviewId: z.uuid().optional(),
+          candidateId: z.uuid().optional(),
+        })
+        .strict()
+        .refine(
+          (receipt) =>
+            (receipt.orderReviewId === undefined) ===
+            (receipt.candidateId === undefined),
+          "订单关联字段不完整",
+        ),
+    )
+    .optional(),
 });
 const Recipe = z
   .object({
@@ -337,6 +358,43 @@ export function validateBackup(raw: unknown) {
     else if (r.id === "shopping") {
       const items = z.array(Shopping).parse(r.data);
       unique(items.map((i) => i.id));
+      unique(
+        items.flatMap(
+          (i) => i.receipts?.map((receipt) => receipt.item.id) ?? [],
+        ),
+      );
+      for (const entry of items) {
+        if (!entry.receipts?.length) continue;
+        purchaseQuantity.parse(entry.quantity);
+        const received = shoppingReceived(entry);
+        if (
+          received > entry.quantity ||
+          (received === entry.quantity &&
+            (!entry.checked || !entry.inventoryItemId)) ||
+          (received < entry.quantity && !!entry.inventoryItemId)
+        )
+          throw new DomainError("采购收货累计或完成状态无效");
+        for (const receipt of entry.receipts) {
+          if (
+            !itemMap.has(receipt.item.id) ||
+            receipt.quantity > receipt.item.quantity ||
+            receipt.item.unit !== entry.unit ||
+            (receipt.item.metadata.shopping as { id?: string })?.id !== entry.id
+          )
+            throw new DomainError("采购收货批次引用或数量无效");
+          if (receipt.orderReviewId) {
+            const order = Image.parse(
+              records.get(`image-intake:${receipt.orderReviewId}`),
+            );
+            if (
+              order.kind !== "order" ||
+              !order.candidates.some((c) => c.id === receipt.candidateId) ||
+              !order.confirmedItems?.some((i) => i.id === receipt.item.id)
+            )
+              throw new DomainError("采购记录与订单实收关联不一致");
+          }
+        }
+      }
       if (
         items.some(
           (i) =>

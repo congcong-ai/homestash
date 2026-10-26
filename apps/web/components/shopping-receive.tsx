@@ -5,6 +5,9 @@ import {
   categories,
   categoryNames,
   today,
+  shoppingRemaining,
+  shoppingReceived,
+  shoppingRevision,
   type ShoppingItem,
   type Location,
 } from "@homestash/domain";
@@ -38,7 +41,10 @@ export function ShoppingReceive({
       bestBeforeAt: String(fields.get("bestBeforeAt")) || null,
       expiresAt: String(fields.get("expiresAt")) || null,
     };
-    const signature = JSON.stringify(item);
+    const signature = JSON.stringify({
+      item,
+      revision: shoppingRevision(entry),
+    });
     if (pending.current?.signature !== signature)
       pending.current = { signature, id: createRequestId() };
     setBusy(true);
@@ -46,6 +52,7 @@ export function ShoppingReceive({
     try {
       await api(`/shopping/${entry.id}/receive`, {
         requestId: pending.current.id,
+        expectedRevision: shoppingRevision(entry),
         item,
       });
       await onChanged();
@@ -59,6 +66,12 @@ export function ShoppingReceive({
   return (
     <form className="panel" onSubmit={(e) => void submit(e)}>
       <h2>核对购买信息 · {entry.name}</h2>
+      {!!entry.receipts?.length && (
+        <p>
+          此前已入库{shoppingReceived(entry)}
+          {entry.unit}，本次只填写新收到的数量；已有关联后请保持名称、单位一致。
+        </p>
+      )}
       <p>
         计划购买 {entry.quantity}
         {entry.unit}
@@ -92,7 +105,9 @@ export function ShoppingReceive({
             min="0.001"
             max="1000000"
             step="any"
-            defaultValue={entry.quantity}
+            defaultValue={
+              entry.receipts?.length ? shoppingRemaining(entry) : entry.quantity
+            }
             required
           />
         </label>
