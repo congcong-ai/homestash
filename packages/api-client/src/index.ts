@@ -14,9 +14,25 @@ export function createRequestId(): string {
 }
 
 let dataEpoch: string | null = null;
+let readOnly = false;
+export function setReadOnly(value: boolean) {
+  readOnly = value;
+}
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
 export async function api<T>(path: string, body?: unknown): Promise<T> {
+  if (body !== undefined && readOnly)
+    throw Error("当前为离线只读，请重连并核对最新数据后再操作");
   const response = await fetch(`/api${path}`, {
     method: body === undefined ? "GET" : "POST",
+    ...(path === "/state" ? { signal: AbortSignal.timeout(5000) } : {}),
     headers:
       body === undefined
         ? {}
@@ -27,7 +43,11 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "请求失败，请重试");
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined")
+      window.dispatchEvent(new Event("homestash:auth-required"));
+    throw new ApiError(data.error ?? "请求失败，请重试", response.status);
+  }
   if (path === "/state" && typeof data?.dataEpoch === "string")
     dataEpoch = data.dataEpoch;
   return data as T;

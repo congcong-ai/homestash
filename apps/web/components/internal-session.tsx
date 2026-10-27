@@ -1,4 +1,10 @@
 "use client";
+import {
+  beginLogout,
+  clearOffline,
+  pendingLogout,
+  flushLogout,
+} from "../public/offline-storage.js";
 import { useEffect, useState } from "react";
 export default function InternalSession({
   localLan = false,
@@ -7,12 +13,34 @@ export default function InternalSession({
 }) {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => {
+    const expired = () => {
+      clearOffline();
+      window.location.replace("/login");
+    };
+    const onStorage = () => {
+      if (pendingLogout()) window.location.replace("/login");
+    };
+    window.addEventListener("homestash:auth-required", expired);
+    window.addEventListener("storage", onStorage);
+    if (pendingLogout()) {
+      void flushLogout()
+        .catch(() => {})
+        .finally(() => window.location.replace("/login"));
+      return () => {
+        window.removeEventListener("homestash:auth-required", expired);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
     fetch("/api/auth/session")
       .then((r) => {
-        if (r.status === 401) window.location.replace("/login");
+        if (r.status === 401) expired();
         else if (r.status === 204) setEnabled(true);
       })
       .catch(() => {});
+    return () => {
+      window.removeEventListener("homestash:auth-required", expired);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
   if (!enabled) return null;
   return (
@@ -30,7 +58,12 @@ export default function InternalSession({
       <span>{localLan ? "家庭局域网访问" : "内部测试后台"}</span>
       <button
         onClick={async () => {
-          await fetch("/api/auth/logout", { method: "POST" });
+          beginLogout();
+          try {
+            await flushLogout(true);
+          } catch {
+            /* 重连后先完成退出 */
+          }
           window.location.replace("/login");
         }}
         style={{

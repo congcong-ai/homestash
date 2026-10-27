@@ -1,4 +1,14 @@
 "use client";
+import {
+  OfflineControl,
+  OfflineFallback,
+} from "../../components/offline-control";
+import { offlineSnapshot } from "../../lib/offline-snapshot";
+import {
+  saveSnapshot,
+  pendingLogout,
+  offlineSessionVersion,
+} from "../../public/offline-storage.js";
 import { HouseholdCalendar } from "../../components/household-calendar";
 import { HouseholdLocations } from "../../components/household-locations";
 import { OpenedReminderFields } from "../../components/opened-reminder-fields";
@@ -17,7 +27,12 @@ import { ShoppingReceive } from "../../components/shopping-receive";
 import { IntakeCenter } from "../../components/intake-center";
 import { ImageIntake } from "../../components/image-intake";
 import { BarcodeIntake } from "../../components/barcode-intake";
-import { api, createRequestId } from "@homestash/api-client";
+import {
+  api,
+  createRequestId,
+  setReadOnly,
+  ApiError,
+} from "@homestash/api-client";
 import {
   categories,
   categoryNames,
@@ -49,6 +64,7 @@ type Settings = {
   keyConfigured?: boolean;
 };
 type State = {
+  offlineAccess: { scope: string; expiresAt: number };
   calendar: { date: string; timeZone: string; revision: number };
   dataEpoch: string;
   items: InventoryItem[];
@@ -108,6 +124,9 @@ export default function Page() {
   } | null>(null);
   const [receiving, setReceiving] = useState<ShoppingItem | null>(null);
   const observedEpoch = useRef<string | null>(null);
+  const wasOffline = useRef(false);
+  const refreshSequence = useRef(0);
+  const lastRefreshSuccess = useRef(0);
   const pendingShopping = useRef(new Map<string, string>());
   const pendingCooking = useRef(new Map<string, string>());
   const pendingVoice = useRef<{ text: string; id: string } | null>(null);
@@ -124,10 +143,23 @@ export default function Page() {
     [question, setQuestion] = useState("放多少？"),
     [recipeRequirements, setRecipeRequirements] = useState("");
   const refresh = useCallback(async () => {
-    const next = await api<State>("/state");
+    if (pendingLogout()) throw Error("请连接Core完成退出后再继续");
+    const sessionVersion = offlineSessionVersion();
+    const sequence = ++refreshSequence.current;
+    let next: State;
+    try {
+      next = await api<State>("/state");
+    } catch (e) {
+      if (sequence < lastRefreshSuccess.current) return;
+      throw e;
+    }
+    if (sequence < lastRefreshSuccess.current) return;
+    if (pendingLogout() || sessionVersion !== offlineSessionVersion())
+      throw Error("浏览器会话已变化，请重新连接");
     if (
-      observedEpoch.current !== null &&
-      observedEpoch.current !== next.dataEpoch
+      wasOffline.current ||
+      (observedEpoch.current !== null &&
+        observedEpoch.current !== next.dataEpoch)
     ) {
       setEditing(null);
       setReceiving(null);
@@ -137,18 +169,30 @@ export default function Page() {
       pendingVoice.current = null;
       pendingEvents.current.clear();
       setTab((current) => (current === "settings" ? "settings" : "home"));
-      setMessage("家庭数据已恢复，请重新核对库存后继续操作。");
+      setMessage(
+        wasOffline.current
+          ? "已重新连接，数据已更新，请重新核对后继续操作。"
+          : "家庭数据已恢复，请重新核对库存后继续操作。",
+      );
     }
+    lastRefreshSuccess.current = sequence;
     observedEpoch.current = next.dataEpoch;
+    wasOffline.current = false;
+    setReadOnly(false);
+    saveSnapshot(offlineSnapshot(next));
     setState(next);
     setConnected(true);
   }, []);
   useEffect(() => {
-    void refresh().catch(() =>
-      setError("暂时连接不上本地服务，请确认 pnpm dev 已启动。"),
-    );
+    const failed = (e: unknown) => {
+      if (e instanceof ApiError && e.status === 401) return;
+      wasOffline.current = true;
+      setReadOnly(true);
+      setConnected(false);
+    };
+    void refresh().catch(failed);
     const id = setInterval(() => {
-      void refresh().catch(() => setConnected(false));
+      void refresh().catch(failed);
     }, 3000);
     if (window.isSecureContext && "serviceWorker" in navigator)
       void navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -251,6 +295,7 @@ export default function Page() {
       setMessage("已保存，家里的新鲜一目了然。");
     });
   }
+  if (!connected) return <OfflineFallback />;
   if (!state)
     return (
       <main className="loading">
@@ -1381,6 +1426,7 @@ export default function Page() {
               locations={state.locations}
               onChanged={refresh}
             />
+            <OfflineControl state={state} />
             <DataBackups
               onChanged={refresh}
               timeZone={state.calendar.timeZone}

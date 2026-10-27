@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { clearOffline, flushLogout } from "../../public/offline-storage.js";
+import { useEffect, useState, type FormEvent } from "react";
 import "./login.css";
 export default function LoginForm({
   localLan = false,
@@ -9,12 +10,26 @@ export default function LoginForm({
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    clearOffline();
+    void flushLogout()
+      .then(() => fetch("/api/auth/session"))
+      .then(async (response) => {
+        if (
+          response.status === 200 &&
+          (await response.json()).enabled === false
+        )
+          window.location.replace("/app");
+      })
+      .catch(() => setError("副本已清除，请连接Core完成退出后再登录。"));
+  }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
     try {
+      await flushLogout();
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -27,6 +42,7 @@ export default function LoginForm({
         const data = await response.json();
         throw Error(data.error || "登录失败，请重试");
       }
+      clearOffline();
       window.location.assign("/app");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "连接失败，请稍后重试");
@@ -48,7 +64,7 @@ export default function LoginForm({
             ? "使用这台HomeStash Core的家庭访问账号登录。手机与电脑需连接同一可信局域网。"
             : "此后台仅供项目内部测试。想在自己家使用？请从官网获取源码并自行部署。"}
         </p>
-        <form onSubmit={submit}>
+        <form method="post" onSubmit={submit}>
           <label htmlFor="username">用户名</label>
           <input
             id="username"

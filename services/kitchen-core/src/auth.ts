@@ -14,7 +14,24 @@ export function passwordHash(
   return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
 export function registerInternalAuth(app: FastifyInstance) {
-  if (process.env.INTERNAL_LOGIN_ENABLED !== "true") return;
+  if (process.env.INTERNAL_LOGIN_ENABLED !== "true") {
+    app.get("/api/auth/session", async (_req, reply) =>
+      reply.header("Cache-Control", "no-store").send({ enabled: false }),
+    );
+    app.post("/api/auth/logout", async (_req, reply) =>
+      reply
+        .header("Cache-Control", "no-store")
+        .header(
+          "Set-Cookie",
+          `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
+        )
+        .send({ ok: true }),
+    );
+    return (cookies?: string) => {
+      void cookies;
+      return { scope: "local", expiresAt: Date.now() + lifetime * 1000 };
+    };
+  }
   const username = process.env.INTERNAL_LOGIN_USERNAME;
   const hash = process.env.INTERNAL_LOGIN_PASSWORD_HASH;
   const secret = process.env.INTERNAL_SESSION_SECRET;
@@ -92,4 +109,16 @@ export function registerInternalAuth(app: FastifyInstance) {
   app.post("/api/auth/logout", async (_req, reply) =>
     reply.header("Set-Cookie", cookie("", 0)).send({ ok: true }),
   );
+  return (cookies = "") => {
+    const token =
+      cookies
+        .split(";")
+        .map((value) => value.trim())
+        .find((value) => value.startsWith(cookieName + "="))
+        ?.slice(cookieName.length + 1) ?? "";
+    return {
+      scope: signature(`offline:${token}`),
+      expiresAt: Number(token.split(".")[0]) || Date.now(),
+    };
+  };
 }

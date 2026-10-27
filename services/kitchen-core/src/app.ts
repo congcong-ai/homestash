@@ -81,7 +81,7 @@ export function createApp(
     bodyLimit: 65536,
     trustProxy: ["127.0.0.1", "::1"],
   });
-  registerInternalAuth(app);
+  const offlineAccess = registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
   const { current: calendar, change: changeCalendar } = householdCalendar(
     repo,
@@ -503,11 +503,12 @@ export function createApp(
       ? { instanceId: process.env.HOMESTASH_INSTANCE_ID }
       : {}),
   }));
-  app.get("/api/state", async () => {
+  app.get("/api/state", async (req) => {
     const day = calendar();
     return {
       calendar: day,
       dataEpoch: repo.read("backup-data-epoch", "initial"),
+      offlineAccess: offlineAccess(req.headers.cookie),
       items: repo.list(),
       locations: repo.locations(),
       events: repo.events().slice(-50).reverse(),

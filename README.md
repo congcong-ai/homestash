@@ -104,6 +104,8 @@ pnpm hardware:build:generic --board korvo-s31
 
 订单实收可明确关联采购清单，分批抵扣剩余计划；不足部分可以另买后手动补齐，不重复创建库存。见[采购与入库闭环](docs/PURCHASE_TO_STOCK.md)。后续按[大功能交付计划](docs/FEATURE_DELIVERY_PLAN.md)推进，先完成主功能，再集中做细节优化。
 
+支持主动开启的[离线只读副本](docs/OFFLINE_READONLY.md)：Core断线可查库存、采购和食谱，带同步时间与过期限制，不离线修改或补交操作；整个网页服务断开后的重新打开需要HTTPS或本机安全上下文。[Local Mode阶段验收](docs/LOCAL_MODE_ACCEPTANCE.md)已更新。
+
 日期与新鲜度仅供提醒，应结合包装、储存条件和实际状态判断；药品分类仅用于库存管理。
 
 ### 软件技术栈

@@ -1,10 +1,10 @@
 # HomeStash 整体功能进度
 
-更新：2026-10-26。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
+更新：2026-10-27。需求基准为根目录 `00_MASTER_PROMPT_KORVO_V2.md`、`01_PRODUCT_ARCHITECTURE_KORVO_V2.md`、`02_BUILD_ROADMAP_KORVO_V2.md`，并遵守用户后续 HomeStash/FreshMate 命名、SmartBadge 只读和已授权 Phase 1 的约定。本文只记录进度，不替代这三份需求。
 
 当前优先把产品主流程做齐。先实现每条主流程的可用版本，再集中做长期稳定性、功耗和样式优化；不会以更多细节优化代替缺失功能。
 
-当前按[大功能交付计划](FEATURE_DELIVERY_PLAN.md)收口。采购与实收关联已完成；下一大功能是Core断线后的只读离线查询。微信云端、多成员共享和第二块物理板分别保留为后续阶段，不把原型板配置或样式优化排在主功能之前。
+当前按[大功能交付计划](FEATURE_DELIVERY_PLAN.md)收口。采购与实收关联、Core断线只读查询和本阶段集成验收已完成，当前Local Mode软件主流程已收口。微信云端、多成员共享和第二块物理板分别保留为后续阶段，不把原型板配置或样式优化排在主功能之前。
 
 ## 主要产品流程
 
@@ -168,3 +168,11 @@ AI 菜谱和问答的真实百炼探针：`pnpm exec tsx scripts/hardware/probe-
 新增6组回归，全量88项软件测试、lint、typecheck及生产build通过；Chrome手机模拟7项采购专项和74项基线通过。测试使用独立临时库与固定视觉候选，未改日常库存或固件，真实手机/模型本轮未测。详见[采购闭环](PURCHASE_TO_STOCK.md)。原有部署脚本改动保持独立。
 
 后续按[大功能计划](FEATURE_DELIVERY_PLAN.md)优先完成离线只读使用闭环，再做本阶段整体验收；位置归档、主题、原型板BLE前台、功耗和样式细节暂缓。
+
+## 只读离线查询与软件阶段收口 · 2026-10-27
+
+完成主动开启的浏览器只读副本、白名单字段投影、同步/到期提示、库存搜索及采购/食谱浏览、Core重连更新、真实Service Worker静态离线页，以及过期、退出、401和登录清除。断线退出先清本机，重连补办远端退出；无登录Local Mode保持可用。不会缓存秘密配置、原始metadata或图片，也不排队补交库存修改。HTTP局域网仅保证网页服务仍在线时的Core断线查询，本机安全上下文已验证整个服务不可达后重新打开。
+
+新增6组测试，全量94项、lint、typecheck和build通过；原74项浏览器基线及26项离线专项通过，含320像素、真实Service Worker导航、重连数量更新及退出恢复。独立临时库，未改日常库存或固件；真实手机和真实外部模型未测。详见[离线说明](OFFLINE_READONLY.md)和[Local Mode阶段验收](LOCAL_MODE_ACCEPTANCE.md)。
+
+[大功能计划](FEATURE_DELIVERY_PLAN.md)已更新：当前软件主流程收口，后续多成员/云端、新物理板等保留独立阶段；不自动进入微信、PCB或原型板细节优化。已有部署脚本改动保持独立。
