@@ -21,6 +21,7 @@
     "hardware:check:ports": "python3 scripts/hardware/check-device-ports.py",
     "hardware:targets": "node scripts/hardware/resolve-target.mjs --list",
     "hardware:status": "node scripts/hardware/status.mjs",
+    "hardware:restore": "bash scripts/hardware/restore.sh",
     "server:install": "bash scripts/install-remote.sh",
     "server:deploy": "bash scripts/deploy-remote.sh",
     "server:ports": "python3 scripts/server-port-audit.py",

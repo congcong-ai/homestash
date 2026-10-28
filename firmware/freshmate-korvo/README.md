@@ -34,7 +34,7 @@ pnpm hardware:build
 
 必须先验证 USB 序列号、MAC 和完整 Flash 备份。此项目的 `backup.py` 是只读 Flash 工具：空白块先核对设备 MD5 再重建为 `0xff`，非空白块从设备读取；最终再次校验整片摘要，并保存本地 SHA-256。脚本可用同一目录断点续传。
 
-备份含设备配置，仅保存在用户明确授权的 SmartBadge 忽略目录，不能复制到 HomeStash 或提交 Git。上次未完成的读取结果不能用于恢复。
+备份含设备配置，保存在本机 Git 忽略目录，不能提交 Git。2026-10-27 的当前板上完整备份位于 `data/hardware/backups/homestash-20261027/`；从仓库根目录执行 `pnpm hardware:restore` 即可整片恢复，操作说明见[根 README](../../README.md#开发板固件备份与一键恢复)。早期 SmartBadge 备份继续保留在原目录。上次未完成的读取结果不能用于恢复。
 
 ```sh
 # 使用已安装的 IDF Python 环境

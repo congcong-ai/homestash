@@ -14,7 +14,8 @@ if [[ -L "$base/current" ]]; then old="$(readlink -f "$base/current")"; fi
 mkdir -p "$new"
 cp -a "$source_dir/." "$new/"
 ln -s "$base/shared/.env" "$new/.env"
-chown -R homestash:homestash "$new"
+# 跳过各级共享依赖和软链目标，避免影响其他项目。
+find "$new" -name node_modules -type d -prune -o -exec chown -h homestash:homestash {} +
 cd "$new"
 if [[ -n "$old" && -f "$old/.healthy" && -d "$old/node_modules" ]] && cmp -s "$old/pnpm-lock.yaml" pnpm-lock.yaml; then
  echo '复用已验证的 Linux 运行依赖'
