@@ -4,8 +4,11 @@
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "esp_event.h"
+#include "lwip/dns.h"
+#include "lwip/tcpip.h"
+static void clear_dns(void *arg){(void)arg;dns_clear_cache();}
 static void event(void *arg, esp_event_base_t base, int32_t id, void *data) {
-  if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) hs_wifi_profiles_connected();
+  if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP){tcpip_callback(clear_dns,NULL);hs_wifi_profiles_connected();}
   if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) hs_wifi_profiles_disconnected();
 }
 esp_err_t hs_network_init(void) {

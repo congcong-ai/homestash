@@ -224,3 +224,61 @@ test("生成的家庭账号可登录Core，跨重启会话有效，未知来源�
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("路演设备端口被其他程序占用时明确失败，不静默换端口", async () => {
+  const { createServer } = await import("node:net");
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    await assert.rejects(
+      preparePort(address.port, "127.0.0.1", "/tmp/homestash-other-project", {
+        fixed: true,
+      }),
+      /固定端口.*已被其他程序占用/,
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("家庭免登录模式允许匿名读写，无需用户Cookie", async () => {
+  const previous = process.env.INTERNAL_LOGIN_ENABLED;
+  process.env.INTERNAL_LOGIN_ENABLED = "false";
+  const core = createApp(":memory:");
+  try {
+    assert.deepEqual((await core.app.inject("/api/auth/session")).json(), {
+      enabled: false,
+    });
+    assert.equal((await core.app.inject("/api/state")).statusCode, 200);
+    assert.equal(
+      (
+        await core.app.inject({
+          url: "/api/state",
+          headers: { cookie: "homestash_session=旧会话" },
+        })
+      ).statusCode,
+      200,
+    );
+    const response = await core.app.inject({
+      method: "POST",
+      url: "/api/shopping",
+      payload: {
+        action: "add",
+        requestId: crypto.randomUUID(),
+        item: { name: "免登录验证番茄", quantity: 2, unit: "个" },
+      },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(
+      response
+        .json()
+        .some((item: { name: string }) => item.name === "免登录验证番茄"),
+    );
+  } finally {
+    await core.app.close();
+    if (previous === undefined) delete process.env.INTERNAL_LOGIN_ENABLED;
+    else process.env.INTERNAL_LOGIN_ENABLED = previous;
+  }
+});

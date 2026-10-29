@@ -1,4 +1,5 @@
 #include "hs_display.h"
+#include "hs_avatar.h"
 #include "bsp/display.h"
 #include "esp_lv_adapter.h"
 #include "esp_log.h"
@@ -6,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 LV_FONT_DECLARE(hs_font);
-static lv_obj_t *message, *network, *tabs[6];
+static lv_obj_t *message, *network, *backend, *avatar, *tabs[6];
 static void (*navigate_cb)(int);
 static void navigate(lv_event_t *e) {
   if(navigate_cb) navigate_cb((int)(intptr_t)lv_event_get_user_data(e));
@@ -31,15 +32,22 @@ esp_err_t hs_display_init(void) {
   lv_obj_t *title = lv_label_create(screen);
   lv_label_set_text(title, "FreshMate / HomeStash");
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 32, 28);
+  lv_obj_t *demo_button=lv_button_create(screen);
+  lv_obj_set_size(demo_button,235,52);lv_obj_align(demo_button,LV_ALIGN_TOP_RIGHT,-155,18);
+  lv_obj_set_style_bg_color(demo_button,lv_color_hex(0x765194),0);
+  lv_obj_t *demo_label=lv_label_create(demo_button);lv_label_set_text(demo_label,"进入演示馆");lv_obj_center(demo_label);
+  lv_obj_add_event_cb(demo_button,navigate,LV_EVENT_CLICKED,(void*)(intptr_t)6);
   network = lv_label_create(screen);
   lv_obj_align(network, LV_ALIGN_TOP_LEFT, 32, 90);
   lv_label_set_text(network, "网络未连接");
+  backend=lv_label_create(screen);lv_obj_align(backend,LV_ALIGN_TOP_RIGHT,-32,90);lv_label_set_text(backend,"未连上后台");
+  avatar=hs_avatar_create(screen,265,130);
   message = lv_label_create(screen);
   lv_obj_set_width(message, 730);
-  lv_obj_align(message, LV_ALIGN_TOP_LEFT, 32, 130);
-  lv_obj_set_height(message,265);
+  lv_obj_align(message, LV_ALIGN_TOP_LEFT, 32, 358);
+  lv_obj_set_height(message,64);
   lv_label_set_long_mode(message, LV_LABEL_LONG_DOT);
-  lv_label_set_text(message, "按 SET 录音，按 MODE 拍照。联网后显示今日摘要。");
+  lv_label_set_text(message, "首页 PLAY 进入演示馆，SET 录音。其它页面 MODE 拍照。");
   const char *names[]={"今日","库存","临期","推荐","做饭","采购"};
   for(int i=0;i<6;i++) {
     tabs[i]=lv_button_create(screen);
@@ -50,7 +58,7 @@ esp_err_t hs_display_init(void) {
     lv_obj_add_event_cb(tabs[i],navigate,LV_EVENT_CLICKED,(void*)(intptr_t)i);
   }
   bsp_display_unlock();
-  hs_display_text("按 SET 录音，按 MODE 拍照。联网后显示今日摘要。");
+  hs_display_text("首页 PLAY 进入演示馆，SET 录音。其它页面 MODE 拍照。");
   hs_display_network("",false);
   return ESP_OK;
 }
@@ -92,3 +100,6 @@ esp_err_t hs_display_resume(void) {
   if(err==ESP_OK){sleep_prepared=false;err=hs_display_backlight(true);}
   return err;
 }
+
+void hs_display_backend(bool connected){if(backend && bsp_display_lock(-1)){lv_label_set_text(backend,connected?"已连后台":"未连上后台");lv_obj_set_style_text_color(backend,lv_color_hex(connected?0x278266:0xb85c55),0);bsp_display_unlock();}}
+void hs_display_dialogue(int state){if(bsp_display_lock(-1)){hs_avatar_state(avatar,(hs_avatar_state_t)state);bsp_display_unlock();}}

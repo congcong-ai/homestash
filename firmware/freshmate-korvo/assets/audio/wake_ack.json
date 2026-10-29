@@ -1,0 +1,9 @@
+{
+  "text": "我在，你说！",
+  "voice": "Momo",
+  "model": "qwen3-tts-flash",
+  "sha256": "c9f5409a2237d9ecdaffd87ee3813141f6e2915f76df3547661d77feb910b19b",
+  "sampleRate": 16000,
+  "channels": 1,
+  "durationSeconds": 1.52
+}

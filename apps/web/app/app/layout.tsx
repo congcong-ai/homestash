@@ -7,9 +7,8 @@ export const metadata: Metadata = {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <InternalSession
-        localLan={process.env.HOMESTASH_LAN_ENABLED === "true"}
-      />
+      {process.env.INTERNAL_LOGIN_ENABLED === "true" &&
+        process.env.HOMESTASH_LAN_ENABLED !== "true" && <InternalSession />}
       {children}
     </>
   );

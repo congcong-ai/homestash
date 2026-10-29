@@ -18,4 +18,5 @@ export function preparePort(
   preferred: number,
   host: string,
   root: string,
+  options?: { fixed?: boolean },
 ): Promise<number>;

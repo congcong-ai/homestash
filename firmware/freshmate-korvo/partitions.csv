@@ -6,3 +6,6 @@ factory,app,factory,0x10000,4M
 otadata,data,ota,0x410000,0x2000
 ota_0,app,ota_0,0x420000,4M
 ota_1,app,ota_1,0x820000,4M
+
+# 本地语音模型使用原分区之后的空闲空间，不移动既有应用。
+model,data,spiffs,0xc20000,0x3e0000

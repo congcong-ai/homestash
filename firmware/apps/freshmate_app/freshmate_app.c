@@ -1,4 +1,5 @@
 #include "hs_audio.h"
+#include "hs_demo.h"
 #include "hs_power.h"
 #include "hs_provisioning.h"
 #include "hs_device_config.h"
@@ -39,8 +40,10 @@ static void upload(void *arg) {
   for(;;) {
     if(!xQueueReceive(uploads,&job,pdMS_TO_TICKS(5000))) {
       hs_wifi_status_t status; hs_wifi_status(&status);
+      if(hs_demo_active())continue;
       if(status.connected) {
         esp_err_t heartbeat=hs_transport_heartbeat();
+        hs_display_backend(heartbeat==ESP_OK);
         ESP_LOGI("FreshMate", "Core heartbeat: %s", esp_err_to_name(heartbeat));
         connection_failures=heartbeat==ESP_ERR_HTTP_CONNECT?connection_failures+1:0;
         if(!hs_provision_active() && connection_failures>=3 && esp_timer_get_time()>=reconnect_after) {
@@ -48,8 +51,10 @@ static void upload(void *arg) {
           hs_wifi_reconnect();connection_failures=0;reconnect_after=esp_timer_get_time()+120000000;
         }
       }
+      if(!status.connected)hs_display_backend(false);
       job=(job_t){.kind=2,.page=page};
     }
+    if(hs_demo_active())continue;
     const char *id=job.id;
     result_t r={.kind=job.kind}; hs_wifi_status_t status; hs_wifi_status(&status);
     if(job.kind==5 || job.kind==6) {
@@ -73,6 +78,7 @@ static void upload(void *arg) {
     if(job.kind==2) {
       page=job.page;r.page=page;
       if(status.connected) r.success=hs_transport_screen(page,r.message,sizeof(r.message))==ESP_OK;
+      hs_display_backend(r.success);
       if(!r.success) snprintf(r.message,sizeof(r.message),"Core 暂时无法连接，页面未更新。联网后将自动刷新，SET 可录音。");
       xQueueSend(results,&r,portMAX_DELAY);continue;
     }
@@ -103,6 +109,15 @@ static void console(void *arg) {
     if(c=='\n' || c=='\r') {
       line[length]=0;
       if(overflow){length=0;overflow=false;ESP_LOGW("FreshMate","串口命令过长，已拒绝");continue;}
+      if(!strcmp(line,"settings-open"))hs_settings_ui_show(true);
+      if(!strcmp(line,"settings-close"))hs_settings_ui_show(false);
+      if(!strcmp(line,"demo-online"))input_action((hs_action_t)35);
+      if(!strcmp(line,"demo-enter"))input_action((hs_action_t)34);
+      if(!strcmp(line,"demo-next"))input_action((hs_action_t)3);
+      if(!strcmp(line,"demo-back"))input_action((hs_action_t)30);
+      if(!strcmp(line,"demo-up"))input_action((hs_action_t)31);
+      if(!strcmp(line,"demo-down"))input_action((hs_action_t)32);
+      if(!strcmp(line,"demo-door"))input_action((hs_action_t)1);
       if(!strcmp(line,"wifi-scan"))hs_wifi_scan();
       if(!strcmp(line,"ble-start") || !strcmp(line,"ble-stop")) {int action=!strcmp(line,"ble-start")?24:25;xQueueSend(buttons,&action,0);}
       if(!strcmp(line,"ble-status")){hs_provision_status_t s;hs_provision_status(&s);ESP_LOGI("FreshMate","BLE active=%d applying=%d state=%s seconds=%u",s.active,s.applying,s.state,s.seconds_left);memset(&s,0,sizeof(s));}
@@ -136,7 +151,7 @@ static void console(void *arg) {
     } else if(length<sizeof(line)-1) line[length++]=c;else overflow=true;
   }
 }
-static void navigate_page(int page) {int action=10+page;xQueueSend(buttons,&action,0);}
+static void navigate_page(int page) {int action=page==6?34:10+page;xQueueSend(buttons,&action,0);}
 static void settings_action(int action) {xQueueSend(buttons,&action,0);}
 void freshmate_app_run(void) {
   hs_power_boot();
@@ -144,17 +159,21 @@ void freshmate_app_run(void) {
   ESP_ERROR_CHECK(nvs_flash_init());
   ESP_ERROR_CHECK(hs_device_config_init());
   ESP_ERROR_CHECK(hs_display_init());
-  if(hs_storage_init()!=ESP_OK) { hs_ota_boot_health(false); hs_display_text("无法挂载设备存储，请检查。不会自动格式化。"); return; }
   if(hs_board_has(HS_CAP_AUDIO_INPUT) || hs_board_has(HS_CAP_AUDIO_OUTPUT)) ESP_ERROR_CHECK(hs_audio_init());
-  ESP_ERROR_CHECK(hs_network_init());
-  if(hs_board_has(HS_CAP_BLE_PROVISIONING)) ESP_ERROR_CHECK(hs_provision_init());
-  buttons=xQueueCreate(4,sizeof(int)); uploads=xQueueCreate(4,sizeof(job_t)); results=xQueueCreate(1,sizeof(result_t));
-  configASSERT(buttons && uploads && results);
+  buttons=xQueueCreate(12,sizeof(int));configASSERT(buttons);
   configASSERT(xTaskCreate(console,"串口调试",12288,NULL,3,NULL)==pdPASS);
+  ESP_ERROR_CHECK(hs_board_inputs_init(input_action));
+  ESP_ERROR_CHECK(hs_network_init());
+  esp_err_t voice_ready=hs_audio_voice_init();
+  if(voice_ready!=ESP_OK)ESP_LOGE("FreshMate","本地语音初始化失败：%s，保留按键录音",esp_err_to_name(voice_ready));
+  ESP_ERROR_CHECK(hs_settings_ui_init(settings_action));
+  hs_demo_run(buttons);
+  if(hs_storage_init()!=ESP_OK) { hs_ota_boot_health(false); hs_display_text("无法挂载设备存储，请检查。不会自动格式化。"); return; }
+  if(hs_board_has(HS_CAP_BLE_PROVISIONING)) ESP_ERROR_CHECK(hs_provision_init());
+  uploads=xQueueCreate(4,sizeof(job_t)); results=xQueueCreate(1,sizeof(result_t));
+  configASSERT(buttons && uploads && results);
   configASSERT(xTaskCreate(upload,"上传",16384,NULL,4,NULL)==pdPASS);
   hs_display_navigation(navigate_page);
-  ESP_ERROR_CHECK(hs_settings_ui_init(settings_action));
-  ESP_ERROR_CHECK(hs_board_inputs_init(input_action));
   char photo_id[37]={0};int photo_state=hs_camera_recover(photo_id);
   ESP_LOGI("FreshMate","photo recovery=%d id=%s",photo_state,photo_id);
   char id[37]={0}; bool pending=false,recording=false,busy=false,storage_error=false; int64_t started=0;
@@ -164,6 +183,7 @@ void freshmate_app_run(void) {
   if(photo_state==1) hs_display_text("发现待上传照片。按 MODE 重试。SET 可录音。");
   if(pending) hs_display_text("发现待上传录音。按 SET 重试。");
   if(storage_error) hs_display_text("录音恢复失败，原文件已保留。请检查存储卡。");
+  bool voice_recording=false;
   bool boot_checked=false;int64_t boot_ready=esp_timer_get_time()+30000000;
   int selected_page=0;bool dashboard=!pending && photo_state!=1 && !storage_error;
   for(;;) {
@@ -186,7 +206,9 @@ void freshmate_app_run(void) {
         photo_state=hs_camera_recover(photo_id);
         continue;
       }
+      hs_display_dialogue(result.success==2?3:4);
       esp_err_t playback=result.success==2?hs_audio_play():ESP_ERR_INVALID_STATE;
+      hs_display_dialogue(0);
       ESP_LOGI("FreshMate", "播放 id=%s result=%s",id,esp_err_to_name(playback));
       if(result.success==2 && playback==ESP_OK) {
         if(hs_outbox_complete(id)==HS_OUTBOX_OK) {
@@ -199,8 +221,18 @@ void freshmate_app_run(void) {
       } else if(result.success) hs_display_text("操作已完成，播报未完成。按 SET 重试不会重复执行。");
     }
       }
-    bool clicked=xQueueReceive(buttons,&action,recording?0:pdMS_TO_TICKS(30));
+    bool clicked=xQueueReceive(buttons,&action,(recording || (!busy && !storage_error && voice_ready==ESP_OK && !hs_settings_ui_active()))?0:pdMS_TO_TICKS(30));
+    if(!clicked && !recording && !busy && !storage_error && !hs_provision_active() && !hs_settings_ui_active()){
+      if(hs_audio_voice_poll(false)==100){hs_display_dialogue(3);hs_demo_ack();hs_display_dialogue(1);clicked=true;action=1;voice_recording=true;
+        /* 旧录音仍在 outbox；为新语音另建 ID，避免待上传任务阻断唤醒。 */
+        pending=false;}
+    }else if(!recording)hs_audio_voice_pause();
     if(clicked && action==2) {ESP_LOGI("FreshMate", "state recording=%d pending=%d busy=%d storage_error=%d id=%s photo_state=%d photo_id=%s",recording,pending,busy,storage_error,id,photo_state,photo_id);continue;}
+    if(clicked && (action==30 || action==34 || (action==3 && selected_page==0 && !recording))) {
+      if(busy || recording || hs_provision_active()){hs_display_text("请先结束当前任务，再进入演示馆。");continue;}
+      hs_demo_open_menu(buttons);continue;
+    }
+    if(clicked && action>=31)continue;
     if(clicked && action==25){hs_provision_stop();continue;}
     if(busy) continue;
     if(clicked && !hs_device_action_supported(hs_board_descriptor(),(hs_action_t)action)) {hs_display_text("此设备不支持该硬件操作，请使用网页完成。");continue;}
@@ -239,8 +271,8 @@ void freshmate_app_run(void) {
     }
     if(recording) {
       esp_err_t e=hs_audio_read();
-      if((clicked && action==1) || e!=ESP_OK || esp_timer_get_time()-started>=59000000) {
-        recording=false;
+      if((clicked && action==1) || e!=ESP_OK || (voice_recording && (hs_audio_voice_finished() || esp_timer_get_time()-started>=10000000)) || esp_timer_get_time()-started>=59000000) {
+        recording=false;voice_recording=false;hs_display_dialogue(2);
         ESP_LOGI("FreshMate", "录音停止");
         if(hs_audio_stop()!=ESP_OK || e!=ESP_OK || hs_outbox_commit(id)!=HS_OUTBOX_OK) {
           storage_error=true;hs_display_text("录音保存未完成，原文件已保留。请重启恢复。");continue;
@@ -254,7 +286,7 @@ void freshmate_app_run(void) {
       else {
         char path[HS_OUTBOX_PATH_SIZE];uuid(id);
         if(hs_outbox_path(id,"part",path,sizeof(path))==0 && hs_audio_start(path)==ESP_OK) {
-          ESP_LOGI("FreshMate", "录音开始 id=%s",id);recording=true;started=esp_timer_get_time();
+          ESP_LOGI("FreshMate", "录音开始 id=%s",id);recording=true;hs_display_dialogue(1);started=esp_timer_get_time();
           hs_display_text("正在录音，请说话。按 SET 停止。");
         } else {storage_error=true;hs_display_text("录音启动失败，请重启检查存储。");}
       }

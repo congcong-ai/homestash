@@ -6,6 +6,7 @@
 #include "wifi_profiles.h"
 #include "bsp/display.h"
 #include "esp_app_desc.h"
+#include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "lvgl.h"
 #include <stdio.h>
@@ -16,7 +17,8 @@ static lv_obj_t *url_input,*id_input,*token_input,*ota_label,*install_button,*bl
 static hs_wifi_ap_t aps[HS_WIFI_SCAN_LIMIT],selected;
 static unsigned revision=~0U;
 static int page;
-static bool busy;
+static bool busy,visible;
+bool hs_settings_ui_active(void){return __atomic_load_n(&visible,__ATOMIC_RELAXED);}
 static void (*send_action)(int);
 void hs_settings_ui_busy(bool value) {__atomic_store_n(&busy,value,__ATOMIC_RELAXED);}
 static bool blocked(void) {return __atomic_load_n(&busy,__ATOMIC_RELAXED) || hs_provision_active();}
@@ -31,7 +33,7 @@ static void focus(lv_event_t *e) {if(page==1 && !password_dialog)lv_obj_set_y(co
 static lv_obj_t *input(lv_obj_t *p,int x,int y,int w,int limit,const char *value,bool secret) {
  lv_obj_t *o=lv_textarea_create(p);lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,52);lv_obj_set_style_text_font(o,&hs_font,0);lv_textarea_set_one_line(o,true);lv_textarea_set_max_length(o,limit);lv_textarea_set_password_mode(o,secret);lv_textarea_set_text(o,value);lv_obj_add_event_cb(o,focus,LV_EVENT_FOCUSED,NULL);return o;
 }
-static void close_settings(lv_event_t *e) {(void)e;if(token_input)lv_textarea_set_text(token_input,"");if(password_input)lv_textarea_set_text(password_input,"");lv_obj_delete(panel);panel=content=keyboard=notice=list=password_dialog=password_input=url_input=id_input=token_input=ota_label=install_button=NULL;}
+static void close_settings(lv_event_t *e) {(void)e;__atomic_store_n(&visible,false,__ATOMIC_RELAXED);if(token_input)lv_textarea_set_text(token_input,"");if(password_input)lv_textarea_set_text(password_input,"");lv_obj_delete(panel);panel=content=keyboard=notice=list=password_dialog=password_input=url_input=id_input=token_input=ota_label=install_button=NULL;}
 static void network_command(lv_event_t *e) {if(blocked()){lv_label_set_text(notice,"正在处理，请稍后设置网络");return;}esp_err_t r=(intptr_t)lv_event_get_user_data(e)==1?hs_wifi_scan():hs_wifi_automatic();if(r!=ESP_OK)lv_label_set_text(notice,"设备忙，请稍后重试");}
 static void close_password(lv_event_t *e) {(void)e;lv_keyboard_set_textarea(keyboard,NULL);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_textarea_set_text(password_input,"");lv_obj_delete(password_dialog);password_dialog=password_input=NULL;}
 static void connect_password(lv_event_t *e) {
@@ -89,8 +91,8 @@ static void select_page(lv_event_t *e) {
  }
 }
 static void open_settings(lv_event_t *e) {
- (void)e;if(panel || app_busy())return;
- panel=lv_obj_create(lv_screen_active());lv_obj_set_pos(panel,0,0);lv_obj_set_size(panel,800,480);lv_obj_set_style_bg_color(panel,lv_color_hex(0xf4f7ef),0);lv_obj_set_style_bg_opa(panel,LV_OPA_COVER,0);lv_obj_remove_flag(panel,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_pad_all(panel,0,0);
+ (void)e;if(panel)return;__atomic_store_n(&visible,true,__ATOMIC_RELAXED);
+ panel=lv_obj_create(lv_layer_top());lv_obj_set_pos(panel,0,0);lv_obj_set_size(panel,800,480);lv_obj_set_style_bg_color(panel,lv_color_hex(0xf4f7ef),0);lv_obj_set_style_bg_opa(panel,LV_OPA_COVER,0);lv_obj_remove_flag(panel,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_pad_all(panel,0,0);
  label(panel,20,10,350,"FreshMate 设备设置");button(panel,650,0,110,"返回",close_settings,NULL);
  const char *names[]={"网络","Core","更新","蓝牙"};for(int i=0;i<4;i++)button(panel,20+i*190,65,180,names[i],select_page,(void*)(intptr_t)i);
  content=lv_obj_create(panel);lv_obj_set_pos(content,20,130);lv_obj_set_size(content,760,330);lv_obj_set_style_pad_all(content,0,0);lv_obj_remove_flag(content,LV_OBJ_FLAG_SCROLLABLE);
@@ -118,5 +120,7 @@ static void refresh(lv_timer_t *timer) {
 }
 esp_err_t hs_settings_ui_init(void (*action)(int)) {
  send_action=action;if(!bsp_display_lock(-1))return ESP_FAIL;
- button(lv_screen_active(),650,20,120,"设置",open_settings,NULL);lv_timer_create(refresh,400,NULL);bsp_display_unlock();return ESP_OK;
+ button(lv_layer_top(),650,18,130,"⚙ 设置",open_settings,NULL);lv_timer_create(refresh,400,NULL);bsp_display_unlock();return ESP_OK;
 }
+
+void hs_settings_ui_show(bool show){if(!bsp_display_lock(-1))return;if(show)open_settings(NULL);else if(panel)close_settings(NULL);bsp_display_unlock();ESP_LOGI("设备设置","页面=%s",show?"打开":"关闭");}

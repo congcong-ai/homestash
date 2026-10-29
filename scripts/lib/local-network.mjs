@@ -144,7 +144,12 @@ export function portAvailable(port, host) {
     server.listen(port, host, () => server.close(() => resolve(true)));
   });
 }
-export async function preparePort(preferred, host, root) {
+export async function preparePort(
+  preferred,
+  host,
+  root,
+  { fixed = false } = {},
+) {
   if (!Number.isInteger(preferred) || preferred < 1024 || preferred > 65535)
     throw Error("服务端口必须为1024至65535的整数");
   let stopped = false;
@@ -158,7 +163,15 @@ export async function preparePort(preferred, host, root) {
       }
     }
   if (stopped) await new Promise((r) => setTimeout(r, 600));
-  for (let port = preferred; port <= Math.min(preferred + 99, 65535); port++)
+  for (
+    let port = preferred;
+    port <= Math.min(preferred + (fixed ? 0 : 99), 65535);
+    port++
+  )
     if (await portAvailable(port, host)) return port;
-  throw Error("附近100个端口均不可用，请指定其他起始端口");
+  throw Error(
+    fixed
+      ? `设备固定端口 ${preferred} 已被其他程序占用，请释放该端口后重试`
+      : "附近100个端口均不可用，请指定其他起始端口",
+  );
 }

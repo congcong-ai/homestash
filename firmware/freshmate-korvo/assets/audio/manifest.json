@@ -1,0 +1,105 @@
+{
+  "说明": "预生成配音，不在运行时访问网络；无系统升调处理",
+  "model": "qwen3-tts-flash",
+  "voice": "Momo",
+  "entries": [
+    {
+      "name": "demo01_01",
+      "textHash": "6b5e7e6365477f9b77b8152c45fe1b2a264b54f5cbf6ee2cec86d538327e6caf",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "2aa31997fe8bc3748992d4056f139ca68da5259bb0b3567700779bfcdfc164b9"
+    },
+    {
+      "name": "demo01_02",
+      "textHash": "97adfc4288d539bbce78759881fac0dc79dbd378390b09b6baab239363b56949",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "6d94da87ac68d32a36657c5ad67da0e25b06f25fdbac7ddf151fdf18bc0f2a67"
+    },
+    {
+      "name": "demo02_01",
+      "textHash": "fa851e82ea6b57b5497db3f27ba113f23f4cba99231874fc8b90a3081f2b34dc",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "499f463e7c1eccf970a20a29e397ca08e32f9927b9f25f5ad9ea62d0b4af49f6"
+    },
+    {
+      "name": "demo03_01",
+      "textHash": "792be67ef5339b672a5afa311fd7d6838b2ab12cfef383e0df5997d3416a120d",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "76a79c930c326dc772fe87dc6abf25d08a88ba24d33b3afaba7b4e9b992f85e9"
+    },
+    {
+      "name": "demo03_02",
+      "textHash": "06a49bc85f1b3f7b21764bd9aae9ccd5cc8da3040f3626abb04d8bad85512ac3",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "ff1c5a255d0f9901ff4a06e89c5458b358a7963d80395352358ab9321c434ffe"
+    },
+    {
+      "name": "demo03_03",
+      "textHash": "f86cf5938109c6301efcd3f8b7c9ce01c42301bcdec33eb9ee081b2cbf4a6052",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "71e0835f439da27cc5a40dca98bcc92efedcbdfcd222a5705de2b283ee04d7b6"
+    },
+    {
+      "name": "demo03_04",
+      "textHash": "61c9fc156145eb2517425740bed3fa2ca9d48da338f0f60a986b8858937d1b6d",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "f0be3488f2472ef30655d75e667310fa301cbb7285ce4032d3b33fdb5f28be31"
+    },
+    {
+      "name": "demo04_01",
+      "textHash": "adfb98556a960eb2896d6b8d65bb6637007c6c20a1cb532601fd11236e28d71f",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "79f0214004098bfc59adfe6e375f991331fb4ef1c7cbd9cdec434e55c438e37d"
+    },
+    {
+      "name": "demo04_02",
+      "textHash": "f78a677348845c443c5c6536a206ef1f894a44181bc11b380dbc8279d450e5aa",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "53d728aaed9531719aa67b792e0de9a728ce00aae4bb91a7d83b17d17d64cd1b"
+    },
+    {
+      "name": "demo05_01",
+      "textHash": "b1e1f9391b70b06124354d436b258e4fb4a2900d5137e29fe44665e0a7e45ef8",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "e3dead64e2bc20a5cfe580eddc8674fa1d127c09bdb0edda4c67fcdf5cc7c363"
+    },
+    {
+      "name": "demo05_02",
+      "textHash": "362a9534dd06670afe25b403cac910a29ac1d6b8030964bb62eaf915309f0374",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "1d85d2e7b1abdab5ac70880819a2b93db715ed532491830a478ad0d7fc9a3ef3"
+    },
+    {
+      "name": "demo05_03",
+      "textHash": "703e9412eb822921440351319345f35c8a3d487f95c47902f904a7f00b5ff63c",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "79c1d7624fac6374067a4f5bdd4aa40a5d3e2bf4192fcd1609653ec24e2aeafc"
+    },
+    {
+      "name": "demo06_01",
+      "textHash": "f001432889215039a84544326bbcea53e91acbeb3d5947be3f8479c462ee3766",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "ac8db28503ccdf3e1ec85222e27cf6f67265273ad21850d354fe1d1772d64757"
+    },
+    {
+      "name": "demo06_02",
+      "textHash": "6dd6fa57cbed54a4cb503fa5f711833806fe9e911f07ccede7b5477cb4213001",
+      "voice": "Momo",
+      "model": "qwen3-tts-flash",
+      "sha256": "ce4d1ed7891debff61a8fe1edd5d66e93019ee8f410296e14c2887878b3d771c"
+    }
+  ]
+}

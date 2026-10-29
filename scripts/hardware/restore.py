@@ -61,6 +61,7 @@ def main():
         if not args.verify_only:
             print('正在整片恢复 Flash，设备配置将回到备份时状态；请勿断电。', flush=True)
             subprocess.run(base + ['--after', 'no-reset', 'write-flash',
+                                   '--compress',
                                    '--flash-mode', 'keep', '--flash-size', 'keep',
                                    '--flash-freq', 'keep', '0x0', str(snapshot)], check=True)
         subprocess.run(base + ['verify-flash', '0x0', str(snapshot)], check=True)

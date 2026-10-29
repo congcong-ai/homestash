@@ -22,7 +22,7 @@ assert hashlib.sha256(backup.read_bytes()).hexdigest()==manifest['sha256']
 assert manifest['mac']==config['DEVICE_MAC'] and manifest['usbSerial']==config['USB_SERIAL']
 files=json.loads((build/'flasher_args.json').read_text())['flash_files']
 offsets={int(k,0) for k in files}
-assert offsets in ({0x2000,0x8000,0x10000},{0x2000,0x8000,0x10000,0x410000})
+assert offsets in ({0x2000,0x8000,0x10000},{0x2000,0x8000,0x10000,0x410000},{0x2000,0x8000,0x10000,0x410000,0xc20000}), '镜像分区不属于已审核布局'
 if 0x410000 in offsets:
  assert a.migration_backup,'新分区需要当前完整Flash回退备份；使用 --migration-backup'
  migration_path=Path(a.migration_backup).resolve();migration=json.loads(migration_path.read_text())
@@ -36,7 +36,7 @@ for offset,name in sorted(files.items(),key=lambda x:int(x[0],0)):
  f=(build/name).resolve();assert f.is_relative_to(build) and f.is_file()
  if int(offset,0)==0x410000:
   assert f.stat().st_size==0x2000 and f.read_bytes()==bytes([255])*0x2000
- else: assert int(offset,0)+f.stat().st_size<={0x2000:0x8000,0x8000:0x9000,0x10000:0x410000}[int(offset,0)]
+ else: assert int(offset,0)+f.stat().st_size<={0x2000:0x8000,0x8000:0x9000,0x10000:0x410000,0xc20000:0x1000000}[int(offset,0)]
  args.extend([offset,str(f)])
 if a.dry_run:
  print('镜像与完整备份验证通过；未打开串口、未烧录。');sys.exit(0)

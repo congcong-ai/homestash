@@ -7,6 +7,7 @@ import { offlineSnapshot } from "../../lib/offline-snapshot";
 import {
   saveSnapshot,
   pendingLogout,
+  completeLogout,
   offlineSessionVersion,
 } from "../../public/offline-storage.js";
 import { HouseholdCalendar } from "../../components/household-calendar";
@@ -143,7 +144,12 @@ export default function Page() {
     [question, setQuestion] = useState("放多少？"),
     [recipeRequirements, setRecipeRequirements] = useState("");
   const refresh = useCallback(async () => {
-    if (pendingLogout()) throw Error("请连接Core完成退出后再继续");
+    if (pendingLogout()) {
+      const session = await fetch("/api/auth/session");
+      if (session.status === 200 && (await session.json()).enabled === false)
+        completeLogout();
+      else throw Error("请连接Core完成退出后再继续");
+    }
     const sessionVersion = offlineSessionVersion();
     const sequence = ++refreshSequence.current;
     let next: State;

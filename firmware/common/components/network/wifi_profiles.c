@@ -20,15 +20,15 @@ static EventGroupHandle_t events;
 #define DISCONNECTED 2
 #define COMMAND 4
 static const char *tag = "HomeStash网络";
-static const char *ssids[] = {CONFIG_HS_WIFI_SSID, CONFIG_HS_WIFI_OFFICE_SSID};
-static const char *passwords[] = {CONFIG_HS_WIFI_PASSWORD, CONFIG_HS_WIFI_OFFICE_PASSWORD};
+static const char *ssids[] = {CONFIG_HS_WIFI_SSID, CONFIG_HS_WIFI_OFFICE_SSID, "", CONFIG_HS_WIFI_ROADSHOW_SSID};
+static const char *passwords[] = {CONFIG_HS_WIFI_PASSWORD, CONFIG_HS_WIFI_OFFICE_PASSWORD, "", CONFIG_HS_WIFI_ROADSHOW_PASSWORD};
 static portMUX_TYPE guard = portMUX_INITIALIZER_UNLOCKED;
 static hs_wifi_status_t status = {.automatic = true};
 static QueueHandle_t commands;
 static bool paused;
 typedef struct { int kind; hs_wifi_ap_t ap; char password[65]; } request_t;
 static char saved_ssid[33], saved_password[65];
-static int64_t blocked_until[3];
+static int64_t blocked_until[4];
 static void message(const char *text) {
   ESP_LOGI(tag,"%s",text);
   portENTER_CRITICAL(&guard);
@@ -113,7 +113,7 @@ static int scan_networks(void) {
       ap->rssi=aps[i].rssi;ap->open=aps[i].authmode==WIFI_AUTH_OPEN;
       ap->enterprise=eap;ap->configured=configured;
     }
-    for (int p=0;p<3;p++) {
+    for (int p=0;p<4;p++) {
       const char *ssid=p==2?saved_ssid:ssids[p];
       if (p<2 && CONFIG_HS_NETWORK_MODE && p!=CONFIG_HS_NETWORK_MODE-1) continue;
       if (!ssid[0] || strcmp((char *)aps[i].ssid,ssid)) continue;
@@ -287,7 +287,7 @@ static void manager(void *arg) {
       portENTER_CRITICAL(&guard);status.connection_revision++;status.connection_saved=false;status.connected=false;status.connecting=true;portEXIT_CRITICAL(&guard);
       connecting=false;online=false;
       esp_wifi_stop();
-      esp_err_t err=profile>=0 && profile<2?configure_profile(profile):
+      esp_err_t err=profile>=0 && profile!=2?configure_profile(profile):
         configure_manual(target.ap.ssid,target.password,target.ap.open);
       esp_err_t started=esp_wifi_start();
       xEventGroupClearBits(events,CONNECTED|DISCONNECTED);

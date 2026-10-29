@@ -11,7 +11,8 @@ import { speechFromEnv } from "@homestash/ai/speech";
 const path = resolve(process.env.DATABASE_PATH ?? "data/homestash.db");
 mkdirSync(dirname(path), { recursive: true });
 if (process.env.HOMESTASH_LAN_ENABLED === "true") {
-  validateLanAuth(process.env);
+  if (process.env.INTERNAL_LOGIN_ENABLED === "true")
+    validateLanAuth(process.env);
   const origin = new URL(process.env.APP_ORIGIN ?? "");
   if (
     process.env.NODE_ENV === "production" ||

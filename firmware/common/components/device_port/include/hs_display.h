@@ -14,3 +14,6 @@ esp_err_t hs_display_backlight(bool enabled);
 
 esp_err_t hs_display_suspend(void);
 esp_err_t hs_display_resume(void);
+
+void hs_display_backend(bool connected);
+void hs_display_dialogue(int state);

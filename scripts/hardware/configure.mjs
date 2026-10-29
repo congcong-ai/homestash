@@ -10,6 +10,8 @@ const values = {};
 for (const key of [
   "WIFI_SSID",
   "WIFI_PASSWORD",
+  "WIFI_ROADSHOW_SSID",
+  "WIFI_ROADSHOW_PASSWORD",
   "WIFI_OFFICE_SSID",
   "WIFI_OFFICE_PASSWORD",
   "WIFI_OFFICE_USERNAME",

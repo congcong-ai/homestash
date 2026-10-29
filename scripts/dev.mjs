@@ -1,33 +1,24 @@
 import { spawn } from "node:child_process";
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
-import {
-  ensureLanAuth,
-  preparePort,
-  selectLanAddress,
-} from "./lib/local-network.mjs";
+import { execFileSync } from "node:child_process";
+import { preparePort, selectLanAddress } from "./lib/local-network.mjs";
 const production = process.argv.includes("--production");
 const lan = process.argv.includes("--lan");
 if (lan && (production || process.env.NODE_ENV === "production"))
   throw Error("局域网试用入口只支持开发模式；正式使用请配置HTTPS部署");
-let accessPath = null;
 const host = lan
   ? selectLanAddress(process.env.HOMESTASH_LAN_ADDRESS)
   : "127.0.0.1";
 if (lan) {
-  const auth = ensureLanAuth(
-    resolve(process.env.HOMESTASH_LAN_DIR ?? "data/lan"),
-    process.env,
-  );
-  Object.assign(process.env, auth.config);
-  accessPath = auth.accessPath;
+  process.env.INTERNAL_LOGIN_ENABLED = "false";
   process.env.HOMESTASH_LAN_ENABLED = "true";
   process.env.HOMESTASH_LAN_ADDRESS = host;
 } else {
   delete process.env.HOMESTASH_LAN_ENABLED;
   delete process.env.HOMESTASH_LAN_ADDRESS;
 }
+if (lan) process.env.DEVICE_HOST = "0.0.0.0";
 const root = process.cwd();
 const webPort = await preparePort(
   Number(process.env.WEB_PORT ?? 3000),
@@ -44,7 +35,10 @@ let devicePort = await preparePort(
   Number(process.env.DEVICE_PORT ?? 3101),
   process.env.DEVICE_HOST ?? "127.0.0.1",
   root,
+  { fixed: lan },
 );
+if (lan && [webPort, port].includes(devicePort))
+  throw Error("网页或Core端口与固定设备端口冲突，请调整WEB_PORT或CORE_PORT");
 while ([webPort, port].includes(devicePort))
   devicePort = await preparePort(
     devicePort + 1,
@@ -60,18 +54,26 @@ process.env.APP_ORIGIN = lan
   ? `http://${host}:${webPort}`
   : (process.env.APP_ORIGIN ?? `http://127.0.0.1:${webPort}`);
 console.log(
-  `HomeStash 网页：${lan ? process.env.APP_ORIGIN : `http://127.0.0.1:${webPort}`}/app`,
+  `正在启动后台：${lan ? process.env.APP_ORIGIN : `http://127.0.0.1:${webPort}`}/app`,
 );
 console.log(`Core：127.0.0.1:${port}；设备接口端口：${devicePort}`);
 if (lan) {
+  if (process.platform === "darwin") {
+    try {
+      const name = execFileSync("scutil", ["--get", "LocalHostName"], {
+        encoding: "utf8",
+      }).trim();
+      console.log(
+        `开发板固定后台地址：http://${name}.local:${devicePort}（网络需允许mDNS与设备互访）`,
+      );
+    } catch {
+      console.log("未读取到Mac局域网名称，请在开发板设置中使用当前IP地址。");
+    }
+  }
   console.log(
     "手机需与电脑处于同一可信局域网；本入口为HTTP开发试用，不做公网端口映射。",
   );
-  console.log(
-    accessPath
-      ? `家庭访问凭据仅保存在本机：${accessPath}`
-      : "使用已配置的后台登录账号和密码。",
-  );
+  console.log("家庭内部直接访问，无需账号和密码。");
 }
 const children = [];
 let stopping = false;
@@ -136,3 +138,31 @@ run([
   "--port",
   String(webPort),
 ]);
+
+const browserOrigin = lan
+  ? process.env.APP_ORIGIN
+  : `http://127.0.0.1:${webPort}`;
+let webReady = false;
+for (let i = 0; i < 60; i++) {
+  try {
+    const response = await fetch(`${browserOrigin}/app`, {
+      signal: AbortSignal.timeout(1500),
+      redirect: "manual",
+    });
+    await response.body?.cancel();
+    if (response.status === 200) {
+      webReady = true;
+      break;
+    }
+  } catch {}
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+if (!webReady) {
+  stop();
+  throw new Error("后台网页未能就绪，请检查上方启动日志");
+}
+console.log(`
+HomeStash 后台已就绪
+后台管理入口：${browserOrigin}/app
+请打开上方带 /app 的链接；Next.js 的 Local / Network 根地址进入官网首页。
+`);

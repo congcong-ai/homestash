@@ -1,1 +1,1 @@
-idf_component_register(SRCS "freshmate_app.c" INCLUDE_DIRS "include" REQUIRES board device_port provisioning power settings_ui ota device_config espressif__cjson camera audio network display storage outbox protocol nvs_flash esp_timer)
+idf_component_register(SRCS "freshmate_app.c" INCLUDE_DIRS "include" REQUIRES demo_mode board device_port provisioning power settings_ui ota device_config espressif__cjson camera audio network display storage outbox protocol nvs_flash esp_timer)
