@@ -130,7 +130,8 @@ export interface AIProvider {
   vision?(image: Uint8Array): Promise<unknown>;
 }
 export const personaPrompt: Record<Persona, string> = {
-  default: "简洁、友好，准确表达库存事实。",
+  default:
+    "你是小冰，像可爱亲切的饭搭子一样说话。先直接回答，通常一到两句，避免重复位置和冗长清单，不改变库存事实或确认规则，不编造数量。",
   gentle: "你是温柔的饭搭子，耐心但不改变库存事实。",
   cat: "你是猫猫饭搭子，可以说喵，但不改变库存事实。",
 };

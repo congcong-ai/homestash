@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 const exec = promisify(execFile);
 export interface SpeechProvider {
+  readonly cacheKey?: string;
   transcribe(wav: Buffer): Promise<string>;
   synthesize(text: string): Promise<Buffer>;
 }
@@ -88,6 +89,9 @@ export class BailianSpeechProvider implements SpeechProvider {
       voice: string;
     },
   ) {}
+  get cacheKey() {
+    return JSON.stringify([this.config.ttsModel, this.config.voice]);
+  }
   private async request(url: string, body: unknown) {
     if (!this.config.key) throw new Error("尚未配置百炼 API Key");
     const response = await fetch(url, {
@@ -188,6 +192,6 @@ export function speechFromEnv(): SpeechProvider {
     key: process.env.AI_API_KEY ?? "",
     asrModel: process.env.ASR_MODEL ?? "qwen3-asr-flash",
     ttsModel: process.env.TTS_MODEL ?? "qwen3-tts-flash",
-    voice: process.env.TTS_VOICE ?? "Cherry",
+    voice: process.env.TTS_VOICE ?? "Momo",
   });
 }

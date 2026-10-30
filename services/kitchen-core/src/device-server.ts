@@ -1,3 +1,4 @@
+import { deviceReply } from "./device-reply";
 import Fastify, { type FastifyRequest } from "fastify";
 import { DeviceReport, KORVO_BOARD_ID } from "@homestash/protocol";
 import { createHash } from "node:crypto";
@@ -120,7 +121,11 @@ export function createDeviceServer(
       const commit = await core.prepareVoice(text);
       return () => {
         const applied = commit();
-        return { id, text, message: applied.message };
+        return {
+          id,
+          text,
+          message: deviceReply(applied, core.repo.locations()),
+        };
       };
     });
   });
@@ -174,7 +179,13 @@ export function createDeviceServer(
     if (!receipt) return reply.code(404).send({ error: "找不到录音处理回执" });
     seen(req);
     const directory = join(options.mediaDir, identity(req).id);
-    const path = join(directory, `${id}.wav`);
+    const audioProfile = createHash("sha256")
+      .update(
+        JSON.stringify([speech.cacheKey ?? "default", receipt.result.message]),
+      )
+      .digest("hex")
+      .slice(0, 16);
+    const path = join(directory, `${id}.${audioProfile}.wav`);
     const work = async () => {
       try {
         const bytes = await readFile(path);

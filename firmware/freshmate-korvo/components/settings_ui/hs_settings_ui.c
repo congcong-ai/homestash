@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 LV_FONT_DECLARE(hs_font);
-static lv_obj_t *panel,*content,*keyboard,*notice,*list,*password_dialog,*password_input,*password_error;
+static lv_obj_t *panel,*content,*keyboard,*notice,*list,*password_dialog,*password_input,*password_error,*remember_password;
 static lv_obj_t *url_input,*id_input,*token_input,*ota_label,*install_button,*ble_label;
 static hs_wifi_ap_t aps[HS_WIFI_SCAN_LIMIT],selected;
 static unsigned revision=~0U;
@@ -34,13 +34,14 @@ static lv_obj_t *input(lv_obj_t *p,int x,int y,int w,int limit,const char *value
  lv_obj_t *o=lv_textarea_create(p);lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,52);lv_obj_set_style_text_font(o,&hs_font,0);lv_textarea_set_one_line(o,true);lv_textarea_set_max_length(o,limit);lv_textarea_set_password_mode(o,secret);lv_textarea_set_text(o,value);lv_obj_add_event_cb(o,focus,LV_EVENT_FOCUSED,NULL);return o;
 }
 static void close_settings(lv_event_t *e) {(void)e;__atomic_store_n(&visible,false,__ATOMIC_RELAXED);if(token_input)lv_textarea_set_text(token_input,"");if(password_input)lv_textarea_set_text(password_input,"");lv_obj_delete(panel);panel=content=keyboard=notice=list=password_dialog=password_input=url_input=id_input=token_input=ota_label=install_button=NULL;}
-static void network_command(lv_event_t *e) {if(blocked()){lv_label_set_text(notice,"正在处理，请稍后设置网络");return;}esp_err_t r=(intptr_t)lv_event_get_user_data(e)==1?hs_wifi_scan():hs_wifi_automatic();if(r!=ESP_OK)lv_label_set_text(notice,"设备忙，请稍后重试");}
+static void network_command(lv_event_t *e) {if(blocked()){lv_label_set_text(notice,"正在处理，请稍后设置网络");return;}int kind=(int)(intptr_t)lv_event_get_user_data(e);esp_err_t r=kind==1?hs_wifi_scan():kind==3?hs_wifi_disconnect():hs_wifi_automatic();if(r!=ESP_OK)lv_label_set_text(notice,"设备忙，请稍后重试");}
 static void close_password(lv_event_t *e) {(void)e;lv_keyboard_set_textarea(keyboard,NULL);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_textarea_set_text(password_input,"");lv_obj_delete(password_dialog);password_dialog=password_input=NULL;}
 static void connect_password(lv_event_t *e) {
  (void)e;if(blocked())return;
  const char *password=lv_textarea_get_text(password_input);size_t n=strlen(password);
- if(!selected.open && !selected.enterprise && !((n>=8 && n<=63) || (n==64 && strspn(password,"0123456789abcdefABCDEF")==64))) {lv_label_set_text(password_error,"密码需8到63字节，或64位十六进制密钥");return;}
- esp_err_t result=hs_wifi_connect(&selected,password);
+ if(!selected.open && !selected.enterprise && !(selected.remembered&&n==0) && !((n>=8 && n<=63) || (n==64 && strspn(password,"0123456789abcdefABCDEF")==64))) {lv_label_set_text(password_error,"密码需8到63字节，或64位十六进制密钥");return;}
+ bool remember=lv_obj_has_state(remember_password,LV_STATE_CHECKED);
+ esp_err_t result=hs_wifi_connect_remember(&selected,password,remember);
  if(result==ESP_OK){close_password(NULL);lv_label_set_text(notice,"正在连接，成功后才保存网络");}
  else lv_label_set_text(notice,"无法提交连接，请稍后重试");
 }
@@ -50,10 +51,12 @@ static void select_network(lv_event_t *e) {
  if(selected.enterprise && !selected.configured){lv_label_set_text(notice,"该企业网络需预先配置账号和证书");return;}
  password_dialog=lv_obj_create(panel);lv_obj_set_pos(password_dialog,0,70);lv_obj_set_size(password_dialog,800,220);lv_obj_set_style_bg_opa(password_dialog,LV_OPA_COVER,0);
  label(password_dialog,0,0,600,selected.ssid);button(password_dialog,640,0,110,"取消",close_password,NULL);
- password_input=input(password_dialog,0,55,580,64,"",true);lv_textarea_set_placeholder_text(password_input,"输入 Wi-Fi 密码");
+ password_input=input(password_dialog,0,55,580,64,"",true);lv_textarea_set_placeholder_text(password_input,selected.remembered?"已保存密码，留空直接连接":"输入 Wi-Fi 密码");
  button(password_dialog,600,55,150,"连接",connect_password,NULL);
- password_error=label(password_dialog,0,115,740,"");
- if(selected.open || selected.enterprise){lv_obj_add_flag(password_input,LV_OBJ_FLAG_HIDDEN);label(password_dialog,0,115,740,selected.open?"开放网络，无需密码":"使用已配置的企业账号与证书");}
+ remember_password=lv_checkbox_create(password_dialog);lv_obj_set_style_text_font(remember_password,&hs_font,LV_PART_MAIN);lv_obj_set_pos(remember_password,0,110);lv_checkbox_set_text(remember_password,"记住密码，下次自动连接");lv_obj_add_state(remember_password,LV_STATE_CHECKED);
+ password_error=label(password_dialog,0,154,740,"");
+ if(selected.enterprise)lv_obj_add_flag(remember_password,LV_OBJ_FLAG_HIDDEN);
+ if(selected.open || selected.enterprise){lv_obj_add_flag(password_input,LV_OBJ_FLAG_HIDDEN);label(password_dialog,0,154,740,selected.open?"开放网络，无需密码":"使用已配置的企业账号与证书");}
  else {lv_keyboard_set_textarea(keyboard,password_input);lv_obj_remove_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(keyboard);}
 }
 static void save_core(lv_event_t *e) {
@@ -73,7 +76,7 @@ static void select_page(lv_event_t *e) {
  list=url_input=id_input=token_input=ota_label=install_button=ble_label=NULL;
  notice=label(content,0,0,740,"");
  if(page==0) {
-  button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);
+  button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);button(content,400,76,180,"断开连接",network_command,(void*)3);
   list=lv_list_create(content);lv_obj_set_pos(list,0,130);lv_obj_set_size(list,744,185);revision=~0U;
  } else if(page==1) {
   hs_device_config_t config;hs_device_config_get(&config);
@@ -97,7 +100,7 @@ static void open_settings(lv_event_t *e) {
  const char *names[]={"网络","Core","更新","蓝牙"};for(int i=0;i<4;i++)button(panel,20+i*190,65,180,names[i],select_page,(void*)(intptr_t)i);
  content=lv_obj_create(panel);lv_obj_set_pos(content,20,130);lv_obj_set_size(content,760,330);lv_obj_set_style_pad_all(content,0,0);lv_obj_remove_flag(content,LV_OBJ_FLAG_SCROLLABLE);
  keyboard=lv_keyboard_create(panel);lv_obj_set_size(keyboard,800,190);lv_obj_align(keyboard,LV_ALIGN_BOTTOM_MID,0,0);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_HIDDEN);lv_obj_add_event_cb(keyboard,keyboard_event,LV_EVENT_ALL,NULL);
- page=0;notice=label(content,0,0,740,"");button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);
+ page=0;notice=label(content,0,0,740,"");button(content,0,76,180,"重新扫描",network_command,(void*)1);button(content,200,76,180,"自动选择",network_command,(void*)2);button(content,400,76,180,"断开连接",network_command,(void*)3);
  list=lv_list_create(content);lv_obj_set_pos(list,0,130);lv_obj_set_size(list,744,185);revision=~0U;hs_wifi_scan();
 }
 static void refresh(lv_timer_t *timer) {
@@ -106,7 +109,7 @@ static void refresh(lv_timer_t *timer) {
   hs_wifi_status_t wifi;hs_wifi_status(&wifi);char text[224];snprintf(text,sizeof(text),"%s · %s\n%s",wifi.connected?"已连接":"未连接",wifi.automatic?"自动选择":"手动选择",wifi.message);lv_label_set_text(notice,text);
   if(wifi.revision!=revision && list) {
    revision=wifi.revision;memcpy(aps,wifi.aps,sizeof(aps));lv_obj_clean(list);
-   for(unsigned i=0;i<wifi.count;i++) {snprintf(text,sizeof(text),"%s  %d dBm",aps[i].ssid,aps[i].rssi);lv_obj_t *b=lv_list_add_button(list,NULL,text);lv_obj_set_style_text_font(b,&hs_font,0);lv_obj_add_event_cb(b,select_network,LV_EVENT_CLICKED,(void*)(uintptr_t)i);}
+   for(unsigned i=0;i<wifi.count;i++) {snprintf(text,sizeof(text),"%s%s  %d dBm",aps[i].ssid,aps[i].remembered?" 已保存":"",aps[i].rssi);lv_obj_t *b=lv_list_add_button(list,NULL,text);lv_obj_set_style_text_font(b,&hs_font,0);lv_obj_add_event_cb(b,select_network,LV_EVENT_CLICKED,(void*)(uintptr_t)i);}
   }
  } else if(page==3 && ble_label) {
   hs_provision_status_t s;hs_provision_status(&s);char text[400];

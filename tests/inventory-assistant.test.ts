@@ -198,7 +198,7 @@ test("新库存入口沿用真实设备鉴权、录音去重与回复音频接�
       unit: "瓶",
     });
     let id = crypto.randomUUID();
-    assert.match((await upload(id)).json().message, /牛奶1瓶/);
+    assert.match((await upload(id)).json().message, /1瓶牛奶/);
     text = "牛奶开封了";
     id = crypto.randomUUID();
     await upload(id);

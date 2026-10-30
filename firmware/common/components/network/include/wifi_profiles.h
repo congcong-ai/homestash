@@ -5,7 +5,7 @@
 typedef struct {
   char ssid[33];
   int rssi;
-  bool open, enterprise, configured;
+  bool open, enterprise, configured, remembered;
 } hs_wifi_ap_t;
 typedef struct {
   hs_wifi_ap_t aps[HS_WIFI_SCAN_LIMIT];
@@ -27,3 +27,6 @@ esp_err_t hs_wifi_pause(bool paused);
 
 esp_err_t hs_wifi_reconnect(void);
 esp_err_t hs_wifi_cancel_connection(void);
+
+esp_err_t hs_wifi_connect_remember(const hs_wifi_ap_t *ap,const char *password,bool remember);
+esp_err_t hs_wifi_disconnect(void);

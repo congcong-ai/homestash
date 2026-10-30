@@ -31,6 +31,7 @@ static QueueHandle_t buttons, uploads, results;
 typedef struct { int kind; int page; char id[37]; } job_t;
 typedef struct { int kind; int page; int success; char message[1024]; } result_t;
 static void input_action(hs_action_t action) { int value=(int)action; xQueueSend(buttons,&value,0); }
+static void board_action(hs_action_t action){if((int)action==31||(int)action==32){hs_audio_demo_volume((int)action==31?1:-1);return;}input_action(action);}
 static void uuid(char id[37]) {
   unsigned char b[16]; esp_fill_random(b,16); b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
   snprintf(id,37,"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[10],b[11],b[12],b[13],b[14],b[15]);
@@ -109,6 +110,7 @@ static void console(void *arg) {
     if(c=='\n' || c=='\r') {
       line[length]=0;
       if(overflow){length=0;overflow=false;ESP_LOGW("FreshMate","串口命令过长，已拒绝");continue;}
+      if(!strncmp(line,"voice-probe ",12)){cJSON *j=cJSON_Parse(line+12),*u=cJSON_GetObjectItemCaseSensitive(j,"url"),*a=cJSON_GetObjectItemCaseSensitive(j,"awake"),*ctx=cJSON_GetObjectItemCaseSensitive(j,"context"),*t=cJSON_GetObjectItemCaseSensitive(j,"threshold"),*ph=cJSON_GetObjectItemCaseSensitive(j,"phrase"),*route=cJSON_GetObjectItemCaseSensitive(j,"route");esp_err_t e=cJSON_IsString(u)?hs_audio_voice_probe_request(u->valuestring,cJSON_IsTrue(a),cJSON_IsNumber(ctx)?ctx->valueint:0,cJSON_IsNumber(t)&&t->valuedouble>=0.01&&t->valuedouble<1?(float)t->valuedouble:0.0f,cJSON_IsString(ph)?ph->valuestring:NULL,cJSON_IsTrue(route)):ESP_ERR_INVALID_ARG;cJSON_Delete(j);ESP_LOGI("FreshMate","VOICE_PROBE queued=%s",esp_err_to_name(e));}
       if(!strcmp(line,"settings-open"))hs_settings_ui_show(true);
       if(!strcmp(line,"settings-close"))hs_settings_ui_show(false);
       if(!strcmp(line,"demo-online"))input_action((hs_action_t)35);
@@ -118,6 +120,10 @@ static void console(void *arg) {
       if(!strcmp(line,"demo-up"))input_action((hs_action_t)31);
       if(!strcmp(line,"demo-down"))input_action((hs_action_t)32);
       if(!strcmp(line,"demo-door"))input_action((hs_action_t)1);
+      if(!strcmp(line,"volume-up"))hs_audio_demo_volume(1);
+      if(!strcmp(line,"volume-down"))hs_audio_demo_volume(-1);
+      if(!strcmp(line,"volume-status"))ESP_LOGI("FreshMate","音量：%d",hs_audio_volume_percent());
+      if(!strcmp(line,"wifi-disconnect"))hs_wifi_disconnect();
       if(!strcmp(line,"wifi-scan"))hs_wifi_scan();
       if(!strcmp(line,"ble-start") || !strcmp(line,"ble-stop")) {int action=!strcmp(line,"ble-start")?24:25;xQueueSend(buttons,&action,0);}
       if(!strcmp(line,"ble-status")){hs_provision_status_t s;hs_provision_status(&s);ESP_LOGI("FreshMate","BLE active=%d applying=%d state=%s seconds=%u",s.active,s.applying,s.state,s.seconds_left);memset(&s,0,sizeof(s));}
@@ -130,7 +136,8 @@ static void console(void *arg) {
         esp_err_t err=ESP_ERR_INVALID_ARG;
         if(cJSON_IsString(ssid) && cJSON_IsString(password) && strlen(ssid->valuestring)<=32) {
           hs_wifi_ap_t ap={.open=cJSON_IsTrue(open)};snprintf(ap.ssid,sizeof(ap.ssid),"%s",ssid->valuestring);
-          err=hs_wifi_connect(&ap,password->valuestring);
+          cJSON *remember=cJSON_GetObjectItemCaseSensitive(j,"remember");
+          err=hs_wifi_connect_remember(&ap,password->valuestring,!cJSON_IsFalse(remember));
         }
         cJSON_Delete(j);ESP_LOGI("FreshMate","手动配网提交：%s",esp_err_to_name(err));
       }
@@ -158,35 +165,38 @@ void freshmate_app_run(void) {
   /* 不擦除既有 NVS，不格式化 SD，也不访问工牌业务目录。 */
   ESP_ERROR_CHECK(nvs_flash_init());
   ESP_ERROR_CHECK(hs_device_config_init());
+  esp_err_t storage_ready=hs_storage_init();
+  char photo_id[37]={0};int photo_state=storage_ready==ESP_OK?hs_camera_recover(photo_id):-1;
+  char id[37]={0};bool pending=false,recording=false,busy=false,storage_error=false;int64_t started=0;
+  int recovered=storage_ready==ESP_OK?hs_outbox_recover(id):HS_OUTBOX_ERROR;
+  pending=recovered==HS_OUTBOX_OK;storage_error=recovered==HS_OUTBOX_ERROR;
   ESP_ERROR_CHECK(hs_display_init());
   if(hs_board_has(HS_CAP_AUDIO_INPUT) || hs_board_has(HS_CAP_AUDIO_OUTPUT)) ESP_ERROR_CHECK(hs_audio_init());
   buttons=xQueueCreate(12,sizeof(int));configASSERT(buttons);
   configASSERT(xTaskCreate(console,"串口调试",12288,NULL,3,NULL)==pdPASS);
-  ESP_ERROR_CHECK(hs_board_inputs_init(input_action));
+  ESP_ERROR_CHECK(hs_board_inputs_init(board_action));
   ESP_ERROR_CHECK(hs_network_init());
   esp_err_t voice_ready=hs_audio_voice_init();
   if(voice_ready!=ESP_OK)ESP_LOGE("FreshMate","本地语音初始化失败：%s，保留按键录音",esp_err_to_name(voice_ready));
   ESP_ERROR_CHECK(hs_settings_ui_init(settings_action));
   hs_demo_run(buttons);
-  if(hs_storage_init()!=ESP_OK) { hs_ota_boot_health(false); hs_display_text("无法挂载设备存储，请检查。不会自动格式化。"); return; }
+  if(storage_ready!=ESP_OK) { hs_ota_boot_health(false); hs_display_text("无法挂载设备存储，请检查。不会自动格式化。"); return; }
   if(hs_board_has(HS_CAP_BLE_PROVISIONING)) ESP_ERROR_CHECK(hs_provision_init());
   uploads=xQueueCreate(4,sizeof(job_t)); results=xQueueCreate(1,sizeof(result_t));
   configASSERT(buttons && uploads && results);
+  job_t initial_screen={.kind=2,.page=0};xQueueSend(uploads,&initial_screen,0);
   configASSERT(xTaskCreate(upload,"上传",16384,NULL,4,NULL)==pdPASS);
   hs_display_navigation(navigate_page);
-  char photo_id[37]={0};int photo_state=hs_camera_recover(photo_id);
   ESP_LOGI("FreshMate","photo recovery=%d id=%s",photo_state,photo_id);
-  char id[37]={0}; bool pending=false,recording=false,busy=false,storage_error=false; int64_t started=0;
-  int recovered=hs_outbox_recover(id);
-  pending=recovered==HS_OUTBOX_OK;storage_error=recovered==HS_OUTBOX_ERROR;
-  ESP_LOGI("FreshMate", "outbox recovery=%d id=%s",recovered,id);
-  if(photo_state==1) hs_display_text("发现待上传照片。按 MODE 重试。SET 可录音。");
-  if(pending) hs_display_text("发现待上传录音。按 SET 重试。");
-  if(storage_error) hs_display_text("录音恢复失败，原文件已保留。请检查存储卡。");
+  ESP_LOGI("FreshMate","outbox recovery=%d id=%s",recovered,id);
+  if(photo_state==1)hs_display_text("发现待上传照片。按 MODE 重试。SET 可录音。");
+  if(pending)hs_display_text("发现待上传录音。按 SET 重试。");
+  if(storage_error)hs_display_text("录音恢复失败，原文件已保留。请检查存储卡。");
   bool voice_recording=false;
   bool boot_checked=false;int64_t boot_ready=esp_timer_get_time()+30000000;
   int selected_page=0;bool dashboard=!pending && photo_state!=1 && !storage_error;
   for(;;) {
+    if(!busy&&!recording){hs_audio_volume_save();hs_audio_voice_probe_poll();}
     hs_settings_ui_busy(busy || recording);
     hs_power_activity(busy || recording);
     if(!boot_checked && esp_timer_get_time()>=boot_ready) {hs_ota_boot_health(true);boot_checked=true;}
@@ -230,7 +240,7 @@ void freshmate_app_run(void) {
     if(clicked && action==2) {ESP_LOGI("FreshMate", "state recording=%d pending=%d busy=%d storage_error=%d id=%s photo_state=%d photo_id=%s",recording,pending,busy,storage_error,id,photo_state,photo_id);continue;}
     if(clicked && (action==30 || action==34 || (action==3 && selected_page==0 && !recording))) {
       if(busy || recording || hs_provision_active()){hs_display_text("请先结束当前任务，再进入演示馆。");continue;}
-      hs_demo_open_menu(buttons);continue;
+      hs_demo_open_menu(buttons);job_t refresh={.kind=2,.page=selected_page};xQueueSend(uploads,&refresh,0);continue;
     }
     if(clicked && action>=31)continue;
     if(clicked && action==25){hs_provision_stop();continue;}

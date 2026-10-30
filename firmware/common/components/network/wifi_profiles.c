@@ -1,4 +1,6 @@
 #include "wifi_profiles.h"
+#include "wifi_control.h"
+#include "wifi_saved.h"
 #include "hs_display.h"
 #include "esp_timer.h"
 #include "local-network-config.h"
@@ -26,8 +28,11 @@ static portMUX_TYPE guard = portMUX_INITIALIZER_UNLOCKED;
 static hs_wifi_status_t status = {.automatic = true};
 static QueueHandle_t commands;
 static bool paused;
-typedef struct { int kind; hs_wifi_ap_t ap; char password[65]; } request_t;
+typedef struct { int kind; hs_wifi_ap_t ap; char password[65]; bool remember; } request_t;
 static char saved_ssid[33], saved_password[65];
+static hs_wifi_saved_t saved={.version=1};
+static int chosen_saved=-1;
+static int64_t saved_blocked[HS_WIFI_SAVED_MAX];
 static int64_t blocked_until[4];
 static void message(const char *text) {
   ESP_LOGI(tag,"%s",text);
@@ -54,15 +59,18 @@ esp_err_t hs_wifi_scan(void) { request_t r = {.kind=1}; return submit(&r); }
 esp_err_t hs_wifi_reconnect(void) { request_t r = {.kind=6}; return submit(&r); }
 esp_err_t hs_wifi_automatic(void) { request_t r = {.kind=3}; return submit(&r); }
 esp_err_t hs_wifi_cancel_connection(void) { request_t r = {.kind=7}; return submit(&r); }
-esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap, const char *password) {
+esp_err_t hs_wifi_disconnect(void){request_t r={.kind=8};return submit(&r);}
+esp_err_t hs_wifi_connect(const hs_wifi_ap_t *ap,const char *password){return hs_wifi_connect_remember(ap,password,true);}
+esp_err_t hs_wifi_connect_remember(const hs_wifi_ap_t *ap, const char *password,bool remember) {
   if (!ap || !ap->ssid[0] || strlen(ap->ssid)>32 || !password || strlen(password)>64)
     return ESP_ERR_INVALID_ARG;
-  request_t r = {.kind=2, .ap=*ap};
+  request_t r = {.kind=2, .ap=*ap,.remember=remember};
   strlcpy(r.password, password, sizeof(r.password));
   return submit(&r);
 }
 
 esp_err_t hs_wifi_pause(bool value) {
+  if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)==value)return ESP_OK;
   request_t r={.kind=value?4:5};esp_err_t err=submit(&r);if(err!=ESP_OK)return err;
   for(int i=0;i<100;i++) {
     if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)==value)return ESP_OK;
@@ -100,7 +108,7 @@ static int scan_networks(void) {
   }
   hs_wifi_ap_t visible[HS_WIFI_SCAN_LIMIT]={0};
   unsigned shown=0;
-  int selected=-1, strongest=-128;
+  int selected=-1, strongest=-128,best_saved=-1;
   for (unsigned i=0;i<count;i++) {
     if (!aps[i].ssid[0]) continue;
     bool eap=aps[i].authmode==WIFI_AUTH_WPA2_ENTERPRISE;
@@ -111,9 +119,15 @@ static int scan_networks(void) {
       hs_wifi_ap_t *ap=&visible[shown++];
       strlcpy(ap->ssid,(char *)aps[i].ssid,sizeof(ap->ssid));
       ap->rssi=aps[i].rssi;ap->open=aps[i].authmode==WIFI_AUTH_OPEN;
-      ap->enterprise=eap;ap->configured=configured;
+      ap->enterprise=eap;ap->configured=configured;ap->remembered=hs_wifi_saved_find(&saved,ap->ssid)>=0;
+    }
+    for(unsigned j=0;j<saved.count;j++){
+      if(eap||strcmp((char*)aps[i].ssid,saved.entries[j].ssid)||esp_timer_get_time()<saved_blocked[j])continue;
+      int score=aps[i].rssi+256+(j==0?20:0);
+      if(score>strongest){strongest=score;selected=2;best_saved=j;}
     }
     for (int p=0;p<4;p++) {
+      if(p==2)continue;
       const char *ssid=p==2?saved_ssid:ssids[p];
       if (p<2 && CONFIG_HS_NETWORK_MODE && p!=CONFIG_HS_NETWORK_MODE-1) continue;
       if (!ssid[0] || strcmp((char *)aps[i].ssid,ssid)) continue;
@@ -129,6 +143,8 @@ static int scan_networks(void) {
   memcpy(status.aps,visible,sizeof(visible));status.count=shown;
   status.revision++;status.scanning=false;
   portEXIT_CRITICAL(&guard);
+  chosen_saved=best_saved;
+  if(selected==2){strlcpy(saved_ssid,saved.entries[best_saved].ssid,sizeof(saved_ssid));strlcpy(saved_password,saved.entries[best_saved].password,sizeof(saved_password));}
   return selected;
 }
 
@@ -173,29 +189,27 @@ static esp_err_t configure_manual(const char *ssid, const char *password, bool o
   config.sta.threshold.authmode=open?WIFI_AUTH_OPEN:WIFI_AUTH_WPA2_PSK;
   return esp_wifi_set_config(WIFI_IF_STA,&config);
 }
-static void load_saved(void) {
-  nvs_handle_t nvs;
-  if (nvs_open("hs_wifi",NVS_READONLY,&nvs)!=ESP_OK) return;
-  size_t a=sizeof(saved_ssid),b=sizeof(saved_password);
-  if (nvs_get_str(nvs,"ssid",saved_ssid,&a)!=ESP_OK ||
-      nvs_get_str(nvs,"password",saved_password,&b)!=ESP_OK) {
-    saved_ssid[0]=0;saved_password[0]=0;
-  }
-  nvs_close(nvs);
+static void load_saved(void){
+ nvs_handle_t h;if(nvs_open("hs_wifi",NVS_READONLY,&h)!=ESP_OK)return;
+ size_t n=sizeof(saved);
+ if(nvs_get_blob(h,"profiles",&saved,&n)!=ESP_OK||n!=sizeof(saved)||!hs_wifi_saved_valid(&saved)){
+  memset(&saved,0,sizeof(saved));saved.version=1;size_t a=sizeof(saved_ssid),b=sizeof(saved_password);
+  if(nvs_get_str(h,"ssid",saved_ssid,&a)==ESP_OK&&nvs_get_str(h,"password",saved_password,&b)==ESP_OK&&saved_ssid[0])hs_wifi_saved_put(&saved,saved_ssid,saved_password);
+ }
+ nvs_close(h);
 }
-static bool save_network(const request_t *r) {
-  nvs_handle_t nvs;
-  if (nvs_open("hs_wifi",NVS_READWRITE,&nvs)!=ESP_OK) return false;
-  esp_err_t err=nvs_set_str(nvs,"ssid",r->ap.ssid);
-  if (err==ESP_OK) err=nvs_set_str(nvs,"password",r->password);
-  if (err==ESP_OK) err=nvs_commit(nvs);
-  nvs_close(nvs);
-  if (err!=ESP_OK) return false;
-  strlcpy(saved_ssid,r->ap.ssid,sizeof(saved_ssid));
-  strlcpy(saved_password,r->password,sizeof(saved_password));
-  blocked_until[2]=0;
-  return true;
+static bool save_network(const request_t *r){
+ hs_wifi_saved_t next=saved;
+ if(r->remember)hs_wifi_saved_put(&next,r->ap.ssid,r->password);else hs_wifi_saved_remove(&next,r->ap.ssid);
+ nvs_handle_t h;if(nvs_open("hs_wifi",NVS_READWRITE,&h)!=ESP_OK)return false;
+ esp_err_t e=nvs_set_blob(h,"profiles",&next,sizeof(next));
+ if(e==ESP_OK){nvs_erase_key(h,"ssid");nvs_erase_key(h,"password");e=nvs_commit(h);}nvs_close(h);
+ if(e!=ESP_OK)return false;
+ saved=next;memset(saved_blocked,0,sizeof(saved_blocked));
+ portENTER_CRITICAL(&guard);status.revision++;for(unsigned i=0;i<status.count;i++)status.aps[i].remembered=hs_wifi_saved_find(&saved,status.aps[i].ssid)>=0;portEXIT_CRITICAL(&guard);
+ return true;
 }
+static void block_profile(int p){if(p==2&&chosen_saved>=0)saved_blocked[chosen_saved]=esp_timer_get_time()+30000000;else if(p>=0)blocked_until[p]=esp_timer_get_time()+30000000;}
 static void manager(void *arg) {
   (void)arg;
   load_saved();
@@ -205,14 +219,14 @@ static void manager(void *arg) {
   request_t target={0};
   for (;;) {
     EventBits_t bits=xEventGroupWaitBits(events,7,pdTRUE,pdFALSE,pdMS_TO_TICKS(200));
-    if (bits & DISCONNECTED) {
+    if ((bits & DISCONNECTED) && !hs_wifi_connected_event(bits,CONNECTED)) {
       connecting=false;online=false;
-      if (profile>=0) blocked_until[profile]=esp_timer_get_time()+30000000;
+      block_profile(profile);
       hs_display_network(target.ap.ssid,false);
       message("未连接：连接失败或已断开，可手动选择 WiFi");
       next_scan=esp_timer_get_time()+5000000;
     }
-    if ((bits & CONNECTED) && !(bits & DISCONNECTED)) {
+    if (hs_wifi_connected_event(bits,CONNECTED)) {
       connecting=false;online=true;
       hs_display_network(target.ap.ssid,true);
       bool stored=!persist || save_network(&target);
@@ -224,20 +238,27 @@ static void manager(void *arg) {
     request_t r={0};
     bool connect_now=false;
     if (xQueueReceive(commands,&r,0)==pdTRUE) {
-      if (r.kind==7) {
+      if(r.kind==8){
+        automatic=false;persist=false;connecting=false;online=false;profile=-1;
+        esp_wifi_disconnect();xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
+        message("已断开，自动连接暂停，请选择其他WiFi");
+      } else if (r.kind==7) {
         persist=false;connecting=false;online=false;automatic=true;next_scan=0;
         memset(&target,0,sizeof(target));esp_wifi_stop();esp_wifi_start();
         xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
         message("已取消连接，正在恢复已保存网络");
+      } else if ((r.kind==4 || r.kind==5) && !hs_wifi_control_needed(__atomic_load_n(&paused,__ATOMIC_ACQUIRE),r.kind)) {
+        /* 已处于目标状态，不能重复停止当前连接。 */
       } else if (r.kind==4) {
         esp_wifi_stop();connecting=false;online=false;
         xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
         __atomic_store_n(&paused,true,__ATOMIC_RELEASE);
         message("网络已暂停，等待定时唤醒");
       } else if(r.kind==5 || r.kind==6) {
-        esp_wifi_stop();esp_wifi_start();connecting=false;online=false;automatic=true;next_scan=0;
-        memset(blocked_until,0,sizeof(blocked_until));
         xEventGroupClearBits(events,CONNECTED|DISCONNECTED);
+        if(r.kind==6)esp_wifi_stop();
+        esp_wifi_start();connecting=false;online=false;automatic=true;next_scan=0;
+        memset(blocked_until,0,sizeof(blocked_until));memset(saved_blocked,0,sizeof(saved_blocked));
         __atomic_store_n(&paused,false,__ATOMIC_RELEASE);
         message("已唤醒，正在恢复网络");
       } else if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)) {
@@ -255,6 +276,8 @@ static void manager(void *arg) {
           message("该企业网络需要账号和证书，请先在固件中配置");
         } else {
           automatic=false; target=r;
+          int known=hs_wifi_saved_find(&saved,r.ap.ssid);
+          if(!r.ap.open&&!target.password[0]&&known>=0)strlcpy(target.password,saved.entries[known].password,sizeof(target.password));
           profile=r.ap.enterprise?1:-1;
           persist=!r.ap.enterprise;connect_now=true;
         }
@@ -262,11 +285,11 @@ static void manager(void *arg) {
     }
     if(__atomic_load_n(&paused,__ATOMIC_ACQUIRE)) {
       portENTER_CRITICAL(&guard);status.connected=false;status.connecting=false;portEXIT_CRITICAL(&guard);
-      continue;
+      hs_display_network(target.ap.ssid,false);continue;
     }
     if (connecting && esp_timer_get_time()>deadline) {
       esp_wifi_disconnect();connecting=false;online=false;
-      if (profile>=0) blocked_until[profile]=esp_timer_get_time()+30000000;
+      block_profile(profile);
       message("未连接：连接超时，请检查密码或选择其他 WiFi");
       hs_display_network(target.ap.ssid,false);next_scan=esp_timer_get_time()+5000000;
     }
@@ -305,6 +328,7 @@ static void manager(void *arg) {
     status.automatic=automatic;status.connecting=connecting;status.connected=online;
     strlcpy(status.ssid,target.ap.ssid,sizeof(status.ssid));
     portEXIT_CRITICAL(&guard);
+    hs_display_network(target.ap.ssid,online);
   }
 }
 

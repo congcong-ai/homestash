@@ -1,5 +1,6 @@
 #include "hs_display.h"
 #include "hs_avatar.h"
+#include "hs_audio.h"
 #include "bsp/display.h"
 #include "esp_lv_adapter.h"
 #include "esp_log.h"
@@ -9,6 +10,11 @@
 LV_FONT_DECLARE(hs_font);
 static lv_obj_t *message, *network, *backend, *avatar, *tabs[6];
 static void (*navigate_cb)(int);
+static lv_obj_t *volume_toast;
+static int volume_previous=55;
+static uint32_t volume_shown;
+static void volume_tick(lv_timer_t *timer){(void)timer;int value=hs_audio_volume_percent();if(value!=volume_previous){volume_previous=value;volume_shown=lv_tick_get();lv_label_set_text_fmt(volume_toast,"音量 %d%%",value);lv_obj_remove_flag(volume_toast,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(volume_toast);}else if(lv_tick_get()-volume_shown>2000)lv_obj_add_flag(volume_toast,LV_OBJ_FLAG_HIDDEN);}
+
 static void navigate(lv_event_t *e) {
   if(navigate_cb) navigate_cb((int)(intptr_t)lv_event_get_user_data(e));
 }
@@ -57,6 +63,7 @@ esp_err_t hs_display_init(void) {
     lv_obj_t *label=lv_label_create(tabs[i]);lv_label_set_text(label,names[i]);lv_obj_center(label);
     lv_obj_add_event_cb(tabs[i],navigate,LV_EVENT_CLICKED,(void*)(intptr_t)i);
   }
+  volume_toast=lv_label_create(lv_layer_top());lv_obj_align(volume_toast,LV_ALIGN_BOTTOM_RIGHT,-24,-76);lv_obj_set_style_text_font(volume_toast,&hs_font,0);lv_obj_set_style_bg_color(volume_toast,lv_color_hex(0x254b3d),0);lv_obj_set_style_bg_opa(volume_toast,LV_OPA_COVER,0);lv_obj_set_style_text_color(volume_toast,lv_color_white(),0);lv_obj_set_style_pad_all(volume_toast,12,0);lv_obj_add_flag(volume_toast,LV_OBJ_FLAG_HIDDEN);lv_timer_create(volume_tick,100,NULL);
   bsp_display_unlock();
   hs_display_text("首页 PLAY 进入演示馆，SET 录音。其它页面 MODE 拍照。");
   hs_display_network("",false);
@@ -74,6 +81,8 @@ void hs_display_text(const char *text) {
   ESP_LOGI("FreshMate", "LCD: %s",text);
 }
 void hs_display_network(const char *ssid, bool connected) {
+  char value[96];snprintf(value,sizeof(value),"%s %s",connected?"网络已连接":"网络未连接",ssid);
+  hs_display_snapshot_t previous;hs_display_snapshot(&previous);if(!strcmp(previous.network,value))return;
   if (!network || !bsp_display_lock(-1)) return;
   lv_label_set_text_fmt(network, "%s %s", connected ? "网络已连接" : "网络未连接", ssid);
   portENTER_CRITICAL(&screen_guard);
