@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-IFS=$'\t' read -r HS_TARGET_PROJECT HS_TARGET_BOARD HS_TARGET_IDF_COMMIT HS_TARGET_PREPARE_BLE <<< "$(node "$ROOT/scripts/hardware/resolve-target.mjs" "$@")"
+IFS=$'\t' read -r HS_TARGET_PROJECT HS_TARGET_BOARD HS_TARGET_IDF_COMMIT HS_TARGET_PREPARE_BLE HS_TARGET_PLATFORM <<< "$(node "$ROOT/scripts/hardware/resolve-target.mjs" "$@")"
 [[ -n "$HS_TARGET_PROJECT" && -n "$HS_TARGET_IDF_COMMIT" ]] || exit 1
+if [[ "$HS_TARGET_PLATFORM" == "tuyaopen" ]]; then
+  exec node "$ROOT/scripts/hardware/build-tuya.mjs"
+fi
 export HOMESTASH_FIRMWARE_PROJECT="$HS_TARGET_PROJECT"
 SDK="${HOMESTASH_IDF_PATH:-$HOME/esp/esp-idf-smartbadge}"
 if [[ "$(git -C "$SDK" rev-parse HEAD)" != "$HS_TARGET_IDF_COMMIT" ]]; then

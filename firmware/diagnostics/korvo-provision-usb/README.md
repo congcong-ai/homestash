@@ -35,4 +35,4 @@ idf.py -j 4 build
 
 实验脚本仅向当前应用槽写入，不写引导程序、分区表或 OTA 选择区。BLE 配网会由官方驱动写入 NVS；结束时先用 Wi-Fi API 恢复测试前网络配置并核对一致，仅清理 `hs_ble_test` 测试命名空间；随后恢复原应用并核对写入摘要，不原始重写或擦除 NVS 分区。禁止整片擦除、禁止覆盖原始工牌备份。实验工具及回退文件位于本机忽略目录 `data/hardware/ble-usb-20261020/`，脚本绑定 USB serial 和芯片 MAC，不能用于其它设备。
 
-真实结果以项目 `docs/BLE_PROVISIONING_USB_HOST_TEST_REPORT.md` 为准。独立诊断通过不代表手机配网界面、Core 地址/Token 的 BLE 下发、加密配对、其它 USB 类设备或日常固件集成已验收。
+真实结果以项目 `docs/hardware/esp32-s31-korvo-1/validation/ble-and-usb-host.md` 为准。独立诊断通过不代表手机配网界面、Core 地址/Token 的 BLE 下发、加密配对、其它 USB 类设备或日常固件集成已验收。

@@ -46,7 +46,7 @@ const ca = config.WIFI_OFFICE_CA_FILE
 header += `static const unsigned char office_ca[] = ${JSON.stringify(ca)};\n`;
 const project = resolve(
   process.env.HOMESTASH_FIRMWARE_PROJECT ??
-    resolve(root, "firmware/freshmate-korvo"),
+    resolve(root, "firmware/boards/esp32-s31-korvo-1"),
 );
 if (
   !project.startsWith(resolve(root, "firmware") + "/") ||

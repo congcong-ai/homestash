@@ -3,12 +3,12 @@
 from pathlib import Path
 import array,hashlib,json,struct,subprocess,tempfile,wave
 root=Path(__file__).resolve().parents[2]
-audio=root/'firmware/freshmate-korvo/assets/audio'
+audio=root/'firmware/boards/esp32-s31-korvo-1/assets/audio'
 manifest=json.loads((audio/'manifest.json').read_text())
 assert len(manifest['entries'])==14
 with tempfile.TemporaryDirectory(prefix='freshmate-audio-test-') as directory:
  tmp=Path(directory)
- component=root/'firmware/freshmate-korvo/components/audio'
+ component=root/'firmware/boards/esp32-s31-korvo-1/components/audio'
  subprocess.run(['cc','-Wall','-Wextra','-Werror','-I',str(component/'include'),str(component/'demo_adpcm.c'),str(root/'tests/firmware/offline-demo-adpcm.c'),'-o',str(tmp/'decode')],check=True)
  for entry in manifest['entries']:
   source=audio/(entry['name']+'.wav')

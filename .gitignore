@@ -25,3 +25,9 @@ __pycache__/
 !.deploy.env.example
 output/
 dist/
+
+firmware/**/.build/
+firmware/**/config.local.json
+
+# 本次独立界面检查构建缓存
+apps/web/.next-v11-check/

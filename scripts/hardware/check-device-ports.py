@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """验证公共层边界及真实能力策略；两种主机板型配置不代表第二块物理板已适配。"""
 from pathlib import Path
-import subprocess,tempfile,re
+import subprocess,tempfile,re,os,sys
 root=Path(__file__).resolve().parents[2]
-common=root/'firmware/common/components'
+common=root/'firmware/shared/components'
 for file in list(common.rglob('*.c'))+list((root/'firmware/apps').rglob('*.c')):
     source=file.read_text()
     assert not re.search(r'#include\s+[<"](?:bsp/|driver/gpio|lvgl|esp_lv_adapter)',source),f'公共组件依赖板级实现：{file}'
     assert '/sdcard/' not in source,f'公共组件写死挂载点：{file}'
 with tempfile.TemporaryDirectory(prefix='homestash-device-ports-') as directory:
-    tmp=Path(directory);(tmp/'esp_err.h').write_text('typedef int esp_err_t;\n')
+    tmp=Path(directory)
     (tmp/'test.c').write_text(r'''
 #include <assert.h>
 #include <stdio.h>
@@ -31,5 +31,5 @@ int main(void){
 }
 ''')
     port=common/'device_port'
-    subprocess.run(['cc','-fsanitize=address,undefined','-I',str(tmp),'-I',str(port/'include'),str(port/'hs_device_policy.c'),str(tmp/'test.c'),'-o',str(tmp/'test')],check=True)
+    subprocess.run(['cc','-fsanitize='+os.environ.get('HOMESTASH_SANITIZERS','undefined' if sys.platform=='darwin' else 'address,undefined'),'-I',str(tmp),'-I',str(port/'include'),str(port/'hs_device_policy.c'),str(tmp/'test.c'),'-o',str(tmp/'test')],check=True)
     subprocess.run([str(tmp/'test')],check=True)

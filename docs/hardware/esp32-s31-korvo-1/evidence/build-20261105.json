@@ -1,0 +1,63 @@
+{
+  "日期": "2026-11-05",
+  "板型": "esp32-s31-korvo-1-v1.1",
+  "版本": "0.5.0",
+  "SDK提交": "ab95e70748f2eddac6f87217b0cf62533684a6ba",
+  "环境": [
+    "ab95e70748f2eddac6f87217b0cf62533684a6ba",
+    "riscv32-esp-elf-gcc (crosstool-NG esp-16.1.0_20260609) 16.1.0",
+    "cmake version 4.4.4",
+    "1.12.1"
+  ],
+  "源码": {
+    "方式": "本机工作区快照同步至远程隔离目录，253个输入文件逐项SHA-256一致。未以远程旧项目代码作为编译输入。",
+    "文件数": 253,
+    "sha256": "4c8232a6915e7ac60eb55237c3ac8ee6a1f035ec591a9f7378106ed2c2dab19f"
+  },
+  "结果": {
+    "实际交叉编译链接及分区检查": "通过",
+    "Core实际镜像解析器": "通过",
+    "板型唯一标记": "通过",
+    "逐文件与传输SHA256": "通过",
+    "源码快照253文件SHA256": "通过",
+    "测试": {
+      "通过": 107,
+      "失败": 0
+    },
+    "应用字节数": 3914752,
+    "4MiB应用槽剩余字节数": 279552,
+    "已烧录": false
+  },
+  "修正": [
+    "设置页组件不再引用不存在的 include 目录。",
+    "Korvo 演示入口使用公共 hs_queue_t 契约，在适配器内转换 FreeRTOS 队列类型。",
+    "SSID 显示按协议的32字节上限格式化。",
+    "默认启用 ESP-IDF 体积优化 CONFIG_COMPILER_OPTIMIZATION_SIZE=y，保持原4MiB应用槽及分区布局。"
+  ],
+  "首次检查": {
+    "调试镜像字节数": 4194416,
+    "应用槽字节数": 4194304,
+    "超出字节数": 112
+  },
+  "应用镜像": {
+    "version": "0.5.0",
+    "project": "homestash_freshmate",
+    "chip": "esp32s31",
+    "boardId": "esp32-s31-korvo-1-v1.1",
+    "size": 3914752,
+    "sha256": "fb32278e51406af9b5c1f50e4788735f70525bf3f89c3ad9f887a11536367b59"
+  },
+  "归档目录": "data/hardware/builds/korvo-s31/korvo-s31-0.5.0-20261105-140615",
+  "完整压缩包": {
+    "路径": "data/hardware/builds/korvo-s31/korvo-s31-0.5.0-20261105-140615.tar.gz",
+    "字节数": 37202769,
+    "sha256": "ad3d05e8c61535cccfff5de52378bd2efbd1db76621715fad76a5f76bb6fe784"
+  },
+  "刷写文件": {
+    "0x2000": "bootloader/bootloader.bin",
+    "0x8000": "partition_table/partition-table.bin",
+    "0x410000": "ota_data_initial.bin",
+    "0xc20000": "srmodels/srmodels.bin",
+    "0x10000": "homestash_freshmate.bin"
+  }
+}

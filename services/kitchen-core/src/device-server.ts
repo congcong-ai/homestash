@@ -2,7 +2,15 @@ import { deviceReply } from "./device-reply";
 import Fastify, { type FastifyRequest } from "fastify";
 import { DeviceReport, KORVO_BOARD_ID } from "@homestash/protocol";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+  readdir,
+  stat,
+  rm,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { DomainError } from "@homestash/domain";
@@ -91,12 +99,51 @@ export function createDeviceServer(
       ? reply.type("application/octet-stream").send(bytes)
       : reply.code(404).send({ error: "固件不存在" });
   });
+  app.get("/device/v1/yard/settings", async (req) => {
+    seen(req);
+    const state = core.repo.read<{
+      settings: {
+        silent: boolean;
+        listening: boolean;
+        proactiveVoice: boolean;
+      };
+    } | null>("product:food-spirit-yard:v1", null);
+    return (
+      state?.settings ?? {
+        silent: false,
+        listening: false,
+        proactiveVoice: false,
+      }
+    );
+  });
   app.get("/device/v1/screen", async (req) => {
     const { page } = z
       .object({ page: z.enum(devicePages).default("home") })
       .strict()
       .parse(req.query);
     seen(req);
+    if (identity(req).boardId === "tuya-t5-ai-board-v1.02") {
+      const state = core.repo.read<{
+        role: { name: string; line: string };
+        memories: { title: string }[];
+      } | null>("product:food-spirit-yard:v1", null);
+      const text =
+        page === "freshness"
+          ? "按键开始接话，再按结束。当前身份未知。"
+          : page === "recipes"
+            ? "相机缺件，尚不能拍照。明确许可后才会采集。"
+            : page === "cooking"
+              ? `家庭回忆\n${
+                  state?.memories
+                    .map((m) => m.title)
+                    .slice(0, 3)
+                    .join("\n") || "还没有保存的回忆"
+                }`
+              : page === "shopping"
+                ? "配套网页可修改角色、静默与语音服务。门传感器未验证。"
+                : `萌小冰·食灵小院\n${state?.role.name ?? "草莓食灵"}\n${state?.role.line ?? "说说今天的厨房故事吧。"}`;
+      return { text };
+    }
     return core.deviceScreen(page);
   });
   app.post("/device/v1/heartbeat", async (req) => {
@@ -117,14 +164,42 @@ export function createDeviceServer(
     seen(req);
     const hash = createHash("sha256").update(wav).digest("hex");
     return core.once(key(req, id), { hash }, async () => {
+      const started = performance.now();
+      const asrStarted = performance.now();
       const text = await speech.transcribe(wav);
-      const commit = await core.prepareVoice(text);
+      const asrMs = performance.now() - asrStarted;
+      const isYardDevice = identity(req).boardId === "tuya-t5-ai-board-v1.02";
+      const intentStarted = performance.now();
+      const commit = isYardDevice ? null : await core.prepareVoice(text);
+      const prepareMs = performance.now() - intentStarted;
       return () => {
-        const applied = commit();
+        const commitStarted = performance.now();
+        const applied = commit ? commit() : null;
+        const yardApplied = isYardDevice ? core.yardVoice(id, text) : null;
+        const commitMs = performance.now() - commitStarted;
+        console.info(
+          JSON.stringify({
+            event: "speech_stage",
+            requestId: id,
+            deviceId: identity(req).id,
+            stage: "capture_pipeline",
+            providerMode:
+              process.env.ASR_PROVIDER ??
+              process.env.SPEECH_PROVIDER ??
+              "unverified",
+            audioBytes: wav.length,
+            asrMs: Math.round(asrMs),
+            intentAndPrepareMs: Math.round(prepareMs),
+            applyMs: Math.round(commitMs),
+            totalMs: Math.round(performance.now() - started),
+          }),
+        );
         return {
           id,
           text,
-          message: deviceReply(applied, core.repo.locations()),
+          message: yardApplied
+            ? yardApplied.reply
+            : deviceReply(applied!, core.repo.locations()),
         };
       };
     });
@@ -181,34 +256,107 @@ export function createDeviceServer(
     const directory = join(options.mediaDir, identity(req).id);
     const audioProfile = createHash("sha256")
       .update(
-        JSON.stringify([speech.cacheKey ?? "default", receipt.result.message]),
+        JSON.stringify([
+          identity(req).id,
+          speech.cacheKey ?? "default",
+          receipt.result.message,
+        ]),
       )
-      .digest("hex")
-      .slice(0, 16);
-    const path = join(directory, `${id}.${audioProfile}.wav`);
+      .digest("hex");
+    const path = join(directory, `tts-${audioProfile}.wav`);
+    const cacheStarted = performance.now();
     const work = async () => {
       try {
         const bytes = await readFile(path);
         validateWav(bytes);
+        console.info(
+          JSON.stringify({
+            event: "speech_stage",
+            requestId: id,
+            deviceId: identity(req).id,
+            stage: "tts_cache",
+            hit: true,
+            cacheReadMs: Math.round(performance.now() - cacheStarted),
+            audioBytes: bytes.length,
+          }),
+        );
         return bytes;
       } catch {
         /* 缓存缺失或损坏时重新生成。 */
       }
-      const wav = await speech.synthesize(receipt.result.message);
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      req.raw.once("aborted", abort);
+      reply.raw.once("close", () => {
+        if (!reply.raw.writableEnded) abort();
+      });
+      const synthStarted = performance.now();
+      let wav: Buffer;
+      try {
+        wav = await speech.synthesize(receipt.result.message, {
+          signal: controller.signal,
+          requestId: id,
+        });
+      } finally {
+        req.raw.off("aborted", abort);
+      }
       validateWav(wav);
       await mkdir(directory, { recursive: true });
       await writeFile(`${path}.tmp`, wav, { mode: 0o600 });
       await rename(`${path}.tmp`, path);
+      console.info(
+        JSON.stringify({
+          event: "speech_stage",
+          requestId: id,
+          deviceId: identity(req).id,
+          stage: "tts_cache",
+          hit: false,
+          cacheWriteMs: Math.round(performance.now() - synthStarted),
+          audioBytes: wav.length,
+        }),
+      );
+      try {
+        const entries = await Promise.all(
+          (await readdir(directory))
+            .filter((name) => name.startsWith("tts-") && name.endsWith(".wav"))
+            .map(async (name) => ({
+              name,
+              path: join(directory, name),
+              mtime: (await stat(join(directory, name))).mtimeMs,
+              size: (await stat(join(directory, name))).size,
+            })),
+        );
+        entries.sort((a, b) => b.mtime - a.mtime);
+        let total = 0;
+        for (const item of entries) {
+          total += item.size;
+          if (total > 20 * 1024 * 1024 || entries.indexOf(item) >= 50)
+            await rm(item.path, { force: true });
+        }
+      } catch {
+        /* 缓存回收失败不影响本次播报 */
+      }
       return wav;
     };
-    const jobId = key(req, id);
+    const jobId = `tts:${audioProfile}`;
     let job = audioJobs.get(jobId);
     if (!job) {
       job = work();
       audioJobs.set(jobId, job);
     }
     try {
-      return reply.type("audio/wav").send(await job);
+      const bytes = await job;
+      console.info(
+        JSON.stringify({
+          event: "speech_stage",
+          requestId: id,
+          deviceId: identity(req).id,
+          stage: "core_audio_response",
+          waitMs: Math.round(performance.now() - cacheStarted),
+          audioBytes: bytes.length,
+        }),
+      );
+      return reply.type("audio/wav").send(bytes);
     } finally {
       audioJobs.delete(jobId);
     }

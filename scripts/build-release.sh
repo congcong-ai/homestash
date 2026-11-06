@@ -28,7 +28,8 @@ JS
 cp -R apps/web/public "$stage_root/release/apps/web/"
 rsync -a --exclude=cache --exclude=dev --exclude=trace --exclude='*.map' apps/web/.next/ "$stage_root/release/apps/web/.next/"
 cp scripts/server-common.sh scripts/server-install.sh scripts/server-deploy.sh scripts/server-port-audit.py scripts/native-service.mjs scripts/health-check.mjs scripts/configure-internal-auth.mjs scripts/sync-internal-access.mjs "$stage_root/release/scripts/"
-cp docs/nginx.conf.template "$stage_root/release/docs/"
+mkdir -p "$stage_root/release/docs/common/deployment"
+cp docs/common/deployment/nginx.conf.template "$stage_root/release/docs/common/deployment/"
 chmod +x "$stage_root/release/scripts/"*.sh
 if find "$stage_root/release" \( -name '.env*' -o -name node_modules -o -name .git \) -print -quit | grep -q .; then echo '发布包含不应上传的文件'; exit 1; fi
 output="${HOMESTASH_RELEASE_OUTPUT:-$root/output}"

@@ -145,7 +145,7 @@ const browserOrigin = lan
 let webReady = false;
 for (let i = 0; i < 60; i++) {
   try {
-    const response = await fetch(`${browserOrigin}/app`, {
+    const response = await fetch(`${browserOrigin}/app/yard`, {
       signal: AbortSignal.timeout(1500),
       redirect: "manual",
     });
@@ -162,7 +162,8 @@ if (!webReady) {
   throw new Error("后台网页未能就绪，请检查上方启动日志");
 }
 console.log(`
-HomeStash 后台已就绪
-后台管理入口：${browserOrigin}/app
+食灵小院已就绪
+小院入口：${browserOrigin}/app/yard
+旧后台入口：${browserOrigin}/app/backoffice
 请打开上方带 /app 的链接；Next.js 的 Local / Network 根地址进入官网首页。
 `);

@@ -1,0 +1,1 @@
+idf_component_register(SRCS "freshmate_app.c" INCLUDE_DIRS "include" REQUIRES runtime demo_mode board device_port provisioning power settings_ui ota device_config espressif__cjson camera audio network display storage outbox protocol)

@@ -1,0 +1,3 @@
+3df0878e6c2804c54039ba3c7aa0cdc89d98902b6bc987fb7448b7557c795a89  data/hardware/builds/tuya-t5-ai/food-spirit-yard-1.1.0/tuya-t5-ai_QIO_1.1.0.bin
+a81aad8ef96b5b6f03d0366854af13cbd3e195a2f3e21a1e95b09a61321c23f9  data/hardware/builds/tuya-t5-ai/food-spirit-yard-1.1.0/tuya-t5-ai_UA_1.1.0.bin
+1f08f07638c5559736882d368d3f3612473aaed8bf615db69a1756c7bb413b1d  data/hardware/builds/tuya-t5-ai/food-spirit-yard-1.1.0/tuya-t5-ai_UG_1.1.0.bin

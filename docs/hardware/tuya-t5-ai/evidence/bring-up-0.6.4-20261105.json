@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-05",
+  "version": "0.6.4",
+  "boardId": "tuya-t5-ai-board-v1.02",
+  "sdkCommit": "e92da87549fa1a2e079584fb12a4493e6bbbd863",
+  "platformCommit": "046792bf3443b62994b6d4bc795fcbf42b305eb5",
+  "generic": true,
+  "build": "passed",
+  "uartFlashWriteAndByteReadback": "passed",
+  "uaTargetMarker": "passed",
+  "dataRoot": "/sdcard/homestash-t5",
+  "logicalDisplay": "480x320, rotation 90 degrees",
+  "portraitDisplayAndTouchUserConfirmed": "0.6.2",
+  "landscapeDisplayAndTouchUserConfirmed": true,
+  "consoleStatusAndWifiStatus": "passed",
+  "noSdRecordingGuard": "passed",
+  "hostRegressions": {
+    "passed": 5,
+    "total": 5,
+    "includesEsp32SiblingDataPreservation": true
+  },
+  "deferredByUser": [
+    "Wi-Fi connection",
+    "Core business workflow"
+  ],
+  "notValidated": [
+    "on-board SD mount/read/write",
+    "microphone and speaker loop",
+    "power-loss recovery on hardware"
+  ],
+  "sdOriginalFiles": "21 files independently SHA-256 verified; safely ejected; no board-side writes",
+  "originalFlashBackup": "data/hardware/backups/t5-factory-20261105-142823",
+  "archive": "data/hardware/builds/tuya-t5-ai/tuya-t5-ai-0.6.4-20261105",
+  "artifacts": [
+    {
+      "path": "boot-uart1.log",
+      "bytes": 2842,
+      "sha256": "dea0d4552a193f3bec5e2a91fa1e3ccd1495a00fcb39c15e28e93022f2f5896d"
+    },
+    {
+      "path": "build.log",
+      "bytes": 319082,
+      "sha256": "bdaa57176f8ace7ff2c00fa880fca2937504f914047bda41a303e01714a60a98"
+    },
+    {
+      "path": "console-status.log",
+      "bytes": 330,
+      "sha256": "170f8c215e4de71d933bb476ddab975ee23749b21de862a6126bc4cdf079357a"
+    },
+    {
+      "path": "flash-readback.bin",
+      "bytes": 2781184,
+      "sha256": "f3b011e9ee48e66896fbe964082404bc7116c0e04712eb1a81aa3865eeacf9a0"
+    },
+    {
+      "path": "flash-verification.json",
+      "bytes": 261,
+      "sha256": "e9340e88994dded0807a3a8594a68ecbab6f6b1d4371b41a83c9fbcd01a0bca2"
+    },
+    {
+      "path": "flash.log",
+      "bytes": 251,
+      "sha256": "93c5ee9a648f6c2ce0699a59d0eb6f734b5f424e027455a9b549ba92ba2b1fbf"
+    },
+    {
+      "path": "source-manifest.json",
+      "bytes": 17076,
+      "sha256": "0ddf1eeb9d6b614525e6a1c27bc061f23c136ee1dedb5ba90576f4efbb75f5d2"
+    },
+    {
+      "path": "source.tar.gz",
+      "bytes": 74808510,
+      "sha256": "ee1c7711560e856e5ec381551a07f167f9b5c773333aefed215344ce39e3d2cb"
+    },
+    {
+      "path": "tuya-t5-ai_QIO_0.6.4.bin",
+      "bytes": 2779552,
+      "sha256": "90c70efa32ba2fe45e3b8b5abbc20d528ee8f1099a7bf448a0d52c553f4901fb"
+    },
+    {
+      "path": "tuya-t5-ai_UA_0.6.4.bin",
+      "bytes": 2550444,
+      "sha256": "47380ff0600e23dd3a0c4b7c6f529c7a31866ecda619e717da8fb7deebb33d0f"
+    },
+    {
+      "path": "tuya-t5-ai_UG_0.6.4.bin",
+      "bytes": 1401760,
+      "sha256": "a1dfd7c38b850189c9bf0888602cb11887ec334b77d90556073d4ef16c347f4a"
+    }
+  ],
+  "basis": "用户确认横屏显示和触摸正常；CLI 验证烧录回读、串口和无卡录音保护"
+}

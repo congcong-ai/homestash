@@ -3,9 +3,18 @@
   "targets": {
     "korvo-s31": {
       "boardId": "esp32-s31-korvo-1-v1.1",
-      "project": "firmware/freshmate-korvo",
+      "project": "firmware/boards/esp32-s31-korvo-1",
       "idfCommit": "ab95e70748f2eddac6f87217b0cf62533684a6ba",
-      "prepareS31BleDependencies": true
+      "prepareS31BleDependencies": true,
+      "platform": "esp-idf"
+    },
+    "tuya-t5-ai": {
+      "boardId": "tuya-t5-ai-board-v1.02",
+      "project": "firmware/boards/tuya-t5-ai",
+      "platform": "tuyaopen",
+      "sdkCommit": "e92da87549fa1a2e079584fb12a4493e6bbbd863",
+      "platformCommit": "046792bf3443b62994b6d4bc795fcbf42b305eb5",
+      "status": "experimental"
     }
   }
 }

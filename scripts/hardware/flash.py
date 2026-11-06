@@ -12,7 +12,7 @@ p.add_argument('--migration-backup',help='OTA分区首次安装/恢复时，必�
 p.add_argument('--baud',type=int,choices=[115200,230400,460800],default=230400,help='串口速率，链路不稳时降低')
 p.add_argument('--wait-seconds',type=int,default=0,help='等待已配置的唯一目标 UART 重新出现，最多 600 秒')
 a=p.parse_args()
-root=Path(__file__).resolve().parents[2];build=Path(a.build_dir).resolve() if a.build_dir else root/'firmware/freshmate-korvo/build'
+root=Path(__file__).resolve().parents[2];build=Path(a.build_dir).resolve() if a.build_dir else root/'firmware/boards/esp32-s31-korvo-1/build'
 config=dotenv_values(root/'data/hardware/device.env',interpolate=False)
 manifest_path=Path(a.backup).resolve();manifest=json.loads(manifest_path.read_text())
 backup=(manifest_path.parent/manifest['file']).resolve()

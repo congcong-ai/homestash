@@ -6,7 +6,7 @@ let symbols = "";
 function scan(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (
-      ["node_modules", ".next", "build", "managed_components"].includes(e.name)
+      ["node_modules", ".next", "build", ".build", "managed_components"].includes(e.name)
     )
       continue;
     const p = resolve(dir, e.name);
@@ -16,8 +16,10 @@ function scan(dir) {
   }
 }
 for (const dir of [
-  "firmware/freshmate-korvo",
-  "firmware/common",
+  "firmware/boards/esp32-s31-korvo-1",
+  "firmware/shared/components",
+  "firmware/platforms",
+  "firmware/boards/tuya-t5-ai",
   "firmware/apps",
   "packages",
   "apps/web/app",
@@ -47,7 +49,7 @@ const result = spawnSync(
     "--lv-font-name",
     "hs_font",
     "-o",
-    resolve(root, "firmware/freshmate-korvo/components/display/hs_font.c"),
+    resolve(root, "firmware/shared/assets/hs_font.c"),
   ],
   { stdio: "inherit" },
 );

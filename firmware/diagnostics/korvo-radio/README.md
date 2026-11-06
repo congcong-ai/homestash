@@ -29,7 +29,7 @@ idf.py -j 4 build
 
 先验证 USB serial 和 MAC，验证原始 16 MB 工牌备份哈希；再读回当前应用并与回退文件核对。当前分区表与 FreshMate 完全相同；只写 `0x10000` 应用区，不刷分区表、引导程序，不擦 NVS、SD 或整片 Flash。实验刷写和恢复脚本保存在本机 `data/hardware/retest-20261019/flash-probe.py`，它包含固定目标和本次回退哈希，不用于其它开发板。
 
-必须保留当前可运行镜像，保持供电，待 esptool 完成哈希校验。具体结果见项目 `docs/KORVO_HARDWARE_TEST_STATUS.md`。
+必须保留当前可运行镜像，保持供电，待 esptool 完成哈希校验。具体结果见项目 `docs/hardware/esp32-s31-korvo-1/validation/hardware-status.md`。
 
 ## Mac 客户端
 

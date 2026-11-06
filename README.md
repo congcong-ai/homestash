@@ -19,6 +19,8 @@ HomeStash 将家庭物品管理软件与交互硬件结合起来，帮助你记�
 
 当前使用的 **ESP32-S31-Korvo-1 V1.1 开发板用于原型开发与功能验证**。我们会尽快做出一款**更便宜、更适合日常使用的硬件**；具体选型、成本和交付时间尚未确定。
 
+第二块开发板 **涂鸦 T5 AI** 已新增实验固件目标，复用跨平台产品流程并完成 0.6.0 镜像构建，尚未烧录或完成真机验收。固件分层与构建入口见 [firmware/README.md](firmware/README.md)。开发文档已按[ESP32 Korvo](docs/hardware/esp32-s31-korvo-1/README.md)、[涂鸦 T5 AI](docs/hardware/tuya-t5-ai/README.md)和[公共文档](docs/common/README.md)分类，统一从[文档总入口](docs/README.md)查阅。
+
 [项目官网](https://homestash.bebackpacker.com) · [源码仓库](https://github.com/congcong-ai/homestash) · [MIT 许可证](LICENSE) · [参与开发](CONTRIBUTING.md)
 
 ## 一键启动家庭后台
@@ -101,7 +103,7 @@ HomeStash 是通用家庭物品管理底座，FreshMate 是第一个场景应用
 
 所有产品与演示页面右上角均有“⚙ 设置”，默认打开 Wi-Fi 列表，支持扫描、选网、勾选记住密码（最多8个网络）和主动断连，返回原页面继续。已保存网络可自动连接。真实产品中的“已连后台 / 未连上后台”根据实际接口结果更新，Wi-Fi 连上不等于后台可达。
 
-**路演目前优先使用已验证的 SET 真实录音，离线演示作为备用。** 模型加载成功不能当作语音唤醒成功；联网语音演示暂不能作为已验收方案。操作和具体边界见[路演说明](firmware/freshmate-korvo/docs/ROADSHOW.md)。
+**路演目前优先使用已验证的 SET 真实录音，离线演示作为备用。** 模型加载成功不能当作语音唤醒成功；联网语音演示暂不能作为已验收方案。操作和具体边界见[路演说明](docs/hardware/esp32-s31-korvo-1/roadshow/guide.md)。
 
 ### 已验证与待验证
 
@@ -111,13 +113,13 @@ HomeStash 是通用家庭物品管理底座，FreshMate 是第一个场景应用
 - 2026-10-30已在真实开发板用14段录音覆盖唤醒词、六场景提示词及常用变体，模型识别与六场景控制/完整播报回归通过；05的漏识别已复现并修复。此测试直接向板上模型输入PCM，**麦克风声学路径、个人口音、远场与噪声环境仍待现场验收**。
 - 相机拍摄和上传成功不等于食材识别准确；识别结果需要人工核对。
 
-完整范围见 [硬件集中验收](docs/PHASE_1_ACCEPTANCE.md)、[日常 BLE 配网](docs/DEVICE_BLE_PROVISIONING.md) 和 [相机复测](docs/CAMERA_RETEST_REPORT.md)。
+完整范围见 [硬件集中验收](docs/hardware/esp32-s31-korvo-1/validation/phase-1-acceptance.md)、[日常 BLE 配网](docs/hardware/esp32-s31-korvo-1/ble-provisioning.md) 和 [相机复测](docs/hardware/esp32-s31-korvo-1/validation/camera-retest.md)。
 
 ### 后续日用硬件
 
 Korvo 用于验证产品交互和软硬件链路。后续硬件将以**低成本、适合家庭日常摆放与操作**为目标，按真实使用需求确定体积、供电、显示、音频及相机等配置，不直接照搬开发板的全部外设。
 
-固件已经拆分为公共 FreshMate 应用、公共 ESP-IDF 服务和板级适配器，便于新硬件复用现有业务；新增小冰路演界面仍依赖 Korvo 的 LVGL/BSP，换板时需另外适配。**第二块物理板尚未适配，自研 PCB 和最终硬件方案尚未完成。** 新板仍需重新验证音频、供电、存储恢复和升级等能力。参见 [固件复用与新板接入](docs/FIRMWARE_PORTABILITY.md)。
+固件已经拆分为公共 FreshMate 应用、公共 ESP-IDF 服务和板级适配器，便于新硬件复用现有业务；新增小冰路演界面仍依赖 Korvo 的 LVGL/BSP，换板时需另外适配。**第二块物理板尚未适配，自研 PCB 和最终硬件方案尚未完成。** 新板仍需重新验证音频、供电、存储恢复和升级等能力。参见 [固件复用与新板接入](docs/common/firmware/portability.md)。
 
 ### 硬件开发入口
 
@@ -130,11 +132,11 @@ pnpm hardware:build:generic --board korvo-s31
 
 构建依赖锁定的 **ESP-IDF 6.2 开发版**，提交为 `ab95e70748f2eddac6f87217b0cf62533684a6ba`，并非任意 ESP-IDF 安装均可直接使用。构建脚本默认使用 `$HOME/esp/esp-idf-smartbadge`；可通过 `HOMESTASH_IDF_PATH` 和 `HOMESTASH_IDF_PYTHON_BIN` 指定 SDK 与 Python 环境。
 
-通用构建不嵌入本机网络和设备凭据，应用产物为 `firmware/freshmate-korvo/build/homestash_freshmate.bin`。首次烧录需先核对设备身份和完整 Flash 备份，并同时写入分区表、应用与 `build/srmodels/srmodels.bin`。语音模型位于新增的 `model` 分区；仅应用 OTA 不会安装或更新模型，已有相同模型和兼容分区后才可用常规应用 OTA。同一芯片不代表不同板型的固件可以互刷。
+通用构建不嵌入本机网络和设备凭据，应用产物为 `firmware/boards/esp32-s31-korvo-1/build/homestash_freshmate.bin`。首次烧录需先核对设备身份和完整 Flash 备份，并同时写入分区表、应用与 `build/srmodels/srmodels.bin`。语音模型位于新增的 `model` 分区；仅应用 OTA 不会安装或更新模型，已有相同模型和兼容分区后才可用常规应用 OTA。同一芯片不代表不同板型的固件可以互刷。
 
 设备接口默认仅绑定本机。真机接入需配置 `DEVICE_HOST`、设备凭据及可达的 Core 地址；设备使用独立接口端口，默认起始值为 `3101`，不是 Web 端口或 Core 管理端口。`pnpm dev:lan` 会把设备接口绑定全部网卡，并保持配置的设备端口固定；端口被其他项目占用时明确报错，避免固件连接到错误端口。
 
-详细操作：[固件构建与烧录](firmware/freshmate-korvo/README.md) · [设备配置与 OTA](docs/DEVICE_SETUP_AND_OTA.md) · [设备协议](docs/DEVICE_PROTOCOL.md)
+详细操作：[固件构建与烧录](firmware/boards/esp32-s31-korvo-1/README.md) · [设备配置与 OTA](docs/hardware/esp32-s31-korvo-1/setup-and-ota.md) · [设备协议](docs/common/devices/protocol.md)
 
 ## 软件
 
@@ -152,7 +154,7 @@ pnpm hardware:build:generic --board korvo-s31
 | 设备管理       | 多设备登记、独立凭据与状态、停用及重新签发、按板型管理固件；另有软件模拟器               |
 | 手机访问       | 提供免登录的家庭局域网开发入口；真实手机体验仍待验收                                     |
 
-采购 → 核对入库 → 选菜 → 做饭 → 确认消耗 → 再次补货的软件流程已有隔离数据库验收，覆盖重启、重放和进度恢复。详见 [日常流程验收](docs/DAILY_WORKFLOW_ACCEPTANCE.md)。
+采购 → 核对入库 → 选菜 → 做饭 → 确认消耗 → 再次补货的软件流程已有隔离数据库验收，覆盖重启、重放和进度恢复。详见 [日常流程验收](docs/common/acceptance/daily-workflow.md)。
 
 ### 数据与 AI
 
@@ -163,13 +165,13 @@ pnpm hardware:build:generic --board korvo-s31
 
 这是自行部署的开源项目，官网用于介绍项目，不提供公共家庭库存托管。家庭本地模式直接访问同一份家庭数据，不需要账号和成员权限；尚无多家庭隔离、云同步或自动下单采购。公网内部测试部署仍可单独启用登录保护。PWA 已有基础资源，手机安装、离线操作和浏览器语音仍未完成真机验收。
 
-设置页支持新增、重命名家庭存放位置；库存批次可自定义开封提醒天数、关闭提醒或恢复默认。详见[家庭位置与日期规则](docs/HOUSEHOLD_LOCATIONS_AND_DATES.md)。家庭时区可在设置页选择，库存提醒、食谱、语音与设备投影统一按家庭日期；旧数据默认UTC，切换不会改写已录入日期，见[家庭时区与日期](docs/HOUSEHOLD_CALENDAR.md)。
+设置页支持新增、重命名家庭存放位置；库存批次可自定义开封提醒天数、关闭提醒或恢复默认。详见[家庭位置与日期规则](docs/common/product/household-locations-and-dates.md)。家庭时区可在设置页选择，库存提醒、食谱、语音与设备投影统一按家庭日期；旧数据默认UTC，切换不会改写已录入日期，见[家庭时区与日期](docs/common/product/household-calendar.md)。
 
-“拍照入库”新增订单截图模式：核对商品规格、购买日期与收货状态，明确确认实收后才入库；退款/取消项不可选择，同图重复上传复用原结果。支持分批实收、剩余商品续做与结束收货，见[分批收货](docs/ORDER_PARTIAL_RECEIVING.md)。详见[订单截图入库](docs/ORDER_SCREENSHOT_INTAKE.md)。
+“拍照入库”新增订单截图模式：核对商品规格、购买日期与收货状态，明确确认实收后才入库；退款/取消项不可选择，同图重复上传复用原结果。支持分批实收、剩余商品续做与结束收货，见[分批收货](docs/common/product/order-partial-receiving.md)。详见[订单截图入库](docs/common/product/order-screenshot-intake.md)。
 
-订单实收可明确关联采购清单，分批抵扣剩余计划；不足部分可以另买后手动补齐，不重复创建库存。见[采购与入库闭环](docs/PURCHASE_TO_STOCK.md)。后续按[大功能交付计划](docs/FEATURE_DELIVERY_PLAN.md)推进，先完成主功能，再集中做细节优化。
+订单实收可明确关联采购清单，分批抵扣剩余计划；不足部分可以另买后手动补齐，不重复创建库存。见[采购与入库闭环](docs/common/product/purchase-to-stock.md)。后续按[大功能交付计划](docs/common/project/feature-delivery-plan.md)推进，先完成主功能，再集中做细节优化。
 
-支持主动开启的[离线只读副本](docs/OFFLINE_READONLY.md)：Core断线可查库存、采购和食谱，带同步时间与过期限制，不离线修改或补交操作；整个网页服务断开后的重新打开需要HTTPS或本机安全上下文。[Local Mode阶段验收](docs/LOCAL_MODE_ACCEPTANCE.md)已更新。
+支持主动开启的[离线只读副本](docs/common/product/offline-readonly.md)：Core断线可查库存、采购和食谱，带同步时间与过期限制，不离线修改或补交操作；整个网页服务断开后的重新打开需要HTTPS或本机安全上下文。[Local Mode阶段验收](docs/common/acceptance/local-mode.md)已更新。
 
 日期与新鲜度仅供提醒，应结合包装、储存条件和实际状态判断；药品分类仅用于库存管理。
 
@@ -220,7 +222,7 @@ pnpm dev:lan
 
 用手机打开服务就绪后日志中的“后台管理入口” `/app` 地址。家庭内部无需账号密码，打开即可使用，不生成访问凭据，旧登录页直接跳转后台。Core 管理接口仍仅监听本机，网页通过同源代理调用；开发板设备接口则独立监听局域网。
 
-这是 HTTP 开发试用入口，不用于公网。当前已验证 LAN HTTP 直接访问与 API 链路，手机布局、手持操作、安装与离线能力仍待验收。详见 [手机局域网访问](docs/LOCAL_MOBILE_ACCESS.md)和[手机模拟验收](docs/MOBILE_WEB_ACCEPTANCE.md)。
+这是 HTTP 开发试用入口，不用于公网。当前已验证 LAN HTTP 直接访问与 API 链路，手机布局、手持操作、安装与离线能力仍待验收。详见 [手机局域网访问](docs/common/deployment/local-mobile-access.md)和[手机模拟验收](docs/common/acceptance/mobile-web.md)。
 
 ### 配置模型与语音
 
@@ -250,9 +252,9 @@ pnpm server:install
 pnpm server:deploy
 ```
 
-`server:install` 用于首次准备环境；首次发布与日常更新均使用 `server:deploy`。部署包含隔离构建、健康检查与失败代码回滚，数据库独立保存在共享目录，代码回滚不会回滚数据库。公网内部测试后台使用独立登录页，设备接口默认关闭。完整配置与备份步骤见 [部署说明](docs/DEPLOYMENT.md)。
+`server:install` 用于首次准备环境；首次发布与日常更新均使用 `server:deploy`。部署包含隔离构建、健康检查与失败代码回滚，数据库独立保存在共享目录，代码回滚不会回滚数据库。公网内部测试后台使用独立登录页，设备接口默认关闭。完整配置与备份步骤见 [部署说明](docs/common/deployment/server.md)。
 
-日常可在“设置 → 数据备份与恢复”导出家庭业务备份；其中不包含机器 AI 配置、设备凭据和媒体。直接复制 SQLite 文件时先停止 Core，避免遗漏运行中的 WAL。详见 [备份与恢复](docs/DATA_BACKUP_AND_RESTORE.md)。
+日常可在“设置 → 数据备份与恢复”导出家庭业务备份；其中不包含机器 AI 配置、设备凭据和媒体。直接复制 SQLite 文件时先停止 Core，避免遗漏运行中的 WAL。详见 [备份与恢复](docs/common/product/data-backup-and-restore.md)。
 
 ## 开发与文档
 
@@ -260,9 +262,10 @@ pnpm server:deploy
 
 ```text
 firmware/
-  apps/freshmate_app/        共享 FreshMate 产品流程
-  common/components/        公共设备服务与板级能力契约
-  freshmate-korvo/           Korvo 工程、驱动与界面适配
+  apps/freshmate/            共享 FreshMate 产品流程
+  shared/                   公共接口、录音队列与字库
+  platforms/                ESP-IDF、TuyaOpen 平台适配
+  boards/                   ESP32 Korvo 与涂鸦 T5 板卡工程
   diagnostics/              独立硬件诊断工程
   targets.json              构建目标与 SDK 锁定信息
 vendor/espressif/            原厂板级支持与第三方来源
@@ -277,7 +280,10 @@ packages/
   api-client/               Web API 客户端
 scripts/                    启动、部署与硬件开发工具
 tests/                      软件与协议自动化测试
-docs/                       使用说明、架构与验收证据
+docs/
+  common/                   公共产品、架构、协议、部署与软件验收
+  hardware/esp32-s31-korvo-1/ ESP32 原型板操作、验收与历史设计
+  hardware/tuya-t5-ai/       涂鸦 T5 AI 原厂资料与后续板级文档
 data/                       本机运行数据与私密配置，不提交 Git
 ```
 
@@ -294,16 +300,18 @@ pnpm build
 
 ### 文档索引
 
+完整目录见[文档总入口](docs/README.md)。按板型阅读：[ESP32 Korvo](docs/hardware/esp32-s31-korvo-1/README.md) · [涂鸦 T5 AI](docs/hardware/tuya-t5-ai/README.md)；产品与软件说明见[公共文档](docs/common/README.md)。
+
 | 主题           | 文档                                                                                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 系统与开发进度 | [架构](docs/ARCHITECTURE.md) · [整体进度与历史记录](docs/BUILD_STATUS.md)                                                                                           |
-| 硬件开发       | [Korvo 固件](firmware/freshmate-korvo/README.md) · [固件复用](docs/FIRMWARE_PORTABILITY.md) · [来源审计](docs/FIRMWARE_REUSE_AUDIT.md)                              |
-| 设备交互与维护 | [屏幕页面](docs/KORVO_SCREEN.md) · [设备管理](docs/DEVICE_MANAGEMENT.md) · [配置与 OTA](docs/DEVICE_SETUP_AND_OTA.md) · [BLE 配网](docs/DEVICE_BLE_PROVISIONING.md) |
-| 入库与采购     | [图片入库](docs/IMAGE_INTAKE.md) · [条码入库](docs/BARCODE_INTAKE.md) · [采购与待确认](docs/SHOPPING_AND_REVIEW.md)                                                 |
-| 库存与做饭     | [批次与纠正](docs/INVENTORY_BATCHES_AND_CORRECTIONS.md) · [陪做饭](docs/COOKING_MODE.md) · [完整流程验收](docs/DAILY_WORKFLOW_ACCEPTANCE.md)                        |
-| 数据与部署     | [备份恢复](docs/DATA_BACKUP_AND_RESTORE.md) · [局域网访问](docs/LOCAL_MOBILE_ACCESS.md) · [服务器部署](docs/DEPLOYMENT.md)                                          |
-| 路演与本地配音 | [三种模式、配网与验证边界](firmware/freshmate-korvo/docs/ROADSHOW.md) · [离线操作卡](firmware/freshmate-korvo/docs/OFFLINE_DEMO_OPERATIONS.md)                      |
-| 硬件验收       | [核心 PoC 验收](docs/PHASE_1_ACCEPTANCE.md) · [BLE 增量验收](docs/DEVICE_BLE_PROVISIONING.md) · [恢复验证](docs/RECOVERY_VALIDATION.md)                             |
+| 系统与开发进度 | [架构](docs/common/architecture.md) · [整体进度与历史记录](docs/common/project/build-status.md)                                                                                           |
+| 硬件开发       | [Korvo 固件](firmware/boards/esp32-s31-korvo-1/README.md) · [固件复用](docs/common/firmware/portability.md) · [来源审计](docs/hardware/esp32-s31-korvo-1/provenance/firmware-reuse-audit.md)                              |
+| 设备交互与维护 | [屏幕页面](docs/hardware/esp32-s31-korvo-1/screen.md) · [设备管理](docs/common/devices/management.md) · [配置与 OTA](docs/hardware/esp32-s31-korvo-1/setup-and-ota.md) · [BLE 配网](docs/hardware/esp32-s31-korvo-1/ble-provisioning.md) |
+| 入库与采购     | [图片入库](docs/common/product/image-intake.md) · [条码入库](docs/common/product/barcode-intake.md) · [采购与待确认](docs/common/product/shopping-and-review.md)                                                 |
+| 库存与做饭     | [批次与纠正](docs/common/product/inventory-batches-and-corrections.md) · [陪做饭](docs/common/product/cooking-mode.md) · [完整流程验收](docs/common/acceptance/daily-workflow.md)                        |
+| 数据与部署     | [备份恢复](docs/common/product/data-backup-and-restore.md) · [局域网访问](docs/common/deployment/local-mobile-access.md) · [服务器部署](docs/common/deployment/server.md)                                          |
+| 路演与本地配音 | [三种模式、配网与验证边界](docs/hardware/esp32-s31-korvo-1/roadshow/guide.md) · [离线操作卡](docs/hardware/esp32-s31-korvo-1/roadshow/offline-operations.md)                      |
+| 硬件验收       | [核心 PoC 验收](docs/hardware/esp32-s31-korvo-1/validation/phase-1-acceptance.md) · [BLE 增量验收](docs/hardware/esp32-s31-korvo-1/ble-provisioning.md) · [恢复验证](docs/hardware/esp32-s31-korvo-1/validation/recovery.md)                             |
 
 ## 许可证
 

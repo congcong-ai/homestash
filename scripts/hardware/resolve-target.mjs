@@ -20,7 +20,8 @@ if (args.length === 1 && args[0] === "--list") {
     !project.startsWith(resolve(root, "firmware") + sep) ||
     !existsSync(resolve(project, "CMakeLists.txt")) ||
     !/^[a-z0-9][a-z0-9._-]{0,79}$/.test(target.boardId) ||
-    !/^[a-f0-9]{40}$/.test(target.idfCommit) ||
+    !/^[a-f0-9]{40}$/.test(target.sdkCommit ?? target.idfCommit) ||
+    !["esp-idf", "tuyaopen"].includes(target.platform ?? "esp-idf") ||
     /[\t\r\n]/.test(project)
   )
     throw Error("构建目标配置无效");
@@ -28,8 +29,9 @@ if (args.length === 1 && args[0] === "--list") {
     [
       project,
       target.boardId,
-      target.idfCommit,
+      target.sdkCommit ?? target.idfCommit,
       target.prepareS31BleDependencies ? "1" : "0",
+      target.platform ?? "esp-idf",
     ].join("\t"),
   );
 }

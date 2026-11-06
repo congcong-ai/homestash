@@ -252,7 +252,8 @@ const scoped = (id: string) =>
     "intake-failures",
     "backup-blocked-requests",
   ].includes(id) ||
-  /^(image-intake|barcode-intake|product):/.test(id) ||
+  (id !== "product:food-spirit-yard:v1" &&
+    /^(image-intake|barcode-intake|product):/.test(id)) ||
   (id.startsWith("request:") && !id.startsWith("request:backup-restore:"));
 function readPayload(repo: SQLiteRepository): BackupPayload {
   return repo.transaction(() => ({

@@ -94,7 +94,7 @@ try {
       "scripts/server-common.sh",
       "scripts/configure-internal-auth.mjs",
       "scripts/server-port-audit.py",
-      "docs/nginx.conf.template",
+      "docs/common/deployment/nginx.conf.template",
     ]);
   }
   const name = basename(archive),

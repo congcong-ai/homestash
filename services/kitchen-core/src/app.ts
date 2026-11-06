@@ -48,6 +48,7 @@ import { deviceScreen, type DevicePage } from "./device-screen";
 import { registerImageIntake } from "./image-intake";
 import { inventoryAssistant } from "./inventory-assistant";
 import { registerBarcodeIntake } from "./barcode-intake";
+import { applyYardInteraction, registerYardRoutes, yardTtsProfile } from "./yard";
 const settingsSchema = z.object({
   persona: Persona,
   provider: z.object({
@@ -83,6 +84,7 @@ export function createApp(
   });
   const offlineAccess = registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
+  registerYardRoutes(app, repo, resolve(dirname(path), "yard-media"));
   const { current: calendar, change: changeCalendar } = householdCalendar(
     repo,
     options.now,
@@ -848,6 +850,8 @@ export function createApp(
     imageIntake,
     devices,
     firmware,
+    yardTtsProfile: () => yardTtsProfile(repo),
+    yardVoice: (requestId: string, text: string) => applyYardInteraction(repo, requestId, text, false),
     deviceScreen: (page: DevicePage) => {
       const day = calendar().date;
       return deviceScreen(repo, currentRecipes(day), page, day);

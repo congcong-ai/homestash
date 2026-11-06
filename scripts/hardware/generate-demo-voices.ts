@@ -11,7 +11,7 @@ const dir = resolve("data/hardware/voice-build", voice);
 await mkdir(dir, { recursive: true });
 const scenes = JSON.parse(
   await readFile(
-    "firmware/freshmate-korvo/components/demo_mode/scenes.json",
+    "firmware/boards/esp32-s31-korvo-1/components/demo_mode/scenes.json",
     "utf8",
   ),
 ) as [string, [string, string][]][];

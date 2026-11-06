@@ -6,7 +6,7 @@
 
 - [源代码与项目说明](https://github.com/congcong-ai/homestash)：功能、安装方式与常见问答。
 - [许可证](https://github.com/congcong-ai/homestash/blob/main/LICENSE)：MIT；第三方组件遵循各自许可。
-- [设备验收进度](https://github.com/congcong-ai/homestash/blob/main/docs/PHASE_1_PROGRESS.md)：以实际记录为准，不将模拟器或编译成功表述为硬件验收。
+- [设备验收进度](https://github.com/congcong-ai/homestash/blob/main/docs/hardware/esp32-s31-korvo-1/validation/phase-1-progress.md)：以实际记录为准，不将模拟器或编译成功表述为硬件验收。
 
 ## 准确描述
 

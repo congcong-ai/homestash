@@ -8,6 +8,7 @@ import {
 import { createApp } from "./app";
 import { createDeviceServer } from "./device-server";
 import { speechFromEnv } from "@homestash/ai/speech";
+import { z } from "zod";
 const path = resolve(process.env.DATABASE_PATH ?? "data/homestash.db");
 mkdirSync(dirname(path), { recursive: true });
 if (process.env.HOMESTASH_LAN_ENABLED === "true") {
@@ -24,7 +25,17 @@ if (process.env.HOMESTASH_LAN_ENABLED === "true") {
 }
 const core = createApp(path);
 const { app } = core;
-const deviceServer = createDeviceServer(core, speechFromEnv(), {
+const speech = speechFromEnv(core.yardTtsProfile);
+app.post("/api/yard/tts/preview", { bodyLimit: 4096 }, async (req, reply) => {
+  const body = z.object({ text: z.string().trim().min(1).max(120) }).strict().parse(req.body);
+  try {
+    const audio = await speech.synthesize(body.text, { requestId: crypto.randomUUID() });
+    return reply.type("audio/wav").send(audio);
+  } catch {
+    return reply.code(503).send({ error: "语音试听失败，请检查当前 Provider 配置。业务状态没有改变。" });
+  }
+});
+const deviceServer = createDeviceServer(core, speech, {
   token: process.env.DEVICE_TOKEN,
   deviceId: process.env.DEVICE_ID ?? "freshmate-korvo-01",
   mediaDir: resolve("data/device-media"),

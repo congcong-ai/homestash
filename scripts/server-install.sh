@@ -44,7 +44,7 @@ chown homestash:homestash "$base/shared/.env" "$base/shared/access.txt"
 config=/etc/nginx/sites-available/homestash
 if [[ -e "$config" ]] && ! grep -q '^# 由 HomeStash 安装器管理' "$config"; then echo '同名 Nginx 配置归属未知，停止'; exit 1; fi
 # 凭据由 Core 读取，Nginx 不再直接读取任何密码文件。
-python3 - "$release/docs/nginx.conf.template" "$config" <<'PY'
+python3 - "$release/docs/common/deployment/nginx.conf.template" "$config" <<'PY'
 from pathlib import Path
 import os,sys
 s=Path(sys.argv[1]).read_text()

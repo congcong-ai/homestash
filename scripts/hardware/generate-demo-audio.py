@@ -2,7 +2,7 @@
 """将已生成的自然配音打包为固件内 IMA ADPCM；不调用系统配音。"""
 from pathlib import Path
 import json,subprocess,argparse,struct,tempfile,shutil
-root=Path(__file__).resolve().parents[2]/'firmware/freshmate-korvo'
+root=Path(__file__).resolve().parents[2]/'firmware/boards/esp32-s31-korvo-1'
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source-dir',type=Path,help='generate-demo-voices.ts 生成的完整配音目录')
 args=parser.parse_args()
