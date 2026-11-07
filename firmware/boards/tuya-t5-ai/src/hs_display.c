@@ -1,4 +1,7 @@
+#include "tal_memory.h"
+#include "tjpgd.h"
 #include "hs_display.h"
+#include "yard_gallery.h"
 #include "../include/hs_avatar_themes.h"
 #include "board_com_api.h"
 #include "hs_runtime.h"
@@ -13,7 +16,7 @@
 #include "tdd_touch_gt1151.h"
 #include <stdio.h>
 #include <string.h>
-LV_FONT_DECLARE(hs_font);
+LV_FONT_DECLARE(hs_yard_font);
 static MUTEX_HANDLE lock;
 static hs_display_snapshot_t snapshot;
 static void (*navigate)(int);
@@ -175,13 +178,47 @@ static lv_obj_t *button(lv_obj_t *parent,const char *title,int x,int y,int w,lv_
   lv_obj_t *l=lv_label_create(b);if(title[0]&&(unsigned char)title[0]>=0xEF)lv_obj_set_style_text_font(l,&lv_font_montserrat_14,0);lv_label_set_text(l,title);lv_obj_center(l);return b;
 }
 /* 所有对象只创建一次；业务线程只提交快照，50ms动画定时器在LVGL线程绘制。 */
-static lv_obj_t *eye[2],*pupil[2],*shine[2],*cheek[2],*brow[2],*avatar_toggle,*avatar_stop,*avatar_status;
+static lv_obj_t *eye[2],*pupil[2],*shine[2],*cheek[2],*brow[2],*avatar_toggle,*avatar_stop,*avatar_status,*avatar_color;
+static lv_obj_t *wallpaper_view, *photos_button;
+static uint16_t *wallpaper_pending;
+static bool wallpaper_changed, wallpaper_offer;
+static lv_image_dsc_t wallpaper_image = {
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565,
+        .w = 480,
+        .h = 320,
+        .stride = 480 * sizeof(uint16_t),
+    },
+    .data_size = 480 * 320 * sizeof(uint16_t),
+};
+static lv_obj_t *photo_preview_panel, *photo_preview_view, *photo_preview_empty, *photo_preview_wallpaper;
+static uint16_t *photo_preview_pending;
+static lv_image_dsc_t photo_preview_image = {
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565,
+        .w = 320,
+        .h = 240,
+        .stride = 320 * sizeof(uint16_t),
+    },
+    .data_size = 320 * 240 * sizeof(uint16_t),
+};
 static unsigned avatar_base_children;
 static int avatar_state=HS_FACE_IDLE;
 static uint32_t avatar_epoch;
 typedef struct {unsigned version,revision;int theme,fullscreen;} avatar_config_t;
 static avatar_config_t avatar_config={1,0,0,0};
 static bool avatar_dirty;
+static uint8_t sticker_color;
+static bool sticker_color_dirty;
+static void avatar_color_click(lv_event_t *event){
+ (void)event;
+ tal_mutex_lock(lock);
+ sticker_color=(sticker_color+1)%4;
+ sticker_color_dirty=true;
+ tal_mutex_unlock(lock);
+}
 static void avatar_heart(lv_event_t *event){
  tal_mutex_lock(lock);int state=avatar_state,theme=avatar_config.theme;tal_mutex_unlock(lock);
  if(state!=HS_FACE_LOVE)return;
@@ -205,23 +242,490 @@ static void fullscreen_icon(lv_event_t *e){
 static void avatar_toggle_click(lv_event_t *e){(void)e;tal_mutex_lock(lock);avatar_config.fullscreen=!avatar_config.fullscreen;avatar_dirty=true;tal_mutex_unlock(lock);}
 static lv_obj_t *avatar_part(lv_obj_t *parent){lv_obj_t *o=lv_obj_create(parent);lv_obj_remove_flag(o,LV_OBJ_FLAG_SCROLLABLE);lv_obj_remove_flag(o,LV_OBJ_FLAG_CLICKABLE);lv_obj_set_style_border_width(o,0,0);lv_obj_set_style_pad_all(o,0,0);lv_obj_set_style_radius(o,LV_RADIUS_CIRCLE,0);return o;}
 static void shape(lv_obj_t *o,int x,int y,int w,int h,unsigned color,int radius){lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,h);lv_obj_set_style_bg_color(o,lv_color_hex(color),0);lv_obj_set_style_radius(o,radius,0);}
+#include "../assets/avatar-stickers.inc"
+__asm__(".pushsection .rodata.hs_stickers,\"a\",%progbits\n"
+        ".global hs_sticker_data\nhs_sticker_data:\n"
+        ".incbin \"" HS_STICKER_BIN "\"\n.popsection\n");
+extern const uint8_t hs_sticker_data[];
+
+static lv_obj_t *sticker_image;
+static uint16_t *sticker_pixels;
+static lv_image_dsc_t sticker_image_source = {
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .w = HS_STICKER_SIZE,
+        .h = HS_STICKER_SIZE,
+        .stride = HS_STICKER_SIZE * sizeof(uint16_t),
+    },
+    .data_size = HS_STICKER_SIZE * HS_STICKER_SIZE * 3,
+};
+
+typedef struct {
+    const uint8_t *next;
+    size_t remaining;
+} sticker_stream_t;
+
+static size_t sticker_read(JDEC *decoder, uint8_t *out, size_t size) {
+    sticker_stream_t *stream = decoder->device;
+    if (size > stream->remaining) size = stream->remaining;
+    if (out) memcpy(out, stream->next, size);
+    stream->next += size;
+    stream->remaining -= size;
+    return size;
+}
+
+typedef struct {
+    sticker_stream_t stream;
+    uint16_t *pixels;
+    unsigned width;
+    unsigned step;
+} wallpaper_decode_t;
+
+static int wallpaper_write(JDEC *decoder, void *rgb, JRECT *rect) {
+    wallpaper_decode_t *photo = decoder->device;
+    for (unsigned y = rect->top; y <= rect->bottom; ++y) {
+        if (y % photo->step) continue;
+        unsigned block_width = rect->right - rect->left + 1;
+        for (unsigned x = rect->left; x <= rect->right; ++x) {
+            if (x % photo->step) continue;
+            const uint8_t *pixel = (const uint8_t *)rgb +
+                ((y - rect->top) * block_width + x - rect->left) * 3;
+            photo->pixels[(y / photo->step) * photo->width + x / photo->step] =
+                ((pixel[2] & 0xf8) << 8) | ((pixel[1] & 0xfc) << 3) | (pixel[0] >> 3);
+        }
+    }
+    return 1;
+}
+
+static uint16_t *decode_photo(const uint8_t *jpeg, size_t length,
+                              const lv_image_dsc_t *image, unsigned step) {
+    uint16_t *pixels = tal_psram_malloc(image->data_size);
+    if (!pixels) return NULL;
+    uint32_t work[1024];
+    wallpaper_decode_t photo = {{jpeg, length}, pixels, image->header.w, step};
+    JDEC decoder;
+    if (jd_prepare(&decoder, sticker_read, work, sizeof(work), &photo) != JDR_OK ||
+        decoder.width != image->header.w * step ||
+        decoder.height != image->header.h * step ||
+        jd_decomp(&decoder, wallpaper_write, 0) != JDR_OK) {
+        tal_psram_free(pixels);
+        return NULL;
+    }
+    return pixels;
+}
+
+static char photo_preview_id[37], photo_preview_pending_id[37];
+
+bool hs_t5_photo_preview(const uint8_t *jpeg, size_t length, const char *id) {
+    uint16_t *pixels = decode_photo(jpeg, length, &photo_preview_image, 2);
+    if (!pixels) return false;
+    tal_mutex_lock(lock);
+    uint16_t *discarded = photo_preview_pending;
+    photo_preview_pending = pixels;
+    snprintf(photo_preview_pending_id, sizeof(photo_preview_pending_id), "%s", id);
+    tal_mutex_unlock(lock);
+    if (discarded) tal_psram_free(discarded);
+    return true;
+}
+
+static void photo_preview_close(lv_event_t *event) {
+    (void)event;
+    lv_obj_add_flag(photo_preview_panel, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void photo_preview_open(lv_event_t *event) {
+    (void)event;
+    lv_obj_move_foreground(photo_preview_panel);
+    lv_obj_remove_flag(photo_preview_panel, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void photo_preview_set_wallpaper(lv_event_t *event) {
+    photo_preview_close(event);
+    clicked(event);
+}
+
+static lv_obj_t *gallery_panel, *gallery_view, *gallery_story, *gallery_title;
+static lv_obj_t *gallery_prev, *gallery_next, *gallery_latest, *gallery_retry, *gallery_generate;
+static lv_image_dsc_t gallery_image = {
+    .header = {.magic = LV_IMAGE_HEADER_MAGIC, .cf = LV_COLOR_FORMAT_RGB565,
+               .w = 240, .h = 160, .stride = 240 * sizeof(uint16_t)},
+    .data_size = 240 * 160 * sizeof(uint16_t),
+};
+static yard_gallery_request_t gallery_query;
+static yard_gallery_page_t gallery_page, gallery_incoming;
+static unsigned gallery_revision, gallery_received;
+static bool gallery_requested, gallery_ready, gallery_failed, gallery_loading, gallery_photos;
+static uint16_t *gallery_pixels;
+static bool gallery_from_story;
+static unsigned gallery_story_index;
+
+bool hs_t5_gallery_take_request(yard_gallery_request_t *request) {
+    tal_mutex_lock(lock);
+    bool pending = gallery_requested;
+    if (pending) *request = gallery_query;
+    gallery_requested = false;
+    tal_mutex_unlock(lock);
+    return pending;
+}
+
+void hs_t5_gallery_result(unsigned revision, const yard_gallery_page_t *page,
+                          const uint8_t *jpeg, size_t length) {
+    uint16_t *pixels = jpeg ? decode_photo(jpeg, length, &gallery_image, 1) : NULL;
+    tal_mutex_lock(lock);
+    uint16_t *old = gallery_pixels;
+    gallery_pixels = pixels;
+    gallery_received = revision;
+    gallery_failed = !page;
+    if (page) gallery_incoming = *page;
+    gallery_ready = true;
+    tal_mutex_unlock(lock);
+    if (old) tal_psram_free(old);
+}
+
+static void gallery_clear_image(void) {
+    lv_obj_add_flag(gallery_view, LV_OBJ_FLAG_HIDDEN);
+    lv_image_set_src(gallery_view, NULL);
+    lv_image_cache_drop(&gallery_image);
+    if (gallery_image.data) tal_psram_free((void *)gallery_image.data);
+    gallery_image.data = NULL;
+}
+
+static void gallery_request(bool photos, unsigned index, const char *anchor, bool generate) {
+    gallery_photos = photos;
+    gallery_loading = true;
+    gallery_clear_image();
+    lv_label_set_text(gallery_title, photos ? "照片" : "回忆");
+    lv_obj_set_pos(gallery_story, 64, 85);
+    lv_obj_set_width(gallery_story, 352);
+    lv_label_set_text(gallery_story, generate ? "正在生成回忆…" : "正在加载…");
+    lv_obj_add_flag(gallery_generate, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_state(gallery_prev, LV_STATE_DISABLED);
+    lv_obj_add_state(gallery_next, LV_STATE_DISABLED);
+    lv_obj_add_flag(gallery_retry, LV_OBJ_FLAG_HIDDEN);
+    if (photos && photo_preview_image.data) lv_obj_remove_flag(gallery_latest, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(gallery_latest, LV_OBJ_FLAG_HIDDEN);
+    tal_mutex_lock(lock);
+    gallery_query = (yard_gallery_request_t){.revision = ++gallery_revision,
+                                             .index = index, .photos = photos, .generate = generate};
+    if (anchor) snprintf(gallery_query.anchor, sizeof(gallery_query.anchor), "%s", anchor);
+    gallery_requested = true;
+    tal_mutex_unlock(lock);
+}
+
+static void gallery_open(lv_event_t *e) {
+    gallery_from_story = false;
+    lv_obj_move_foreground(gallery_panel);
+    lv_obj_remove_flag(gallery_panel, LV_OBJ_FLAG_HIDDEN);
+    gallery_request(lv_event_get_user_data(e) != NULL, 0, NULL, false);
+}
+
+static void gallery_close(lv_event_t *e) {
+    (void)e;
+    lv_obj_add_flag(gallery_panel, LV_OBJ_FLAG_HIDDEN);
+    gallery_clear_image();
+    tal_mutex_lock(lock);
+    gallery_requested = false;
+    ++gallery_revision;
+    tal_mutex_unlock(lock);
+}
+
+static void gallery_back(lv_event_t *e) {
+    if (!gallery_from_story) {
+        gallery_close(e);
+        return;
+    }
+    gallery_from_story = false;
+    gallery_request(false, gallery_story_index, NULL, false);
+}
+
+static void gallery_retry_click(lv_event_t *e) {
+    (void)e;
+    yard_gallery_request_t previous = gallery_query;
+    gallery_request(gallery_photos, previous.index, previous.anchor, previous.generate);
+}
+
+static void gallery_turn(int direction) {
+    if (gallery_loading || !gallery_page.count) return;
+    int next = (int)gallery_page.index + direction;
+    if (next >= 0 && (unsigned)next < gallery_page.count)
+        gallery_request(gallery_photos, next, NULL, false);
+}
+
+static void gallery_turn_click(lv_event_t *e) {
+    gallery_turn((int)(intptr_t)lv_event_get_user_data(e));
+}
+
+static void gallery_gesture(lv_event_t *e) {
+    (void)e;
+    lv_indev_t *input = lv_indev_active();
+    if (!input) return;
+    lv_dir_t direction = lv_indev_get_gesture_dir(input);
+    if (direction != LV_DIR_LEFT && direction != LV_DIR_RIGHT) return;
+    lv_indev_wait_release(input);
+    gallery_turn(direction == LV_DIR_LEFT ? 1 : -1);
+}
+
+static void gallery_image_click(lv_event_t *e) {
+    (void)e;
+    if (!gallery_loading && !gallery_photos && gallery_page.id[0]) {
+        gallery_from_story = true;
+        gallery_story_index = gallery_page.index;
+        gallery_request(true, 0, gallery_page.id, false);
+    }
+}
+
+static void gallery_generate_click(lv_event_t *e) {
+    bool preview = lv_event_get_user_data(e) != NULL;
+    if (!preview && (gallery_loading || !gallery_photos || !gallery_page.id[0])) return;
+    const char *id = preview ? photo_preview_id : gallery_page.id;
+    if (!id[0]) return;
+    if (preview) photo_preview_close(e);
+    gallery_from_story = false;
+    lv_obj_move_foreground(gallery_panel);
+    lv_obj_remove_flag(gallery_panel, LV_OBJ_FLAG_HIDDEN);
+    gallery_request(false, 0, id, true);
+}
+
+static void gallery_latest_click(lv_event_t *e) {
+    gallery_close(e);
+    photo_preview_open(e);
+}
+
+static void gallery_tick(void) {
+    tal_mutex_lock(lock);
+    if (!gallery_ready) {
+        tal_mutex_unlock(lock);
+        return;
+    }
+    bool current = gallery_received == gallery_revision;
+    bool failed = gallery_failed;
+    yard_gallery_page_t page = gallery_incoming;
+    uint16_t *pixels = gallery_pixels;
+    gallery_pixels = NULL;
+    gallery_ready = false;
+    tal_mutex_unlock(lock);
+    if (!current || lv_obj_has_flag(gallery_panel, LV_OBJ_FLAG_HIDDEN)) {
+        if (pixels) tal_psram_free(pixels);
+        return;
+    }
+    gallery_loading = false;
+    gallery_page = failed ? (yard_gallery_page_t){0} : page;
+    if (failed || !page.count) {
+        lv_label_set_text(gallery_story, failed ? (gallery_query.generate ? "生成失败，请确认联网后重试" : "加载失败，请重试") :
+            gallery_photos ? "还没有照片" : "还没有回忆，可在照片中生成");
+        if (failed) lv_obj_remove_flag(gallery_retry, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    char title[80];
+    snprintf(title, sizeof(title), "%s  %s  %u / %u",
+             gallery_photos ? "照片" : "回忆", page.date, page.index + 1, page.count);
+    lv_label_set_text(gallery_title, title);
+    lv_obj_set_pos(gallery_view, gallery_photos ? 120 : 16, 75);
+    if (!gallery_photos && page.id[0]) {
+        lv_obj_set_pos(gallery_story, 265, 50);
+        lv_obj_set_width(gallery_story, 205);
+    }
+    lv_label_set_text(gallery_story, gallery_photos ? (pixels ? "" : "照片暂不可用") :
+                      page.story);
+    if (!pixels && page.id[0]) lv_obj_remove_flag(gallery_retry, LV_OBJ_FLAG_HIDDEN);
+    if (pixels) {
+        if (gallery_photos) lv_obj_remove_flag(gallery_generate, LV_OBJ_FLAG_HIDDEN);
+        gallery_image.data = (const uint8_t *)pixels;
+        lv_image_set_src(gallery_view, &gallery_image);
+        lv_obj_remove_flag(gallery_view, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (page.index) lv_obj_remove_state(gallery_prev, LV_STATE_DISABLED);
+    if (page.index + 1 < page.count) lv_obj_remove_state(gallery_next, LV_STATE_DISABLED);
+}
+
+static void photo_preview_tick(void) {
+    tal_mutex_lock(lock);
+    uint16_t *pixels = photo_preview_pending;
+    photo_preview_pending = NULL;
+    if (pixels) memcpy(photo_preview_id, photo_preview_pending_id, sizeof(photo_preview_id));
+    tal_mutex_unlock(lock);
+    if (!pixels) return;
+    const uint8_t *old = photo_preview_image.data;
+    lv_image_cache_drop(&photo_preview_image);
+    photo_preview_image.data = (const uint8_t *)pixels;
+    lv_image_set_src(photo_preview_view, &photo_preview_image);
+    lv_obj_invalidate(photo_preview_view);
+    if (old) tal_psram_free((void *)old);
+    lv_obj_add_flag(photo_preview_empty, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(photo_preview_wallpaper, LV_OBJ_FLAG_HIDDEN);
+    photo_preview_open(NULL);
+}
+
+bool hs_t5_wallpaper_set(const uint8_t *jpeg, size_t length) {
+    uint16_t *pixels = jpeg ? decode_photo(jpeg, length, &wallpaper_image, 1) : NULL;
+    if (jpeg && !pixels) return false;
+    tal_mutex_lock(lock);
+    uint16_t *discarded = wallpaper_pending;
+    wallpaper_pending = pixels;
+    wallpaper_changed = true;
+    tal_mutex_unlock(lock);
+    if (discarded) tal_psram_free(discarded);
+    return true;
+}
+
+void hs_t5_wallpaper_offer(bool available) {
+    tal_mutex_lock(lock);
+    wallpaper_offer = available;
+    tal_mutex_unlock(lock);
+}
+
+static bool wallpaper_tick(bool active, bool fullscreen, bool full_bubble) {
+    tal_mutex_lock(lock);
+    bool changed = wallpaper_changed;
+    bool offered = wallpaper_offer;
+    uint16_t *pixels = wallpaper_pending;
+    wallpaper_changed = false;
+    wallpaper_pending = NULL;
+    tal_mutex_unlock(lock);
+    if (changed) {
+        const uint8_t *old = wallpaper_image.data;
+        lv_image_cache_drop(&wallpaper_image);
+        wallpaper_image.data = (const uint8_t *)pixels;
+        lv_image_set_src(wallpaper_view, pixels ? &wallpaper_image : NULL);
+        lv_obj_invalidate(wallpaper_view);
+        if (old) tal_psram_free((void *)old);
+    }
+    bool visible = !active && wallpaper_image.data;
+    if (visible) lv_obj_remove_flag(wallpaper_view, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(wallpaper_view, LV_OBJ_FLAG_HIDDEN);
+    if (!fullscreen) lv_obj_remove_flag(photos_button, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(photos_button, LV_OBJ_FLAG_HIDDEN);
+    if ((visible && !offered) || (fullscreen && !full_bubble)) lv_obj_add_flag(text_view, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_remove_flag(text_view, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_opa(session_title, visible ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+    if (visible) lv_obj_add_flag(avatar_status, LV_OBJ_FLAG_HIDDEN);
+    else if (fullscreen) lv_obj_remove_flag(avatar_status, LV_OBJ_FLAG_HIDDEN);
+    return visible;
+}
+
+static uint16_t sticker_rgb565(uint8_t blue, uint8_t green, uint8_t red) {
+    unsigned r=red,g=green,b=blue;
+    if(sticker_color && r>g+10 && g>b+5 && r>110) {
+        unsigned warm_r=r-b,warm_g=g-b;
+        if(sticker_color==1) { g=b+warm_g/3; b+=warm_g; }
+        else if(sticker_color==2) { r=b+warm_g/4; g=b+warm_r; b+=warm_g; }
+        else { r=b+warm_g; g=b+warm_g/2; b+=warm_r; }
+    }
+    return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3);
+}
+
+static int sticker_write(JDEC *decoder, void *rgb, JRECT *rect) {
+    (void)decoder;
+    const uint8_t *pixel = rgb;
+    for (unsigned y = rect->top; y <= rect->bottom; ++y) {
+        uint16_t *out = sticker_pixels + y * HS_STICKER_SIZE + rect->left;
+        for (unsigned x = rect->left; x <= rect->right; ++x, pixel += 3)
+            /* 锁定 SDK 的 TJpgDec 按 B、G、R 顺序输出。 */
+            *out++ = sticker_rgb565(pixel[0],pixel[1],pixel[2]);
+    }
+    return 1;
+}
+
+static bool sticker_decode(uint32_t offset) {
+    static uint32_t work[1024];
+    const uint8_t *entry = hs_sticker_data + offset;
+    sticker_stream_t stream = {entry + 2, entry[0] | (entry[1] << 8)};
+    JDEC decoder;
+    if (jd_prepare(&decoder, sticker_read, work, sizeof(work), &stream) != JDR_OK ||
+        decoder.width != HS_STICKER_SIZE || decoder.height != HS_STICKER_SIZE ||
+        jd_decomp(&decoder, sticker_write, 0) != JDR_OK) return false;
+    const uint8_t *mask = entry + 2 + (entry[0] | (entry[1] << 8));
+    uint8_t *alpha = (uint8_t *)(sticker_pixels + HS_STICKER_SIZE * HS_STICKER_SIZE);
+    unsigned written = 0;
+    while(written < HS_STICKER_SIZE * HS_STICKER_SIZE) {
+        unsigned count = (mask[0] & 63) + 1;
+        if(count > HS_STICKER_SIZE * HS_STICKER_SIZE - written) return false;
+        memset(alpha + written, (mask[0] >> 6) * 85, count);
+        written += count;
+        mask++;
+    }
+    return true;
+}
+
+static void sticker_render(int state, uint32_t age, int scale) {
+    static uint32_t last_offset = UINT32_MAX;
+    static int last_scale = -1;
+    static int last_color = -1;
+    unsigned clip = sticker_by_state[state];
+    unsigned frame_ms = state == HS_FACE_SPEAK ? 100 : sticker_clips[clip].frame_ms;
+    unsigned frame = (age / frame_ms) % sticker_clips[clip].count;
+    uint32_t offset = sticker_clips[clip].offsets[frame];
+
+    if (last_offset != offset || last_color != sticker_color) {
+        if (!sticker_decode(offset)) return;
+        last_offset = offset;
+        last_color = sticker_color;
+        lv_image_cache_drop(&sticker_image_source);
+        lv_obj_invalidate(sticker_image);
+    }
+    if (last_scale != scale) {
+        last_scale = scale;
+        lv_image_set_scale(sticker_image, scale);
+    }
+}
+
 static void avatar_tick(lv_timer_t *timer){
  (void)timer;tal_mutex_lock(lock);avatar_config_t c=avatar_config;int state=avatar_state;uint32_t epoch=avatar_epoch;bool dirty=avatar_dirty;avatar_dirty=false;tal_mutex_unlock(lock);
+ tal_mutex_lock(lock);bool color_dirty=sticker_color_dirty;sticker_color_dirty=false;uint8_t color=sticker_color;tal_mutex_unlock(lock);
+ if(color_dirty)tal_kv_set("hs.bear.color",&color,sizeof(color));
  if(dirty)tal_kv_set("hs.avatar.v1",(const uint8_t *)&c,sizeof(c));
  const hs_avatar_theme_t *t=&avatar_themes[c.theme];
  static int layout=-1;
  if(layout!=c.fullscreen){layout=c.fullscreen;lv_obj_t *screen=lv_screen_active();
-  for(unsigned i=0;i<avatar_base_children;i++){lv_obj_t *o=lv_obj_get_child(screen,i);if(o==face||o==avatar_toggle||o==avatar_stop||o==avatar_status)continue;if(layout)lv_obj_add_flag(o,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(o,LV_OBJ_FLAG_HIDDEN);}
+  for(unsigned i=0;i<avatar_base_children;i++){lv_obj_t *o=lv_obj_get_child(screen,i);if(o==face||o==avatar_toggle||o==avatar_stop||o==avatar_status||o==avatar_color||o==wallpaper_view||o==photos_button)continue;if(layout)lv_obj_add_flag(o,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(o,LV_OBJ_FLAG_HIDDEN);}
   if(layout)lv_obj_remove_flag(avatar_status,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(avatar_status,LV_OBJ_FLAG_HIDDEN);
-  lv_label_set_text(lv_obj_get_child(avatar_toggle,0),layout?LV_SYMBOL_LEFT:"");lv_obj_set_pos(avatar_toggle,layout?424:158,layout?8:46);lv_obj_set_pos(avatar_stop,layout?372:106,layout?8:46);
+  lv_label_set_text(lv_obj_get_child(avatar_toggle,0),layout?LV_SYMBOL_LEFT:"");lv_obj_set_pos(avatar_toggle,layout?424:158,layout?8:46);lv_obj_set_pos(avatar_stop,layout?372:106,layout?8:46);lv_obj_set_pos(avatar_color,layout?320:54,layout?8:46);
  }
  tal_mutex_lock(lock);bool active=session_active;tal_mutex_unlock(lock);
+ bool full_bubble=c.fullscreen&&active&&
+   (state==HS_FACE_THINK||state==HS_FACE_SPEAK||state==HS_FACE_HAPPY);
+ static int last_bubble_layout=-1;
+ if(last_bubble_layout!=full_bubble){
+  last_bubble_layout=full_bubble;
+  lv_obj_set_pos(text_view,full_bubble?34:216,full_bubble?217:92);
+  lv_obj_set_size(text_view,full_bubble?412:246,full_bubble?96:156);
+ }
+ photo_preview_tick();
+ gallery_tick();
+ bool show_wallpaper=wallpaper_tick(active,c.fullscreen,full_bubble);
+ if(show_wallpaper)lv_obj_add_flag(face,LV_OBJ_FLAG_HIDDEN);
+ else lv_obj_remove_flag(face,LV_OBJ_FLAG_HIDDEN);
  if(active)lv_obj_remove_flag(avatar_stop,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(avatar_stop,LV_OBJ_FLAG_HIDDEN);
  uint32_t age=lv_tick_get()-epoch;int phase=(age/50)%40;int wave=phase<20?phase:40-phase;int bob=(wave-10)/4;
  int w=c.fullscreen?260:184,h=c.fullscreen?232:166;int x=c.fullscreen?110:20,y=(c.fullscreen?52:82)+bob;
  if(state==HS_FACE_WAKE&&age<600)x+=(age/100)%2?6:-6;
  if(state==HS_FACE_ANGRY)x+=(age/120)%2?3:-3;
+ bool show_sticker=c.theme==0 && sticker_pixels;
+ if(show_sticker)y=c.fullscreen?52:82;
+ if(full_bubble){y=38;h=172;}
+ if(state==HS_FACE_SPEAK){
+  static const int bounce[]={0,-2,-4,-2,0,2,3,2};
+  y+=bounce[(age/50)%8];
+  x+=bounce[(age/50+2)%8];
+ }
  shape(face,x,y,w,h,t->body,t->radius);
+ lv_obj_set_style_bg_opa(face,show_sticker?LV_OPA_TRANSP:LV_OPA_COVER,0);
+ if(show_sticker&&!show_wallpaper)lv_obj_remove_flag(avatar_color,LV_OBJ_FLAG_HIDDEN);
+ else lv_obj_add_flag(avatar_color,LV_OBJ_FLAG_HIDDEN);
+ if(sticker_image){
+  if(show_sticker)lv_obj_remove_flag(sticker_image,LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(sticker_image,LV_OBJ_FLAG_HIDDEN);
+ }
+ lv_obj_t *parts[]={eye[0],eye[1],cheek[0],cheek[1],brow[0],brow[1],mouth};
+ for(unsigned i=0;i<sizeof(parts)/sizeof(parts[0]);i++){
+  if(show_sticker)lv_obj_add_flag(parts[i],LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_remove_flag(parts[i],LV_OBJ_FLAG_HIDDEN);
+ }
+ if(show_wallpaper) return;
+ if(show_sticker) sticker_render(state,age,full_bubble?192:c.fullscreen?256:171);
+ else {
+
  int ew=t->eye_width,eh=t->eye_height;if(c.fullscreen){ew=ew*3/2;eh=eh*3/2;}
  bool blink=(age%4200)>4000;
  if(state==HS_FACE_SLEEP)eh=8;else if(blink)eh=4;
@@ -240,6 +744,7 @@ static void avatar_tick(lv_timer_t *timer){
  }
  int mh=state==HS_FACE_SPEAK?8+(age/100%4)*5:state==HS_FACE_SURPRISE?30:state==HS_FACE_HAPPY?18:8;
  shape(mouth,w/2-15,h*67/100,30,mh,t->ink,12);
+ }
  static const char *labels[]={"陪着你","醒来啦","正在听","正在想","正在说","好开心","哇","喜欢你","休息中","哼哼","准备拍照","请检查连接"};
  lv_label_set_text(avatar_status,labels[state]);
 }
@@ -259,7 +764,7 @@ static void refresh(lv_timer_t *timer) {
     char line[220];snprintf(line,sizeof(line),"静默：%s   音量：%d%%\n主动招呼：%s   自动接话：%s\n手动接话始终可用",silent?"开":"关",hs_audio_volume_percent(),proactive?"开":"关",listening?"开":"关");lv_label_set_text(settings_status,line);
   }
   tal_mutex_lock(lock);bool active=session_listening;tal_mutex_unlock(lock);
-  lv_label_set_text(session_title,active?"小冰正在听…":"萌小冰的小院");
+  lv_label_set_text(session_title,active?"小冰正在听":"萌小冰的小院");
   if (s.revision != rendered) {
     lv_label_set_text(content, s.text);
     lv_obj_scroll_to_y(text_view,0,LV_ANIM_OFF);
@@ -292,8 +797,12 @@ hs_err_t hs_display_init(void) {
     preferences_t next;memcpy(&next,saved,size);if(next.version==1&&next.volume>=0&&next.volume<=100)preferences=next;
   }
   if(saved)tal_kv_free(saved);
+
   saved=NULL;size=0;
   if(!tal_kv_get("hs.avatar.v1",&saved,&size)&&size==sizeof(avatar_config)){avatar_config_t next;memcpy(&next,saved,size);if(next.version==1&&next.theme>=0&&next.theme<4&&(next.fullscreen==0||next.fullscreen==1))avatar_config=next;}
+  if(saved)tal_kv_free(saved);
+  saved=NULL;size=0;
+  if(!tal_kv_get("hs.bear.color",&saved,&size)&&size==1&&saved[0]<4)sticker_color=saved[0];
   if(saved)tal_kv_free(saved);
   if (register_landscape() != HS_OK)
     return HS_FAIL;
@@ -307,37 +816,107 @@ hs_err_t hs_display_init(void) {
     return HS_ERR_NOT_SUPPORTED;
   lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(screen, lv_color_hex(0xFFF6E9), 0);
-  lv_obj_set_style_text_font(screen, &hs_font, 0);
+  lv_obj_set_style_text_font(screen, &hs_yard_font, 0);
   lv_obj_set_style_text_color(screen, lv_color_hex(0x49382F), 0);
-  session_title=lv_label_create(screen);lv_label_set_text(session_title,"萌小冰的小院");lv_obj_set_pos(session_title,16,14);
+  wallpaper_view=lv_image_create(screen);
+  lv_obj_remove_flag(wallpaper_view,LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(wallpaper_view,LV_OBJ_FLAG_HIDDEN);
+  session_title=lv_label_create(screen);lv_label_set_text(session_title,"萌小冰的小院");lv_obj_set_pos(session_title,12,8);
+  lv_obj_set_style_text_font(session_title,&hs_yard_font,0);
+  lv_obj_set_style_bg_color(session_title,lv_color_hex(0xFFF6E9),0);
+  lv_obj_set_style_radius(session_title,8,0);
+  lv_obj_set_style_pad_all(session_title,4,0);
   wifi_icon=button(screen,LV_SYMBOL_WIFI,width-100,2,44,show_wifi,NULL);
   button(screen,LV_SYMBOL_SETTINGS,width-50,2,44,show_settings,NULL);
   backend_icon=button(screen,LV_SYMBOL_UPLOAD,width-150,2,44,show_core,NULL);
   wifi_offline=offline_mark(wifi_icon);backend_offline=offline_mark(backend_icon);
-  face=lv_obj_create(screen);lv_obj_remove_flag(face,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_pad_all(face,0,0);lv_obj_set_style_border_width(face,0,0);
+  face=lv_obj_create(screen);lv_obj_remove_style_all(face);lv_obj_remove_flag(face,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_pad_all(face,0,0);lv_obj_set_style_border_width(face,0,0);
   for(int i=0;i<2;i++){
     eye[i]=avatar_part(face);lv_obj_add_event_cb(eye[i],avatar_heart,LV_EVENT_DRAW_MAIN,NULL);pupil[i]=avatar_part(eye[i]);shine[i]=avatar_part(pupil[i]);cheek[i]=avatar_part(face);brow[i]=avatar_part(face);
   }
   mouth=avatar_part(face);
+  sticker_pixels=tal_psram_malloc(sticker_image_source.data_size);
+  if(sticker_pixels){
+    sticker_image_source.data=(const uint8_t *)sticker_pixels;
+    memset(sticker_pixels,0,sticker_image_source.data_size);
+    sticker_image=lv_image_create(face);
+    lv_obj_remove_style_all(sticker_image);
+    lv_image_set_src(sticker_image,&sticker_image_source);
+    lv_obj_center(sticker_image);
+    lv_obj_add_flag(sticker_image,LV_OBJ_FLAG_HIDDEN);
+  }
   text_view=lv_obj_create(screen);lv_obj_set_pos(text_view,222,92);lv_obj_set_size(text_view,width-238,148);
-  lv_obj_set_style_bg_opa(text_view,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(text_view,0,0);
-  lv_obj_set_style_pad_all(text_view,4,0);lv_obj_set_scroll_dir(text_view,LV_DIR_VER);
+  lv_obj_set_style_bg_color(text_view,lv_color_hex(0xFFFCF5),0);
+  lv_obj_set_style_bg_opa(text_view,LV_OPA_COVER,0);
+  lv_obj_set_style_border_color(text_view,lv_color_hex(0xE4C7AB),0);
+  lv_obj_set_style_border_width(text_view,2,0);
+  lv_obj_set_style_radius(text_view,18,0);
+  lv_obj_set_style_pad_all(text_view,10,0);lv_obj_set_scroll_dir(text_view,LV_DIR_VER);
   lv_obj_set_scrollbar_mode(text_view,LV_SCROLLBAR_MODE_AUTO);
   content=lv_label_create(text_view);lv_obj_set_width(content,lv_pct(100));lv_obj_set_height(content,LV_SIZE_CONTENT);
   lv_obj_add_flag(content,LV_OBJ_FLAG_SCROLL_CHAIN_VER);
   lv_label_set_long_mode(content,LV_LABEL_LONG_WRAP);lv_label_set_text(content,"正在醒来，请稍候。");
-  button(screen,"唤醒",8,264,148,clicked,(void *)(intptr_t)2);
-  button(screen,"拍照",166,264,148,clicked,(void *)(intptr_t)3);
-  button(screen,"回忆",324,264,148,clicked,(void *)(intptr_t)4);
+  lv_obj_t *wake=button(screen,"唤醒",8,264,112,clicked,(void *)(intptr_t)2);
+  lv_obj_t *photo=button(screen,"拍照",125,264,112,clicked,(void *)(intptr_t)3);
+  lv_obj_t *memory=button(screen,"回忆",242,264,112,gallery_open,NULL);
+  photos_button=button(screen,"照片",359,264,112,gallery_open,(void *)1);
+  lv_obj_t *actions[]={wake,photo,memory,photos_button};
+  for(unsigned i=0;i<sizeof(actions)/sizeof(actions[0]);i++)
+    lv_obj_set_style_text_font(lv_obj_get_child(actions[i],0),&hs_yard_font,0);
   avatar_toggle=button(screen,"",158,46,44,avatar_toggle_click,NULL);
   lv_obj_set_style_text_font(lv_obj_get_child(avatar_toggle,0),&lv_font_montserrat_14,0);
   lv_obj_add_event_cb(avatar_toggle,fullscreen_icon,LV_EVENT_DRAW_MAIN_END,NULL);
   avatar_stop=button(screen,LV_SYMBOL_STOP,106,46,44,clicked,(void *)(intptr_t)5);
-  lv_obj_t *controls[]={avatar_toggle,avatar_stop};
-  for(unsigned i=0;i<2;i++){lv_obj_set_style_radius(controls[i],22,0);lv_obj_set_style_bg_color(controls[i],lv_color_hex(i?0xFBE7EA:0xEDF3F1),0);lv_obj_set_style_text_color(controls[i],lv_color_hex(i?0xA03C53:0x365E58),0);lv_obj_set_style_shadow_width(controls[i],0,0);}
+  avatar_color=button(screen,LV_SYMBOL_TINT,54,46,44,avatar_color_click,NULL);
+  lv_obj_set_style_text_font(lv_obj_get_child(avatar_color,0),&lv_font_montserrat_14,0);
+  lv_obj_t *controls[]={avatar_toggle,avatar_stop,avatar_color};
+  for(unsigned i=0;i<sizeof(controls)/sizeof(controls[0]);i++){lv_obj_set_style_radius(controls[i],22,0);lv_obj_set_style_bg_color(controls[i],lv_color_hex(i?0xFBE7EA:0xEDF3F1),0);lv_obj_set_style_text_color(controls[i],lv_color_hex(i?0xA03C53:0x365E58),0);lv_obj_set_style_shadow_width(controls[i],0,0);}
   lv_obj_add_flag(avatar_stop,LV_OBJ_FLAG_HIDDEN);
-  avatar_status=lv_label_create(screen);lv_obj_set_pos(avatar_status,16,14);lv_obj_add_flag(avatar_status,LV_OBJ_FLAG_HIDDEN);
+  avatar_status=lv_label_create(screen);lv_obj_set_style_text_font(avatar_status,&hs_yard_font,0);lv_obj_set_pos(avatar_status,16,14);lv_obj_add_flag(avatar_status,LV_OBJ_FLAG_HIDDEN);
   avatar_base_children=lv_obj_get_child_count(screen);
+  photo_preview_panel=lv_obj_create(screen);
+  lv_obj_set_size(photo_preview_panel,width,height);
+  lv_obj_set_style_pad_all(photo_preview_panel,0,0);
+  lv_obj_set_style_border_width(photo_preview_panel,0,0);
+  lv_obj_set_style_bg_color(photo_preview_panel,lv_color_hex(0xFFF6E9),0);
+  lv_obj_remove_flag(photo_preview_panel,LV_OBJ_FLAG_SCROLLABLE);
+  photo_preview_view=lv_image_create(photo_preview_panel);
+  lv_obj_align(photo_preview_view,LV_ALIGN_TOP_MID,0,10);
+  photo_preview_empty=lv_label_create(photo_preview_panel);
+  lv_label_set_text(photo_preview_empty,"还没有照片");
+  lv_obj_center(photo_preview_empty);
+  button(photo_preview_panel,"返回",12,264,112,photo_preview_close,NULL);
+  button(photo_preview_panel,"生成回忆",148,264,128,gallery_generate_click,(void *)1);
+  photo_preview_wallpaper=button(photo_preview_panel,"设为壁纸",width-136,264,124,photo_preview_set_wallpaper,(void *)(intptr_t)24);
+  lv_obj_add_flag(photo_preview_wallpaper,LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(photo_preview_panel,LV_OBJ_FLAG_HIDDEN);
+
+  gallery_panel = lv_obj_create(screen);
+  lv_obj_set_size(gallery_panel, width, height);
+  lv_obj_set_style_pad_all(gallery_panel, 0, 0);
+  lv_obj_set_style_border_width(gallery_panel, 0, 0);
+  lv_obj_set_style_radius(gallery_panel, 0, 0);
+  lv_obj_set_style_bg_color(gallery_panel, lv_color_hex(0xFFF6E9), 0);
+  lv_obj_remove_flag(gallery_panel, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_GESTURE_BUBBLE);
+  lv_obj_add_event_cb(gallery_panel, gallery_gesture, LV_EVENT_GESTURE, NULL);
+  gallery_title = lv_label_create(gallery_panel);
+  lv_obj_align(gallery_title, LV_ALIGN_TOP_MID, 0, 16);
+  gallery_story = lv_label_create(gallery_panel);
+  lv_obj_set_pos(gallery_story, 265, 50);
+  lv_obj_set_size(gallery_story, width - 275, 210);
+  lv_label_set_long_mode(gallery_story, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_line_space(gallery_story, -5, 0);
+  gallery_view = lv_image_create(gallery_panel);
+  lv_obj_add_flag(gallery_view, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_GESTURE_BUBBLE);
+  lv_obj_add_event_cb(gallery_view, gallery_image_click, LV_EVENT_CLICKED, NULL);
+  button(gallery_panel, "返回", 12, 264, 88, gallery_back, NULL);
+  gallery_prev = button(gallery_panel, LV_SYMBOL_LEFT, width - 120, 264, 48, gallery_turn_click, (void *)(intptr_t)-1);
+  gallery_next = button(gallery_panel, LV_SYMBOL_RIGHT, width - 60, 264, 48, gallery_turn_click, (void *)(intptr_t)1);
+  gallery_latest = button(gallery_panel, "刚拍的照片", 110, 264, 140, gallery_latest_click, NULL);
+  gallery_generate = button(gallery_panel, "生成回忆", 252, 264, 104, gallery_generate_click, NULL);
+  gallery_retry = button(gallery_panel, "重试", 260, 264, 86, gallery_retry_click, NULL);
+  lv_obj_add_flag(gallery_panel, LV_OBJ_FLAG_HIDDEN);
+
   wifi_panel=lv_obj_create(screen);lv_obj_set_size(wifi_panel,width,height);lv_obj_set_pos(wifi_panel,0,0);
   lv_obj_set_style_pad_all(wifi_panel,8,0);lv_obj_remove_flag(wifi_panel,LV_OBJ_FLAG_SCROLLABLE);lv_obj_set_style_bg_color(wifi_panel,lv_color_hex(0xFFF6E9),0);
   button(wifi_panel,"返回",0,0,88,close_wifi,NULL);button(wifi_panel,"扫描",width-128,0,104,scan_wifi,NULL);

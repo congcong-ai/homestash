@@ -35,7 +35,7 @@ static int32_t receive_bytes(NetworkContext_t *context,void *data,size_t size){
 static http_client_status_t perform(const http_client_request_t *request,http_client_response_t *response,const char *destination,size_t limit){
  if(request->cacert)return destination?HTTP_CLIENT_SEND_FAULT:http_client_request(request,response);
  hs_http_socket_t socket={.address_revision=hs_t5_core_address_revision(),.fd=-1,.timeout=request->timeout_ms,.deadline=hs_time_us()+(int64_t)request->timeout_ms*1000,.cancelable=strstr(request->path,"/captures/")!=NULL || (strstr(request->path,"/yard/photos/") && strstr(request->path,"/upload"))};
- socket.maintenance=strstr(request->path,"/heartbeat")||strstr(request->path,"/yard/settings")||strstr(request->path,"/yard/recordings/")||strstr(request->path,"/yard/photo-archive/")||strstr(request->path,"/status");
+ socket.maintenance=strstr(request->path,"/heartbeat")||strstr(request->path,"/yard/settings")||strstr(request->path,"/yard/recordings/")||strstr(request->path,"/yard/photo-archive/")||strstr(request->path,"/status")||strstr(request->path,"/yard/greeting/");
  TUYA_IP_ADDR_T address;
  if(tal_net_gethostbyname(request->host,&address)!=OPRT_OK)return HTTP_CLIENT_SEND_FAULT;
  socket.fd=tal_net_socket_create(PROTOCOL_TCP);
@@ -67,7 +67,7 @@ static http_client_status_t perform(const http_client_request_t *request,http_cl
    while(file&&ok&&received<reply.contentLength){
      size_t wanted=reply.contentLength-received;if(wanted>sizeof(chunk))wanted=sizeof(chunk);
      int count=HTTPClient_Recv(&transport,&reply,chunk,wanted);
-     if(count<=0||(size_t)count>wanted||hs_t5_audio_cancelled()||hs_fs_write(chunk,(size_t)count,file)!=(size_t)count){ok=false;break;}
+     if(count<=0||(size_t)count>wanted||(socket.cancelable&&hs_t5_audio_cancelled())||hs_fs_write(chunk,(size_t)count,file)!=(size_t)count){ok=false;break;}
      received+=(size_t)count;
    }
    if(file){if(hs_fs_sync(file))ok=false;if(hs_fs_close(file))ok=false;}else ok=false;

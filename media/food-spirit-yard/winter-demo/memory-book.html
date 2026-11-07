@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>立冬这天，煮了一锅饺子｜冰箱拾光</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #dce5e1; color: #203a32; font-family: "PingFang SC", sans-serif; }
+  main { max-width: 1040px; margin: auto; padding: clamp(16px, 5vw, 60px); }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding-bottom: .8rem; border-bottom: 1px solid #85998e; font-size: .86rem; }
+  .spread { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: clamp(24px, 5vw, 60px); padding: clamp(22px, 5vw, 52px); background: #fffcf1; }
+  figure { margin: 0; padding: 12px; background: white; box-shadow: 0 4px 14px #203a3220; }
+  figure svg, figure img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #e6eecb; display: block; }
+  [hidden] { display: none !important; }
+  figcaption { padding: .75rem .25rem .15rem; font-size: .85rem; }
+  h1 { font: 700 clamp(2rem, 5vw, 3.25rem)/1.25 "Songti SC", "Noto Serif CJK SC", serif; margin: .4em 0 .6em; }
+  p { line-height: 1.8; margin: .7em 0; }
+  .date { color: #794727; font-size: .88rem; }
+  blockquote { margin: 1.3rem 0 0; border-left: 3px solid #9e643d; padding-left: .9rem; font: 600 1.1rem/1.6 "Songti SC", serif; }
+  footer { padding-top: 1rem; font-size: .85rem; }
+  input { max-width: 100%; margin-top: .4rem; }
+  @media (max-width: 650px) { .spread { grid-template-columns: minmax(0, 1fr); } figure { grid-row: 2; } }
+  @media print { footer { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header><strong>冰箱拾光</strong><span>立冬篇 · 故事样张</span></header>
+  <article class="spread">
+    <figure>
+      <svg id="illustration" viewBox="0 0 400 300" role="img" aria-label="一盘立冬饺子的示意插画">
+        <path d="M0 210 400 190V300H0Z" fill="#c6d6ac"/>
+        <ellipse cx="200" cy="187" rx="149" ry="74" fill="#fffdf2" stroke="#66876d" stroke-width="4"/>
+        <ellipse cx="200" cy="186" rx="123" ry="54" fill="none" stroke="#92ab91" stroke-width="2"/>
+        <g fill="#f6d9a5" stroke="#925d39" stroke-width="3" stroke-linejoin="round">
+          <path d="M91 177q23-52 65-15 8 14 1 23-37 17-66-8Z"/>
+          <path d="M158 174q25-55 65-17 8 14 0 23-36 18-65-6Z"/>
+          <path d="M224 183q26-52 67-13 8 14-1 23-37 14-66-10Z"/>
+          <path d="M133 205q23-51 65-13 8 14 0 23-36 15-65-10Z"/>
+          <path d="M202 210q27-51 68-11 7 15-2 23-38 13-66-12Z"/>
+        </g>
+        <path d="M174 113q17-17 1-34t3-32m40 64q17-17 1-34t3-32" fill="none" stroke="#66876d" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <img id="photo" alt="现场拍摄的立冬照片" hidden>
+      <figcaption id="caption">立冬的第一盘饺子 · 示意插画</figcaption>
+    </figure>
+    <div>
+      <p class="date"><time datetime="2026-11-07">2026 年 11 月 7 日</time>　立冬</p>
+      <h1>立冬这天，<br>煮了一锅饺子</h1>
+      <p>傍晚，我在冰箱前跟小冰说：“我回来啦。”聊起立冬吃什么，我问它，饺子该配点什么。锅还没开，桌上已经摆好了醋碟。</p>
+      <p>等第一盘饺子端上桌，我在小冰屏幕上点了拍照。我们在手机上挑好照片，给它取名叫「立冬第一盘饺子」。</p>
+      <blockquote>这张照片里，饺子还冒着热气。</blockquote>
+    </div>
+  </article>
+  <footer>
+    <label for="pick">用现场照片替换插画（仅在当前页面预览）</label><br>
+    <input id="pick" type="file" accept="image/*">
+    <p id="status" role="status"></p>
+  </footer>
+</main>
+<script>
+  const picker = document.querySelector("#pick");
+  const photo = document.querySelector("#photo");
+  const illustration = document.querySelector("#illustration");
+  const caption = document.querySelector("#caption");
+  const status = document.querySelector("#status");
+  let selectedUrl;
+
+  picker.addEventListener("change", () => {
+    const file = picker.files[0];
+    if (!file) return;
+    if (selectedUrl) URL.revokeObjectURL(selectedUrl);
+    selectedUrl = URL.createObjectURL(file);
+    photo.src = selectedUrl;
+  });
+
+  photo.addEventListener("load", () => {
+    photo.hidden = false;
+    illustration.hidden = true;
+    caption.textContent = "立冬的第一盘饺子 · 现场选图";
+    status.textContent = "已换入现场照片";
+  });
+
+  photo.addEventListener("error", () => {
+    photo.hidden = true;
+    illustration.hidden = false;
+    caption.textContent = "立冬的第一盘饺子 · 示意插画";
+    status.textContent = "图片无法打开，请试试 JPEG 或 PNG。";
+  });
+</script>
+</body>
+</html>

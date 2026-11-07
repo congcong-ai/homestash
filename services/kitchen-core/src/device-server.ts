@@ -1,5 +1,5 @@
 import { localStopRecognizer } from "./local-stop";
-import { isYardStop } from "./yard-commands";
+import { isYardPhoto, isYardStop } from "./yard-commands";
 import { recordingWorker } from "./yard-background";
 import {
   recordings,
@@ -7,8 +7,11 @@ import {
   recordingSettings,
   type Recording,
 } from "./yard-recordings";
+import { readWallpaper, saveWallpaper, sendWallpaper } from "./yard-wallpaper";
 import { readAvatar } from "./yard-avatar";
-import { yardPhotoSecret } from "./yard";
+import { readOfflinePhotos, rootKey, yardPhotoSecret, type YardState } from "./yard";
+import sharp from "sharp";
+import { memoryDay } from "./yard-memory-book";
 import { readYardRules } from "./yard-rules";
 import { deviceReply } from "./device-reply";
 import Fastify, { type FastifyRequest } from "fastify";
@@ -197,6 +200,153 @@ export function createDeviceServer(
     background.active(identity(req).id);
     return { active: true };
   });
+  const galleryState = () => core.repo.read<Pick<YardState, "memories" | "preview" | "textStories">>(
+    rootKey, { memories: [], preview: null },
+  );
+  const galleryPhotos = (state: ReturnType<typeof galleryState>) => {
+    const photos = new Map(readOfflinePhotos(core.repo)
+      .filter((photo) => photo.status === "pending")
+      .map((photo) => [photo.id, { id: photo.id, createdAt: photo.receivedAt, photoPath: photo.path }]));
+    for (const photo of [...state.memories, ...(state.preview ? [state.preview] : [])]) {
+      if (photo.source !== "simulated") photos.set(photo.id, photo);
+    }
+    return [...photos.values()];
+  };
+
+  app.get("/device/v1/yard/gallery", async (req, reply) => {
+    const { mode, index, anchor } = z.object({
+      mode: z.enum(["stories", "photos"]),
+      index: z.coerce.number().int().min(0).default(0),
+      anchor: z.uuid().optional(),
+    }).parse(req.query);
+    const state = galleryState();
+    const cards = mode === "photos"
+      ? galleryPhotos(state).map((photo) => ({
+          id: photo.id, date: memoryDay(photo.createdAt), order: photo.createdAt, story: "",
+        }))
+      : [
+          ...state.memories.filter((photo) => photo.story).map((photo) => ({
+            id: photo.id, date: memoryDay(photo.createdAt), order: photo.createdAt, story: photo.story!,
+          })),
+          ...Object.entries(state.textStories ?? {}).map(([date, story]) => ({
+            id: null, date, order: "", story,
+          })),
+        ];
+    cards.sort((a, b) => b.date.localeCompare(a.date) || b.order.localeCompare(a.order) ||
+      (a.id ?? "").localeCompare(b.id ?? ""));
+    const anchored = anchor ? cards.findIndex((card) => card.id === anchor) : -1;
+    const position = Math.min(anchored >= 0 ? anchored : index, cards.length - 1);
+    const card = cards[position];
+    return reply.header("cache-control", "private, no-store").send({
+      count: cards.length,
+      index: Math.max(0, position),
+      ...(card && { id: card.id, date: card.date, story: card.story }),
+    });
+  });
+
+  app.post("/device/v1/yard/gallery/:id/memory", async (req, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const state = galleryState();
+    const photo = galleryPhotos(state).find((item) => item.id === id);
+    if (!photo) return reply.code(404).send({ error: "照片不存在或尚未同步" });
+
+    let memory = state.memories.find((item) => item.id === id);
+    if (!memory) {
+      const preview = state.preview?.id === id ? state.preview : null;
+      const saved = await core.app.inject({
+        method: "POST",
+        url: preview ? "/api/yard/photo/save" : `/api/yard/offline-photos/${id}/resolve`,
+        payload: preview ? { requestId: id, title: preview.title } : { save: true },
+      });
+      if (saved.statusCode !== 200) return reply.code(saved.statusCode).send(saved.json());
+      memory = galleryState().memories.find((item) => item.id === id);
+    }
+    if (!memory) return reply.code(404).send({ error: "照片已移除" });
+    if (!memory.story) {
+      const day = memoryDay(memory.createdAt);
+      const generated = await core.app.inject({
+        url: `/api/yard/memory-book?from=${day}&to=${day}&photoId=${id}`,
+      });
+      if (generated.statusCode !== 200)
+        return reply.code(generated.statusCode).send(generated.json());
+      if (!galleryState().memories.some((item) => item.id === id && item.story))
+        return reply.code(404).send({ error: "照片已移除" });
+    }
+    return { id };
+  });
+
+  app.get("/device/v1/yard/gallery/:id/image", async (req, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const state = galleryState();
+    const photo = galleryPhotos(state).find((item) => item.id === id) ??
+      state.memories.find((item) => item.id === id && item.story);
+    if (!photo) return reply.code(404).send();
+    const image = sharp(photo.photoPath, { limitInputPixels: 24_000_000 })
+      .autoOrient().resize(240, 160, { fit: "contain", background: "#fff6e9" })
+      .flatten({ background: "#fff6e9" });
+    for (const quality of [72, 48, 24, 12]) {
+      const jpeg = await image.clone().jpeg({ quality }).toBuffer();
+      if (jpeg.length <= 24 * 1024)
+        return reply.header("cache-control", "private, no-store").type("image/jpeg").send(jpeg);
+    }
+    return reply.code(422).send();
+  });
+
+  app.get<{ Params: { id: string } }>(
+    "/device/v1/yard/wallpaper/:id",
+    async (req, reply) => sendWallpaper(core.repo, req.params.id, reply),
+  );
+  app.put(
+    "/device/v1/yard/wallpaper",
+    { bodyLimit: 256 * 1024 },
+    async (req, reply) => {
+      if (
+        !Buffer.isBuffer(req.body) ||
+        req.headers["content-type"] !== "image/jpeg"
+      )
+        return reply.code(415).send({ detail: "请选择 JPEG 照片" });
+      try {
+        return await saveWallpaper(core.repo, req.body);
+      } catch (error) {
+        if (error instanceof DomainError)
+          return reply.code(400).send({ detail: error.message });
+        throw error;
+      }
+    },
+  );
+  const seasonalGreeting = () => {
+    const day = core.yardCalendar();
+    if (!day.greeting) return null;
+    const key = createHash("sha256")
+      .update(JSON.stringify([day.date, day.greeting, core.yardTtsProfile()]))
+      .digest("hex")
+      .slice(0, 24);
+    return { key, text: day.greeting, validMs: day.validForMs() };
+  };
+  let seasonalAudio: { key: string; wav: Promise<Buffer> } | undefined;
+  app.get<{ Params: { key: string } }>(
+    "/device/v1/yard/greeting/:key",
+    async (req, reply) => {
+      const greeting = seasonalGreeting();
+      if (!greeting || greeting.key !== req.params.key)
+        return reply.code(404).send();
+      if (seasonalAudio?.key !== greeting.key) {
+        const wav = speech
+          .synthesize(greeting.text, { signal: AbortSignal.timeout(8000) })
+          .then((bytes) => {
+            validateWav(bytes);
+            if (bytes.length > 320044) throw new Error("节日招呼音频过长");
+            return bytes;
+          })
+          .catch((error: unknown) => {
+            if (seasonalAudio?.key === greeting.key) seasonalAudio = undefined;
+            throw error;
+          });
+        seasonalAudio = { key: greeting.key, wav };
+      }
+      return reply.type("audio/wav").send(await seasonalAudio.wav);
+    },
+  );
   app.get("/device/v1/yard/settings", async (req) => {
     background.inactive(identity(req).id);
     seen(req);
@@ -208,7 +358,9 @@ export function createDeviceServer(
       };
     } | null>("product:food-spirit-yard:v1", null);
     return {
+      greeting: seasonalGreeting(),
       avatar: readAvatar(core.repo),
+      wallpaper: readWallpaper(core.repo)?.id ?? null,
       ...(state?.settings ?? {
         silent: false,
         listening: false,
@@ -378,10 +530,7 @@ export function createDeviceServer(
           action:
             isYardDevice && isYardStop(text)
               ? "stop"
-              : isYardDevice &&
-                  /^(?:请|帮我|给我|我们)?(?:拍照|拍一张|拍张照|合影|留影)(?:吧|。|！|!)?$/.test(
-                    text.trim(),
-                  )
+              : isYardDevice && isYardPhoto(text)
                 ? "photo"
                 : null,
           message: yardApplied

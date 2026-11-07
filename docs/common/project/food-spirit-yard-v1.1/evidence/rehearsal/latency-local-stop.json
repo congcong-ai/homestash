@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-07T03:41:54.987Z",
+  "flash": {
+    "qio_sha256": "3f980f5e8a05559133c661d67ce183e634586de60bebf8c43bffeddf8f0d78c9",
+    "readback_matches": true,
+    "backup_sha256": "6dfac387ac3a95151eccf62a10c02b5d93b68d5946613b26ca1242098f99ac3b",
+    "covered_bytes": 4374528
+  },
+  "devices": [
+    {
+      "id": "food-spirit-t5-01",
+      "online": false,
+      "heap": 89944,
+      "uptime": 2161531,
+      "network": "已连接：黑客松"
+    }
+  ],
+  "localRecognizer": {
+    "ready": true,
+    "configured": true
+  },
+  "bootFatal": false,
+  "tests": 132,
+  "apBytes": 3002556,
+  "apRemainingBytes": 864068,
+  "ttsBenchmark": [
+    {
+      "transport": "url",
+      "ms": 6574,
+      "bytes": 51244,
+      "voice": "Momo",
+      "model": "qwen3-tts-flash"
+    },
+    {
+      "transport": "sse",
+      "ms": 1490,
+      "bytes": 64074,
+      "voice": "Momo",
+      "model": "qwen3-tts-flash"
+    }
+  ],
+  "localStopBenchmark": {
+    "ms": 612,
+    "cloudAsrCalls": 0,
+    "ttsCalls": 0,
+    "action": "stop",
+    "realRecordedSample": true,
+    "deviceTriggered": false
+  },
+  "deviceVoiceStopConfirmed": false,
+  "deviceFirstAudioLatencyVerified": false
+}

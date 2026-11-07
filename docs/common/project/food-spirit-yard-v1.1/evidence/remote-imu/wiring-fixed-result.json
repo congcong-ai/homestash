@@ -1,0 +1,14 @@
+{
+  "log_dir": "/Users/peter/code/homestash-imu-lab/20261107-imu-02/retest-wiring-fixed-20261107-123114",
+  "bytes": 10028,
+  "samples": 60,
+  "verified": 0,
+  "groups": {
+    "5": 20,
+    "50": 20,
+    "500": 20
+  },
+  "结论": "调整错误接线后，0x68稳定完成读取30次，WHO=0x2e；0x69地址NACK30次",
+  "身份通过": false,
+  "是否刷写": false
+}

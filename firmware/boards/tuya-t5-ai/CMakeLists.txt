@@ -6,6 +6,7 @@ target_sources(${EXAMPLE_LIB} PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/src/hs_board.c"
   "${CMAKE_CURRENT_LIST_DIR}/src/hs_audio.c"
   "${CMAKE_CURRENT_LIST_DIR}/src/hs_display.c"
+  "${CMAKE_CURRENT_LIST_DIR}/assets/wenkai/hs_yard_font.c"
   "${CMAKE_CURRENT_LIST_DIR}/src/hs_storage.c"
   "${CMAKE_CURRENT_LIST_DIR}/src/hs_optional.c"
   "${HS_FIRMWARE_ROOT}/platforms/tuyaopen/hs_runtime.c"
@@ -19,7 +20,7 @@ target_sources(${EXAMPLE_LIB} PRIVATE
   "${HS_FIRMWARE_ROOT}/apps/food-spirit-yard/yard_console.c"
   "${HS_FIRMWARE_ROOT}/shared/components/device_port/hs_device_policy.c"
   "${HS_FIRMWARE_ROOT}/shared/components/outbox/hs_outbox.c"
-  "${HS_FIRMWARE_ROOT}/shared/assets/hs_font.c")
+)
 target_include_directories(${EXAMPLE_LIB} PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/build"
   "${PLATFORM_PATH}/../../src/libhttp/coreHTTP"
@@ -61,3 +62,14 @@ endif()
 target_sources(${EXAMPLE_LIB} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/hs_uvc_photo.c")
 target_include_directories(${EXAMPLE_LIB} PRIVATE "${PLATFORM_PATH}/t5_os/ap/components/multimedia/include")
 set_property(SOURCE "${CMAKE_CURRENT_LIST_DIR}/src/hs_uvc_photo.c" APPEND PROPERTY COMPILE_OPTIONS ${HS_T5_NATIVE_INCLUDES} "-Wno-error=unused-function")
+
+# 动画字节直接链接到只读 Flash，避免生成巨大的 C 源文件。
+set(HS_STICKER_BIN "${CMAKE_CURRENT_LIST_DIR}/assets/avatar-stickers.bin")
+set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/src/hs_display.c" PROPERTIES
+  OBJECT_DEPENDS "${HS_STICKER_BIN}"
+  COMPILE_DEFINITIONS "HS_STICKER_BIN=\"${HS_STICKER_BIN}\"")
+
+# 复用锁定的 TuyaOpen SDK 中的 JPEG 解码器。
+set(HS_TJPGD "$ENV{OPEN_SDK_ROOT}/src/liblvgl/v9/lvgl/src/libs/tjpgd")
+target_sources(${EXAMPLE_LIB} PRIVATE "${HS_TJPGD}/tjpgd.c")
+target_include_directories(${EXAMPLE_LIB} PRIVATE "${HS_TJPGD}")

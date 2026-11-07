@@ -44,7 +44,8 @@ pnpm hardware:build --board tuya-t5-ai
 - 麦克风、扬声器和按键使用锁定版本的原厂接口；按键 GPIO12，功放 GPIO28，来自原厂 BSP。
 - 从 0.6.1 起，SD 数据位于 `/sdcard/homestash-t5`，与 ESP32 的 `/sdcard/homestash` 隔离。保留原卡上的 `badge` 和 `homestash`，不要用旧 T5 0.6.0 在共用卡上启动。
 - 未确认存储卡时仅运行联网和屏幕。只有成功挂载 SD 后才开放录音；不格式化存储，不自动改用不明容量的 Flash。
-- 相机、HomeStash BLE 配网、OTA、休眠实验、本地唤醒词和 Korvo 路演演示馆尚未移植，操作明确拒绝或不启用。屏幕设置暂使用串口配置入口。
+- 开启持续聆听且 SD 已挂载时，待机可说“Hey Tuya”开始录音。唤醒检测在板上运行，命中后屏幕提示接话并直接录音，后续对话仍走 Core。
+- 相机、HomeStash BLE 配网、OTA、休眠实验和 Korvo 路演演示馆尚未移植，操作明确拒绝或不启用。屏幕设置暂使用串口配置入口。
 - 当前 Core 固件发布校验仅支持 ESP 镜像；T5 不上报 OTA 能力，也不能上传到现有 ESP 发布流程。
 
 烧录使用 [TuyaOpen 原厂工具](https://tuyaopen.ai/zh/docs/quick-start/firmware-burning)。本项目 `flash.py`、`restore.py` 及 Korvo 备份仅适用于 ESP32；不要用于 T5。真机测试与实际状态见 [适配记录](../../../docs/hardware/tuya-t5-ai/bring-up.md)。

@@ -79,7 +79,28 @@ test("网页和设备共享自由聊天，传递上下文，重试不重复生�
     core.repo.write("settings", {
       provider: { mode: "mock", baseUrl: "", model: "" },
     });
-    assert.match((await post("今天买了葡萄")).json().reply, /买了葡萄/);
+    await post("不拍");
+    assert.match((await post("今天买了葡萄")).json().reply, /葡萄.*起个小名/);
+    assert.match((await post("好呀")).json().reply, /葡萄/);
+    assert.match((await post("叫它葡萄仔")).json().reply, /葡萄.*葡萄仔/);
+    assert.match((await post("刚买了一袋橙子")).json().reply, /橙子.*起个小名/);
+    assert.match((await post("叫橙宝")).json().reply, /橙子.*橙宝/);
+    const invite = await core.prepareYardVoice(crypto.randomUUID(), "刚买了两斤牛肉");
+    assert.match(invite().reply, /牛肉.*起个小名/);
+    const decline = await core.prepareYardVoice(crypto.randomUUID(), "不用了");
+    assert.match(decline().reply, /继续聊/);
+    assert.match((await post("今天买了一棵白菜")).json().reply, /白菜.*起个小名/);
+    assert.match((await post("叫它小白菜")).json().reply, /白菜.*小白菜/);
+    const yard = (await core.app.inject("/api/yard")).json<{
+      foodNames: { food: string; name: string }[];
+      role: { name: string };
+    }>();
+    assert.deepEqual(yard.foodNames.map(({ food, name }) => [food, name]), [
+      ["白菜", "小白菜"],
+      ["橙子", "橙宝"],
+      ["葡萄", "葡萄仔"],
+    ]);
+    assert.equal(yard.role.name, "莓莓");
     core.repo.write("settings", {
       provider: {
         mode: "openai-compatible",

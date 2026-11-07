@@ -1,4 +1,5 @@
 import { registerModels, readModels, bailianKey } from "./yard-models";
+import { yardCalendar } from "./yard-calendar";
 import { prepareYardChat } from "./yard-chat";
 import Fastify from "fastify";
 import { householdCalendar } from "./calendar";
@@ -91,7 +92,7 @@ export function createApp(
   const offlineAccess = registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
   registerModels(app, repo, path);
-  registerYardRoutes(app, repo, resolve(dirname(path), "yard-media"));
+  registerYardRoutes(app, repo, resolve(dirname(path), "yard-media"), options.now);
   const { current: calendar, change: changeCalendar } = householdCalendar(
     repo,
     options.now,
@@ -859,9 +860,10 @@ export function createApp(
     firmware,
     yardTtsProfile: () => yardTtsProfile(repo),
     bailianProfile: () => ({ ...readModels(repo), key: bailianKey(repo) }),
+    yardCalendar: () => yardCalendar(repo, options.now?.()),
     prepareYardVoice: async (requestId: string, text: string) => {
       const cached = repo.read(`yard:interaction:${requestId}`, null);
-      const reply = cached ? undefined : await prepareYardChat(repo, text);
+      const reply = cached ? undefined : await prepareYardChat(repo, text, options.now?.());
       return () => applyYardInteraction(repo, requestId, text, false, reply);
     },
     deviceScreen: (page: DevicePage) => {

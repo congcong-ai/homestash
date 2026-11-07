@@ -1,0 +1,211 @@
+.book {
+  margin-block: 24px;
+  scroll-margin-top: 24px;
+  color: #382a21;
+  background: #fffaf1;
+  border: 1px solid #e8daca;
+  border-radius: 24px;
+  overflow: hidden;
+}
+.cover {
+  padding: clamp(24px, 5vw, 52px);
+  background:
+    radial-gradient(ellipse at 95% 0%, #f3c7af, transparent 67%), #f9e8d2;
+}
+.kicker {
+  color: #754435;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+}
+.cover h2 {
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.15;
+  margin: 12px 0;
+}
+.cover p {
+  margin: 0;
+  line-height: 1.7;
+}
+.controls {
+  min-inline-size: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 20px clamp(16px, 5vw, 52px);
+  margin: 0;
+  border: 0;
+}
+.presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.controls label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.875rem;
+}
+.controls button,
+.controls input[type="date"] {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid #b69e87;
+  border-radius: 9px;
+  padding: 6px 12px;
+  background: #fffdf8;
+  color: inherit;
+  font: inherit;
+}
+.controls button {
+  cursor: pointer;
+}
+.controls .generate {
+  color: #fff;
+  background: #824433;
+  border-color: #824433;
+}
+.controls .checkbox {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+}
+.controls :focus-visible {
+  outline: 2px solid #824433;
+  outline-offset: 3px;
+}
+.notice {
+  margin: 0;
+  padding: 0 clamp(16px, 5vw, 52px) 18px;
+  color: #694e3d;
+}
+.chat {
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  background: #f7eee2;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.chat small {
+  color: #694e3d;
+}
+.chat p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.chat strong {
+  display: inline-block;
+  min-width: 3em;
+  color: #754435;
+}
+
+.pages {
+  padding-bottom: 20px;
+}
+.day {
+  max-width: 32rem;
+  margin: 0 auto;
+  background: #fffdf8;
+  border: 1px solid #e8daca;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px #513c2210;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  animation: open-page 320ms ease-out both;
+}
+.photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 44vh;
+  object-fit: contain;
+  background: #302820;
+}
+@keyframes open-page {
+  from {
+    opacity: 0.45;
+    transform: perspective(950px) rotateY(-5deg) translateX(5px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(950px) rotateY(0deg) translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .day {
+    animation: none;
+  }
+}
+.pages {
+  padding-inline: clamp(12px, 3vw, 24px);
+}
+.pages .notice {
+  padding-inline: 0;
+  text-align: center;
+  font-size: 0.875rem;
+}
+.note {
+  padding: clamp(16px, 4vw, 24px);
+}
+.prose {
+  margin: 0;
+  font:
+    1.06rem/1.75 "Songti SC",
+    "Noto Serif SC",
+    serif;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: #694e3d;
+}
+.records {
+  max-width: 32rem;
+  margin: 12px auto 0;
+  border-top: 1px solid #e8daca;
+  color: #694e3d;
+}
+.records summary {
+  min-height: 44px;
+  line-height: 44px;
+  cursor: pointer;
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 12px 0;
+  text-align: center;
+  font-size: 0.875rem;
+}
+.pagination span {
+  overflow-wrap: anywhere;
+}
+.pagination button {
+  flex: none;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid #b69e87;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.pagination button[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+}
+.pagination button:focus-visible,
+.records summary:focus-visible {
+  outline: 2px solid #824433;
+  outline-offset: 3px;
+}

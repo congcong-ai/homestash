@@ -1,0 +1,67 @@
+
+/Users/peter/code/homestash-imu-lab/20261107-imu-02/sdk/platform/T5AI/t5_os/build/bk7258/tuya_app/bk7258_ap/app.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text.bk_i2c_memory_read:
+
+0214f84c <bk_i2c_memory_read>:
+ 214f84c:	e92d 47f0 	stmdb	sp!, {r4, r5, r6, r7, r8, r9, sl, lr}
+ 214f850:	4b22      	ldr	r3, [pc, #136]	@ (214f8dc <bk_i2c_memory_read+0x90>)
+ 214f852:	4680      	mov	r8, r0
+ 214f854:	781b      	ldrb	r3, [r3, #0]
+ 214f856:	460d      	mov	r5, r1
+ 214f858:	2b00      	cmp	r3, #0
+ 214f85a:	d039      	beq.n	214f8d0 <bk_i2c_memory_read+0x84>
+ 214f85c:	273c      	movs	r7, #60	@ 0x3c
+ 214f85e:	4347      	muls	r7, r0
+ 214f860:	f8df a080 	ldr.w	sl, [pc, #128]	@ 214f8e4 <bk_i2c_memory_read+0x98>
+ 214f864:	eb0a 0407 	add.w	r4, sl, r7
+ 214f868:	7b23      	ldrb	r3, [r4, #12]
+ 214f86a:	4103      	asrs	r3, r0
+ 214f86c:	07db      	lsls	r3, r3, #31
+ 214f86e:	d532      	bpl.n	214f8d6 <bk_i2c_memory_read+0x8a>
+ 214f870:	6949      	ldr	r1, [r1, #20]
+ 214f872:	f7ff fc6b 	bl	214f14c <i2c_wait_sm_bus_idle>
+ 214f876:	4606      	mov	r6, r0
+ 214f878:	bb38      	cbnz	r0, 214f8ca <bk_i2c_memory_read+0x7e>
+ 214f87a:	f7f0 fbc7 	bl	214000c <rtos_enter_critical>
+ 214f87e:	2301      	movs	r3, #1
+ 214f880:	4681      	mov	r9, r0
+ 214f882:	63a6      	str	r6, [r4, #56]	@ 0x38
+ 214f884:	7363      	strb	r3, [r4, #13]
+ 214f886:	7423      	strb	r3, [r4, #16]
+ 214f888:	682b      	ldr	r3, [r5, #0]
+ 214f88a:	4640      	mov	r0, r8
+ 214f88c:	8423      	strh	r3, [r4, #32]
+ 214f88e:	686b      	ldr	r3, [r5, #4]
+ 214f890:	6263      	str	r3, [r4, #36]	@ 0x24
+ 214f892:	7a2b      	ldrb	r3, [r5, #8]
+ 214f894:	f884 3028 	strb.w	r3, [r4, #40]	@ 0x28
+ 214f898:	68eb      	ldr	r3, [r5, #12]
+ 214f89a:	6163      	str	r3, [r4, #20]
+ 214f89c:	692b      	ldr	r3, [r5, #16]
+ 214f89e:	6366      	str	r6, [r4, #52]	@ 0x34
+ 214f8a0:	e9c4 3606 	strd	r3, r6, [r4, #24]
+ 214f8a4:	f7ff fbdc 	bl	214f060 <i2c_master_start.isra.0>
+ 214f8a8:	8829      	ldrh	r1, [r5, #0]
+ 214f8aa:	f7ff fc7b 	bl	214f1a4 <i2c_master_set_write_dev_addr.isra.0>
+ 214f8ae:	6929      	ldr	r1, [r5, #16]
+ 214f8b0:	4620      	mov	r0, r4
+ 214f8b2:	f008 f93e 	bl	2157b32 <i2c_hal_set_read_int_mode>
+ 214f8b6:	4648      	mov	r0, r9
+ 214f8b8:	f7f0 fbec 	bl	2140094 <rtos_exit_critical>
+ 214f8bc:	f107 0030 	add.w	r0, r7, #48	@ 0x30
+ 214f8c0:	6969      	ldr	r1, [r5, #20]
+ 214f8c2:	4450      	add	r0, sl
+ 214f8c4:	f7f0 fbae 	bl	2140024 <rtos_get_semaphore>
+ 214f8c8:	6ba6      	ldr	r6, [r4, #56]	@ 0x38
+ 214f8ca:	4630      	mov	r0, r6
+ 214f8cc:	e8bd 87f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, sl, pc}
+ 214f8d0:	f46f 5634 	mvn.w	r6, #11520	@ 0x2d00
+ 214f8d4:	e7f9      	b.n	214f8ca <bk_i2c_memory_read+0x7e>
+ 214f8d6:	4e02      	ldr	r6, [pc, #8]	@ (214f8e0 <bk_i2c_memory_read+0x94>)
+ 214f8d8:	e7f7      	b.n	214f8ca <bk_i2c_memory_read+0x7e>
+ 214f8da:	bf00      	nop
+ 214f8dc:	28015b00 	.word	0x28015b00
+ 214f8e0:	ffffd2fe 	.word	0xffffd2fe
+ 214f8e4:	28015b04 	.word	0x28015b04

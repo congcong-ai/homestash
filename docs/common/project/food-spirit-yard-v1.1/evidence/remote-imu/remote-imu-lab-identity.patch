@@ -1,0 +1,402 @@
+diff --git a/identity-source-manifest.json b/identity-source-manifest.json
+new file mode 100644
+index 0000000..2751078
+--- /dev/null
++++ b/identity-source-manifest.json
+@@ -0,0 +1,18 @@
++{
++  "files": {
++    "imu-app/CMakeLists.txt": "3c7b3f84556b7b6544157aa5821437e51df26e7bbc4874feb9cca8ef66e005b9",
++    "imu-app/app_default.config": "a31081d163a19acce880d5acac9279494100949020d299ad4d9120f27e212e21",
++    "imu-app/src/main.c": "04e1423ffcdb8088aa25fad9a9f5e46b90637e6efa70c68b018ec1517699540d",
++    "imu-app/src/identity.c": "0d4f6788e02c0bb1d684469e34b8996162d42445a7b558b281ff90b513945a87",
++    "imu-app/src/hardware-i2c.c": "d7eada1e2def6ed6f73cdde752889e6fa4774098c260e79a7d67040b34c81a0e",
++    "imu-app/tests/identity-host.c": "d5b9c7775b475416ab407d88c646bf61708baf04298d886edffefc09d2235f09",
++    "imu-app/tests/native-i2c-host.c": "779cc27316301e8c9193999551f50b4a09e925d7955d3dd2bf451de094f79080",
++    "imu-app/tests/native-i2c-mock.h": "85dd1390ea1bb832646b1794c0552d3d3e3bf2449442bb9a4d4a163e2af34eee",
++    "imu-app/toolchain.cmake": "f1df613cc6c928957330a3a12149d1db4572c7b39eb9fb3f428f0ea833f61ef4",
++    "imu-app/.gitignore": "a5d80035094e18565174a7b927f6f0647613b86186af6a98a16bbd1a7c98a315",
++    "imu-app/README.md": "81d4785ffb391133564018f2efa0c82c008fedf072fc6217ea69ebd194181e30",
++    "imu-app/resources/native-hardware-config.patch": "98c9af05fdc42bd211be55b5ea8edaba6cf75295adafc3e318d6f933714b1d14",
++    "tests/firmware/imu-mocks/tkl_gpio.h": "c880cee8351b47cc8824bcc47d03490ab3bf93e3e7444ab4a0936233f1180a21"
++  },
++  "status": "软硬件读取路径一致返回0x2e，身份未通过；误用替身的实验已作废"
++}
+diff --git a/imu-app/.gitignore b/imu-app/.gitignore
+new file mode 100644
+index 0000000..e11dfec
+--- /dev/null
++++ b/imu-app/.gitignore
+@@ -0,0 +1,2 @@
++.build/
++dist/
+diff --git a/imu-app/CMakeLists.txt b/imu-app/CMakeLists.txt
+new file mode 100644
+index 0000000..46fe3c7
+--- /dev/null
++++ b/imu-app/CMakeLists.txt
+@@ -0,0 +1,5 @@
++add_library(${EXAMPLE_LIB} "${CMAKE_CURRENT_LIST_DIR}/src/main.c" "${CMAKE_CURRENT_LIST_DIR}/src/identity.c")
++target_include_directories(${EXAMPLE_LIB} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../firmware/shared/components/device_port/include")
++
++target_sources(${EXAMPLE_LIB} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/hardware-i2c.c")
++set_property(SOURCE "${CMAKE_CURRENT_LIST_DIR}/src/hardware-i2c.c" APPEND PROPERTY COMPILE_OPTIONS "-isystem${PLATFORM_PATH}/t5_os/build/bk7258/tuya_app/bk7258_ap/config")
+diff --git a/imu-app/README.md b/imu-app/README.md
+new file mode 100644
+index 0000000..3e4661c
+--- /dev/null
++++ b/imu-app/README.md
+@@ -0,0 +1,13 @@
++# 第二块T5的独立IMU诊断工程
++
++当前身份未通过：软件开漏与真实硬件I2C均读到0x2e，不能认定ICM-20602可用。未唤醒、未采样、未接门事件，不是正式产品固件。
++
++UART0 115200，命令i单组身份、d引脚/三组延时对照、h真实硬件I2C100/400kHz及只读配置寄存器对照。只使用P00/P01，UART1日志关闭；启动不会探测。SD、业务网络、UI和KV不使用。
++
++SDK版本按firmware/targets.json锁定。h需要在隔离SDK根应用resources/native-hardware-config.patch，重新生成原生配置，确认CONFIG_SIM_I2C关闭；构建前有编译保护，刷写前必须核查最终编译数据库包含i2c_driver.c且不包含sim_i2c_driver，以及最终ELF不调用I2cMemRead。本轮核对结果在实验根real-hardware-i2c-link.json/.txt，不能只看同名头文件。
++
++CMake依赖已生成的原生AP配置头。需要时先构建不刷写的sdk-hardware-bootstrap再构建本工程。资源补丁仅用于第二板隔离实验，未合入本机产品SDK。正常产品诊断默认关闭保持。
++
++主机回归从快照根执行cc，包含tests/firmware/imu-mocks和firmware/shared/components/device_port/include，分别运行imu-app/tests/identity-host.c，以及带HS_IMU_HOST_TEST的native-i2c-host.c和src/hardware-i2c.c。主机回归不能代替第二板真实验收。
++
++包内资源补丁为零上下文格式，在核对SDK版本后使用git apply --unidiff-zero应用；实验根的原始native-hardware-config.patch保留完整上下文供审查。
+diff --git a/imu-app/app_default.config b/imu-app/app_default.config
+new file mode 100644
+index 0000000..3702698
+--- /dev/null
++++ b/imu-app/app_default.config
+@@ -0,0 +1,3 @@
++CONFIG_PROJECT_VERSION="0.1.0"
++CONFIG_BOARD_CHOICE_T5AI=y
++CONFIG_TUYA_T5AI_BOARD_VERSION_102=y
+diff --git a/imu-app/resources/native-hardware-config.patch b/imu-app/resources/native-hardware-config.patch
+new file mode 100644
+index 0000000..e8e37df
+--- /dev/null
++++ b/imu-app/resources/native-hardware-config.patch
+@@ -0,0 +1,5 @@
++--- a/platform/T5AI/t5_os/projects/tuya_app/ap/config/bk7258_ap/config
+++++ b/platform/T5AI/t5_os/projects/tuya_app/ap/config/bk7258_ap/config
++@@ -102 +102 @@
++-CONFIG_SIM_I2C=y
+++# CONFIG_SIM_I2C is not set
+diff --git a/imu-app/src/hardware-i2c.c b/imu-app/src/hardware-i2c.c
+new file mode 100644
+index 0000000..a22f57a
+--- /dev/null
++++ b/imu-app/src/hardware-i2c.c
+@@ -0,0 +1,50 @@
++/* 原生硬件I2C1只读对照；引脚核对bk7258_ap/hal/i2c_ll.h。 */
++#include "hs_runtime.h"
++#ifdef HS_IMU_HOST_TEST
++#include "native-i2c-mock.h"
++#else
++#include <common/bk_include.h>
++#include <driver/i2c.h>
++#include <driver/gpio.h>
++#if defined(CONFIG_SIM_I2C) && CONFIG_SIM_I2C
++#error "禁止将固定其他引脚的软件替身当作硬件I2C"
++#endif
++/* 原型核对锁定SDK middleware/driver/bk7258_ap/gpio_driver.h。 */
++extern bk_err_t gpio_dev_map(gpio_id_t pin,gpio_dev_t dev);
++extern bk_err_t gpio_dev_unmap(gpio_id_t pin);
++#endif
++void hs_t5_imu_native_probe(void){
++ int init=bk_gpio_driver_init();if(init!=0)return;
++ init=gpio_dev_unmap(GPIO_0);if(init!=0)return;
++ init=gpio_dev_unmap(GPIO_1);if(init!=0)return;
++ init=gpio_dev_map(GPIO_0,GPIO_DEV_I2C1_SCL);if(init!=0)return;
++ init=gpio_dev_map(GPIO_1,GPIO_DEV_I2C1_SDA);if(init!=0)return;
++ bk_gpio_enable_pull(GPIO_0);bk_gpio_pull_up(GPIO_0);
++ bk_gpio_enable_pull(GPIO_1);bk_gpio_pull_up(GPIO_1);
++ init=bk_i2c_driver_init();
++ HS_LOGI("IMU_HW","driver_init=%d",init);if(init!=0)return;
++ const unsigned rates[]={100000,400000};
++ for(unsigned rate=0;rate<2;rate++){
++  i2c_config_t cfg={.baud_rate=rates[rate],.addr_mode=I2C_ADDR_MODE_7BIT,.slave_addr=0};
++  int rc=bk_i2c_init(I2C_ID_1,&cfg);
++  HS_LOGI("IMU_HW","init=%d bus=1 scl=P00 sda=P01 configured_hz=%u",rc,rates[rate]);
++  if(rc!=0)continue;
++  for(unsigned sample=0;sample<5;sample++)for(unsigned addr=0x68;addr<=0x69;addr++){
++   uint8_t value=0xa5;
++   i2c_mem_param_t p={.dev_addr=addr,.mem_addr=0x75,.mem_addr_size=I2C_MEM_ADDR_SIZE_8BIT,.data=&value,.data_size=1,.timeout_ms=100};
++   int64_t start=hs_time_us();rc=bk_i2c_memory_read(I2C_ID_1,&p);
++   /* SDK忽略内部信号量等待返回值，保留哨兵与耗时；仅返回码0不能认定传输成功。 */
++   HS_LOGI("IMU_HW","sample=%u addr=0x%02x WHO_AM_I=0x%02x result=%d changed=%d verified=%d configured_hz=%u elapsed_us=%lld",sample,addr,value,rc,value!=0xa5,rc==0&&value==0x12,rates[rate],(long long)(hs_time_us()-start));
++   hs_delay_ms(10);
++  }
++  /* 仅列明、非读清除寄存器；不读FIFO、状态或未定义位置，不改工作模式。 */
++  const unsigned regs[]={0x1a,0x6b,0x6c,0x70};
++  for(unsigned i=0;i<4;i++){
++   uint8_t value=0xa5;
++   i2c_mem_param_t p={.dev_addr=0x68,.mem_addr=regs[i],.mem_addr_size=I2C_MEM_ADDR_SIZE_8BIT,.data=&value,.data_size=1,.timeout_ms=100};
++   rc=bk_i2c_memory_read(I2C_ID_1,&p);
++   HS_LOGI("IMU_HW","REGISTER addr=0x68 reg=0x%02x value=0x%02x result=%d changed=%d configured_hz=%u",regs[i],value,rc,value!=0xa5,rates[rate]);
++  }
++  rc=bk_i2c_deinit(I2C_ID_1);HS_LOGI("IMU_HW","deinit bus=1 result=%d",rc);
++ }
++}
+diff --git a/imu-app/src/identity.c b/imu-app/src/identity.c
+new file mode 100644
+index 0000000..c64ec9d
+--- /dev/null
++++ b/imu-app/src/identity.c
+@@ -0,0 +1,86 @@
++#include "hs_runtime.h"
++#include "tkl_gpio.h"
++/* 板级低速开漏诊断：释放为上拉输入，拉低才输出；不修改锁定SDK。
++ * 用户接线P00=SCL/P01=SDA，S1 TX1/RX1须OFF；UART0负责诊断输出。
++ * 不访问相机、触摸总线，不配置IMU工作模式。 */
++static bool io_ok;
++static const char *last_phase="idle", *last_error="none";
++void hs_imu_delay_us(uint32_t us);
++static unsigned bus_pause_us=50;
++static int ack_before=-1,ack_high=-1;
++static void pause_bus(void){hs_imu_delay_us(bus_pause_us);}
++static void drive(TUYA_GPIO_NUM_E pin,bool release){
++ TUYA_GPIO_BASE_CFG_T cfg={.mode=release?TUYA_GPIO_PULLUP:TUYA_GPIO_PUSH_PULL,
++ .direct=release?TUYA_GPIO_INPUT:TUYA_GPIO_OUTPUT,.level=TUYA_GPIO_LEVEL_LOW};
++ /* 先将输出锁存位置低，避免切换为输出时出现主动高电平毛刺。 */
++ if(!release&&tkl_gpio_write(pin,TUYA_GPIO_LEVEL_LOW)!=OPRT_OK)io_ok=false;
++ if(tkl_gpio_init(pin,&cfg)!=OPRT_OK)io_ok=false;
++ pause_bus();
++}
++static int sense(TUYA_GPIO_NUM_E pin){TUYA_GPIO_LEVEL_E level;if(tkl_gpio_read(pin,&level)!=OPRT_OK){io_ok=false;return -1;}return level==TUYA_GPIO_LEVEL_HIGH;}
++static bool clock_high(void){drive(TUYA_GPIO_NUM_0,true);int64_t end=hs_time_us()+2000;while(sense(TUYA_GPIO_NUM_0)!=1){if(!io_ok||hs_time_us()>end)return false;}pause_bus();return true;}
++static void low_clock(void){drive(TUYA_GPIO_NUM_0,false);}
++static void stop_bus(void){low_clock();drive(TUYA_GPIO_NUM_1,false);clock_high();drive(TUYA_GPIO_NUM_1,true);}
++static bool start_bus(void){drive(TUYA_GPIO_NUM_1,true);if(!clock_high()||sense(TUYA_GPIO_NUM_1)!=1)return false;drive(TUYA_GPIO_NUM_1,false);low_clock();return io_ok;}
++static bool send_byte(unsigned char b){
++ for(unsigned i=0;i<8;i++){drive(TUYA_GPIO_NUM_1,(b&0x80)!=0);if(!clock_high())return false;low_clock();b<<=1;}
++ drive(TUYA_GPIO_NUM_1,true);ack_before=sense(TUYA_GPIO_NUM_1);if(!clock_high())return false;
++ int ack_level=sense(TUYA_GPIO_NUM_1);ack_high=ack_level;bool ack=ack_level==0;low_clock();
++ if(!io_ok)last_error="gpio";else if(!ack)last_error="nack";return io_ok&&ack;
++}
++static bool read_byte(unsigned char *b){
++ *b=0;drive(TUYA_GPIO_NUM_1,true);
++ for(unsigned i=0;i<8;i++){if(!clock_high())return false;int bit=sense(TUYA_GPIO_NUM_1);if(bit<0)return false;*b=(*b<<1)|(unsigned)bit;low_clock();}
++ /* 单字节读取后NACK，再STOP。 */
++ drive(TUYA_GPIO_NUM_1,true);if(!clock_high())return false;low_clock();return io_ok;
++}
++static bool read_register(unsigned address,unsigned char reg,unsigned char *id){
++ last_error="none";last_phase="start";ack_before=-1;ack_high=-1;
++ if(!start_bus()){last_error="start-or-clock";return false;}
++ last_phase="address-write";bool ok=send_byte((unsigned char)(address<<1));
++ if(ok){last_phase="register-pointer";ok=send_byte(reg);}
++ if(ok){last_phase="repeated-start";ok=start_bus();}
++ if(ok){last_phase="address-read";ok=send_byte((unsigned char)((address<<1)|1));}
++ if(ok){last_phase="data-read";ok=read_byte(id);}
++ if(!ok&&last_error[0]=='n'&&last_error[1]=='o')last_error="clock-or-io";
++ stop_bus();if(ok&&io_ok)last_phase="complete";
++ return ok&&io_ok;
++}
++static bool identity(unsigned address,unsigned char *id){return read_register(address,0x75,id);}
++void hs_t5_imu_probe(void){
++ io_ok=true;drive(TUYA_GPIO_NUM_0,true);drive(TUYA_GPIO_NUM_1,true);
++ int scl=sense(TUYA_GPIO_NUM_0),sda=sense(TUYA_GPIO_NUM_1);
++ HS_LOGI("IMU","开漏慢速诊断 idle_scl=%d idle_sda=%d io_ok=%d",scl,sda,io_ok);
++ if(!io_ok||scl!=1||sda!=1){HS_LOGW("IMU","总线空闲电平异常，停止发送。检查上拉/面包板接线/复用负载。");return;}
++ unsigned matches=0;
++ for(unsigned sample=0;sample<5;sample++)for(unsigned address=0x68;address<=0x69;address++){
++  unsigned char id=0;bool ok=identity(address,&id);if(ok&&id==0x12)matches++;
++  HS_LOGI("IMU","sample=%u addr=0x%02x transfer_ok=%d WHO_AM_I=0x%02x verified=%d phase=%s error=%s ack_pre=%d ack_high=%d pause_us=%u time_us=%lld",sample,address,ok,id,ok&&id==0x12,last_phase,last_error,ack_before,ack_high,bus_pause_us,(long long)hs_time_us());
++  hs_delay_ms(10);
++ }
++ drive(TUYA_GPIO_NUM_0,true);drive(TUYA_GPIO_NUM_1,true);
++ HS_LOGI("IMU","身份检测 matches=%u/10；尚未启用运动采样",matches);
++}
++
++/* 只读引脚互相影响检查：不主动驱动高，不发送设备地址或寄存器。 */
++bool hs_t5_imu_line_check(void){
++ io_ok=true;drive(TUYA_GPIO_NUM_0,true);drive(TUYA_GPIO_NUM_1,true);
++ int idle_scl=sense(TUYA_GPIO_NUM_0),idle_sda=sense(TUYA_GPIO_NUM_1);
++ if(!io_ok||idle_scl!=1||idle_sda!=1){HS_LOGW("IMU","LINE idle异常，未做拉低检查");return false;}
++ drive(TUYA_GPIO_NUM_0,false);int sda_with_scl_low=sense(TUYA_GPIO_NUM_1);drive(TUYA_GPIO_NUM_0,true);
++ /* SDA低/释放构成合法START/STOP；没有任何数据字节。 */
++ drive(TUYA_GPIO_NUM_1,false);int scl_with_sda_low=sense(TUYA_GPIO_NUM_0);drive(TUYA_GPIO_NUM_1,true);
++ int final_scl=sense(TUYA_GPIO_NUM_0),final_sda=sense(TUYA_GPIO_NUM_1);
++ bool ok=io_ok&&sda_with_scl_low==1&&scl_with_sda_low==1&&final_scl==1&&final_sda==1;
++ HS_LOGI("IMU","LINE sda_when_scl_low=%d scl_when_sda_low=%d final_scl=%d final_sda=%d io_ok=%d check_ok=%d；不代表模块端接线或供电通过",sda_with_scl_low,scl_with_sda_low,final_scl,final_sda,io_ok,ok);
++ return ok;
++}
++void hs_t5_imu_probe_suite(void){
++ if(!hs_t5_imu_line_check())return;
++ const unsigned delays[]={5,50,500};
++ for(unsigned i=0;i<3;i++){
++  bus_pause_us=delays[i];HS_LOGI("IMU","PROFILE configured_pause_us=%u timer=native_busy_delay",bus_pause_us);
++  hs_t5_imu_probe();
++ }
++ bus_pause_us=50;
++}
+diff --git a/imu-app/src/main.c b/imu-app/src/main.c
+new file mode 100644
+index 0000000..f8ef05b
+--- /dev/null
++++ b/imu-app/src/main.c
+@@ -0,0 +1,46 @@
++#include "hs_runtime.h"
++#include "tal_system.h"
++#include "tal_thread.h"
++#include "tal_uart.h"
++#include "components/system.h"
++/* 签名核对锁定 SDK ap/include/driver/aon_rtc.h:94；不引入原生 sdkconfig 宏。 */
++extern uint64_t bk_aon_rtc_get_us(void);
++#include <stdarg.h>
++#include <stdio.h>
++#include <string.h>
++void hs_t5_imu_probe(void);
++void hs_t5_imu_probe_suite(void);
++void hs_t5_imu_native_probe(void);
++/* 签名核对锁定SDK ap/components/bk_common/include/bk_misc.h:27。 */
++extern void bk_delay_us(uint32_t us);
++void hs_imu_delay_us(uint32_t us){bk_delay_us(us);}
++/* 锁定 SDK AON RTC：约正负30us精度，不声称总线达到精确50us。 */
++int64_t hs_time_us(void) { return (int64_t)bk_aon_rtc_get_us(); }
++void hs_delay_ms(uint32_t ms) { tal_system_sleep(ms); }
++void hs_log(const char *level,const char *tag,const char *fmt,...) {
++    char line[512];
++    int n=snprintf(line,sizeof(line),"%s %s: ",level,tag);
++    if(n<0 || (size_t)n>=sizeof(line))return;
++    va_list ap; va_start(ap,fmt);vsnprintf(line+n,sizeof(line)-(size_t)n,fmt,ap);va_end(ap);
++    tal_uart_write(TUYA_UART_NUM_0,(const uint8_t*)line,strlen(line));
++    tal_uart_write(TUYA_UART_NUM_0,(const uint8_t*)"\r\n",2);
++}
++static void lab(void *arg) {
++    (void)arg;
++    bk_set_printf_enable(0);
++    TAL_UART_CFG_T cfg={.rx_buffer_size=256,.base_cfg={.baudrate=115200,
++        .databits=TUYA_UART_DATA_LEN_8BIT,.stopbits=TUYA_UART_STOP_LEN_1BIT,
++        .parity=TUYA_UART_PARITY_TYPE_NONE,.flowctrl=TUYA_UART_FLOWCTRL_NONE}};
++    if(tal_uart_init(TUYA_UART_NUM_0,&cfg)!=OPRT_OK)return;
++    HS_LOGI("IMU_LAB","只读实验就绪；发送小写 i 检测身份；未配置运动模式；timer=aon_rtc");
++    for(;;) {
++        uint8_t c=0;
++        if(tal_uart_read(TUYA_UART_NUM_0,&c,1)==1){if(c=='i')hs_t5_imu_probe();else if(c=='d')hs_t5_imu_probe_suite();else if(c=='h')hs_t5_imu_native_probe();}
++        hs_delay_ms(20);
++    }
++}
++void tuya_app_main(void) {
++    THREAD_HANDLE thread=NULL;
++    THREAD_CFG_T cfg={8192,3,"imu_lab"};
++    tal_thread_create_and_start(&thread,NULL,NULL,lab,NULL,&cfg);
++}
+diff --git a/imu-app/tests/identity-host.c b/imu-app/tests/identity-host.c
+new file mode 100644
+index 0000000..c56e476
+--- /dev/null
++++ b/imu-app/tests/identity-host.c
+@@ -0,0 +1,29 @@
++#include "hs_runtime.h"
++#include "tkl_gpio.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdarg.h>
++static int bits[32],n,index_bit,fail_io;
++int64_t hs_time_us(void){static int64_t t;return t+=25;}
++void hs_delay_ms(uint32_t n){(void)n;}
++void hs_log(const char*a,const char*b,const char*c,...){(void)a;(void)b;(void)c;}
++int tkl_gpio_init(int pin,const TUYA_GPIO_BASE_CFG_T *cfg){(void)pin;assert(cfg->direct!=TUYA_GPIO_OUTPUT||cfg->level==0);return fail_io?-1:0;}
++void hs_imu_delay_us(uint32_t us){assert(us>=5&&us<=500);}
++int tkl_gpio_write(int pin,int level){(void)pin;assert(level==0);return fail_io?-1:0;}
++int tkl_gpio_read(int pin,int *level){if(pin==0){*level=1;return 0;}assert(index_bit<n);*level=bits[index_bit++];return 0;}
++#include "../src/identity.c"
++int main(void){
++ int a[]={1,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0};for(unsigned i=0;i<sizeof(a)/sizeof(a[0]);i++)bits[i]=a[i];n=16;index_bit=0;io_ok=true;unsigned char id=0;
++ assert(identity(0x68,&id)&&id==0x12&&index_bit==n);
++ bits[0]=1;bits[1]=1;bits[2]=1;n=3;index_bit=0;io_ok=true;assert(!identity(0x69,&id));
++ assert(!strcmp(last_phase,"address-write")&&!strcmp(last_error,"nack"));
++ bits[0]=1;bits[1]=0;bits[2]=0;bits[3]=1;bits[4]=1;n=5;index_bit=0;io_ok=true;
++ assert(!identity(0x68,&id)&&index_bit==n&&!strcmp(last_phase,"register-pointer")&&!strcmp(last_error,"nack"));
++ bits[0]=1;bits[1]=0;bits[2]=0;bits[3]=0;bits[4]=0;bits[5]=1;bits[6]=1;bits[7]=1;n=8;index_bit=0;io_ok=true;
++ assert(!identity(0x68,&id)&&index_bit==n&&!strcmp(last_phase,"address-read")&&!strcmp(last_error,"nack"));
++ bits[0]=1;bits[1]=1;bits[2]=1;n=3;index_bit=0;io_ok=true;assert(hs_t5_imu_line_check()&&index_bit==n);
++ bits[0]=1;bits[1]=0;bits[2]=1;n=3;index_bit=0;io_ok=true;assert(!hs_t5_imu_line_check()&&index_bit==n);
++ fail_io=1;io_ok=true;drive(0,true);assert(!io_ok);
++ puts("通过：开漏不驱动高电平、ID位序、NACK拒绝、GPIO错误传播");return 0;
++}
+diff --git a/imu-app/tests/native-i2c-host.c b/imu-app/tests/native-i2c-host.c
+new file mode 100644
+index 0000000..767cce8
+--- /dev/null
++++ b/imu-app/tests/native-i2c-host.c
+@@ -0,0 +1,21 @@
++#include "hs_runtime.h"
++#include "native-i2c-mock.h"
++#include <assert.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <string.h>
++static int scenario,calls,verified,reads;
++int64_t hs_time_us(void){static int64_t t;return t+=100;}
++void hs_delay_ms(uint32_t n){(void)n;}
++void hs_log(const char*a,const char*b,const char*f,...){(void)a;(void)b;char s[512];va_list ap;va_start(ap,f);vsnprintf(s,sizeof(s),f,ap);va_end(ap);if(strstr(s,"verified=1"))verified++;}
++int bk_gpio_driver_init(void){return 0;}
++int gpio_dev_unmap(int pin){assert(pin==0||pin==1);return 0;}
++int gpio_dev_map(int pin,int dev){assert((pin==0&&dev==101)||(pin==1&&dev==102));return 0;}
++void bk_gpio_enable_pull(int pin){assert(pin==0||pin==1);}
++void bk_gpio_pull_up(int pin){assert(pin==0||pin==1);}
++int bk_i2c_driver_init(void){return scenario==3?-1:0;}
++int bk_i2c_init(int id,const i2c_config_t*c){assert(id==1&&(c->baud_rate==100000||c->baud_rate==400000)&&c->addr_mode==0);calls++;return 0;}
++int bk_i2c_deinit(int id){assert(id==1);return 0;}
++int bk_i2c_memory_read(int id,const i2c_mem_param_t*p){assert(id==1&&(p->dev_addr==0x68||p->dev_addr==0x69)&&p->data_size==1&&p->mem_addr_size==0&&p->timeout_ms==100);assert(p->mem_addr==0x75||p->mem_addr==0x1a||p->mem_addr==0x6b||p->mem_addr==0x6c||p->mem_addr==0x70);reads++;if(scenario==2)return 0;*p->data=scenario==1?0x2e:0x12;return 0;}
++void hs_t5_imu_native_probe(void);
++int main(void){for(scenario=0;scenario<4;scenario++){calls=reads=verified=0;hs_t5_imu_native_probe();assert(calls==(scenario==3?0:2));assert(reads==(scenario==3?0:28));assert(verified==(scenario==0?20:0));}puts("通过：仅硬件I2C1、固定寄存器白名单、0x2e拒绝、超时哨兵拒绝、初始化失败停止");return 0;}
+diff --git a/imu-app/tests/native-i2c-mock.h b/imu-app/tests/native-i2c-mock.h
+new file mode 100644
+index 0000000..2efeb22
+--- /dev/null
++++ b/imu-app/tests/native-i2c-mock.h
+@@ -0,0 +1,12 @@
++#include <stdint.h>
++enum{I2C_ID_1=1,I2C_ADDR_MODE_7BIT=0,I2C_MEM_ADDR_SIZE_8BIT=0};
++typedef struct{uint32_t baud_rate;int addr_mode;uint16_t slave_addr;}i2c_config_t;
++typedef struct{uint32_t dev_addr,mem_addr;int mem_addr_size;uint8_t *data;uint32_t data_size,timeout_ms;}i2c_mem_param_t;
++int bk_i2c_driver_init(void);
++int bk_i2c_init(int,const i2c_config_t*);
++int bk_i2c_memory_read(int,const i2c_mem_param_t*);
++int bk_i2c_deinit(int);
++
++enum{GPIO_0=0,GPIO_1=1,GPIO_DEV_I2C1_SCL=101,GPIO_DEV_I2C1_SDA=102};
++int bk_gpio_driver_init(void);int gpio_dev_map(int,int);int gpio_dev_unmap(int);
++void bk_gpio_enable_pull(int);void bk_gpio_pull_up(int);
+diff --git a/imu-app/toolchain.cmake b/imu-app/toolchain.cmake
+new file mode 100644
+index 0000000..35f9054
+--- /dev/null
++++ b/imu-app/toolchain.cmake
+@@ -0,0 +1,24 @@
++# TuyaOpen 已设置主要编译参数；本文件补齐跨平台工具与 try_compile 上下文。
++# macOS 系统 ranlib 不能为 ARM ELF 静态库建立正确索引。
++if(NOT DEFINED TOOLCHAIN_DIR)
++  if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
++    cmake_host_system_information(RESULT HS_HOST_ARCH QUERY OS_PLATFORM)
++    if(HS_HOST_ARCH MATCHES "arm64|aarch64")
++      set(HS_TOOLCHAIN_NAME "arm-gnu-toolchain-13.3.rel1-darwin-arm64-arm-none-eabi")
++    else()
++      set(HS_TOOLCHAIN_NAME "arm-gnu-toolchain-13.3.rel1-darwin-x86_64-arm-none-eabi")
++    endif()
++  else()
++    set(HS_TOOLCHAIN_NAME "gcc-arm-none-eabi-10.3-2021.10")
++  endif()
++  set(TOOLCHAIN_DIR "$ENV{HOMESTASH_TUYAOPEN_PATH}/platform/tools/${HS_TOOLCHAIN_NAME}")
++endif()
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR ARM)
++set(CMAKE_C_COMPILER "${TOOLCHAIN_DIR}/bin/arm-none-eabi-gcc")
++set(CMAKE_CXX_COMPILER "${TOOLCHAIN_DIR}/bin/arm-none-eabi-g++")
++set(CMAKE_AR "${TOOLCHAIN_DIR}/bin/arm-none-eabi-ar")
++set(CMAKE_RANLIB "${TOOLCHAIN_DIR}/bin/arm-none-eabi-ranlib" CACHE FILEPATH "ARM 静态库索引工具" FORCE)
++set(CMAKE_C_COMPILER_RANLIB "${CMAKE_RANLIB}" CACHE FILEPATH "ARM C 静态库索引工具" FORCE)
++set(CMAKE_CXX_COMPILER_RANLIB "${CMAKE_RANLIB}" CACHE FILEPATH "ARM C++ 静态库索引工具" FORCE)
++set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+diff --git a/tests/firmware/imu-mocks/tkl_gpio.h b/tests/firmware/imu-mocks/tkl_gpio.h
+index 65797d2..ca272c4 100644
+--- a/tests/firmware/imu-mocks/tkl_gpio.h
++++ b/tests/firmware/imu-mocks/tkl_gpio.h
+@@ -6,3 +6,5 @@ enum {TUYA_GPIO_NUM_0=0,TUYA_GPIO_NUM_1=1,TUYA_GPIO_PULLUP=2,TUYA_GPIO_PUSH_PULL
+ typedef struct{int mode,direct,level;}TUYA_GPIO_BASE_CFG_T;
+ int tkl_gpio_init(int,const TUYA_GPIO_BASE_CFG_T*);
+ int tkl_gpio_read(int,int*);
++
++int tkl_gpio_write(int,int);

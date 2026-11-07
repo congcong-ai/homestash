@@ -1,0 +1,14 @@
+{
+  "log_dir": "/Users/peter/code/homestash-imu-lab/20261107-imu-02/retest-reseat-20261107-122746",
+  "bytes": 10178,
+  "samples": 60,
+  "verified": 0,
+  "groups": {
+    "5": 20,
+    "50": 20,
+    "500": 20
+  },
+  "结论": "重插后60次设备地址NACK；未获有效身份",
+  "是否刷写": false,
+  "是否运动采样": false
+}

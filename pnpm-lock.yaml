@@ -170,6 +170,12 @@ importers:
       '@homestash/recipes':
         specifier: workspace:*
         version: link:../../packages/recipes
+      lunar-typescript:
+        specifier: 1.8.7
+        version: 1.8.7
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@24.19.2)
 
 packages:
 
@@ -1504,6 +1510,9 @@ packages:
   lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
+  lunar-typescript@1.8.7:
+    resolution: {integrity: sha512-w1ZxRf+mmIqXGnk40Dl2U+qPdm2phHsoxpOEIy7BPc/+kkWZtfW98NCZvsBTYCuNXQMBanaw+u+DboXD65NrVA==}
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -2118,8 +2127,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.5':
     optionalDependencies:
@@ -2935,6 +2943,8 @@ snapshots:
 
   lodash.merge@4.6.2: {}
 
+  lunar-typescript@1.8.7: {}
+
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -3167,7 +3177,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.5
       '@img/sharp-win32-x64': 0.35.5
       '@types/node': 24.19.2
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:

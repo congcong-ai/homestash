@@ -1,0 +1,11 @@
+--- a/platform/T5AI/t5_os/projects/tuya_app/ap/config/bk7258_ap/config
++++ b/platform/T5AI/t5_os/projects/tuya_app/ap/config/bk7258_ap/config
+@@ -99,7 +99,7 @@
+ CONFIG_GPIO_DEFAULT_SET_SUPPORT=y
+ CONFIG_USR_GPIO_CFG_EN=y
+ CONFIG_WIFI_VNET_CONTROLLER=y
+-CONFIG_SIM_I2C=y
++# CONFIG_SIM_I2C is not set
+ CONFIG_NTP_SYNC_RTC=n
+
+ CONFIG_UART0=y

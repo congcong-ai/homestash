@@ -1,0 +1,9 @@
+{
+  "真实硬件源码编入": true,
+  "替身源码编入": false,
+  "bk_i2c_memory_read字节数": 156,
+  "最终反汇编含rtos_get_semaphore": true,
+  "最终反汇编含I2cMemRead": false,
+  "ELF_SHA256": "ffc73ca6f6c653c659894dec1825df21e772005b765a1f2a4e7f6ebe9acb8a37",
+  "SDK配置补丁SHA256": "491be1f36999f9561ab07e8c7a14705ae9b36cd2839ae702efb81d61a1dfb0de"
+}

@@ -1,0 +1,26 @@
+第二板双读备份、镜像、芯片与容量核对通过，开始写入最小只读镜像
+逐字节回读通过，重启；未格式化SD或清KV
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12430906
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12443468
+I IMU: sample=1 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12456468
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12469468
+I IMU: sample=2 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12482468
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12495468
+I IMU: sample=3 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12508468
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12521468
+I IMU: sample=4 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12534468
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=12547468
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24480812
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24493468
+I IMU: sample=1 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24506468
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24519468
+I IMU: sample=2 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24532468
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24545468
+I IMU: sample=3 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24558687
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24571468
+I IMU: sample=4 addr=0x68 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24584468
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack time_us=24597468
+I IMU: 身份检测 matches=0/10；尚未启用运动采样

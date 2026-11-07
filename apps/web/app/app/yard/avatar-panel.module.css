@@ -114,3 +114,49 @@
     animation: none !important;
   }
 }
+
+.stickerStage {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-items: center;
+  background: #fff6e9;
+}
+.stickerStage span {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  font-size: 14px;
+}
+.stickerStage span:nth-child(2) {
+  left: auto;
+  right: 16px;
+}
+.stickerStage picture {
+  width: 58%;
+  display: block;
+}
+.stickerStage img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.wallpaper {
+  grid-column: 1 / -1;
+  border-top: 1px solid #bdd4ce;
+  padding-top: 20px;
+  min-width: 0;
+}
+.wallpaper img {
+  display: block;
+  width: min(100%, 320px);
+  height: auto;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.wallpaper input {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+}

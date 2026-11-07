@@ -6,6 +6,7 @@
 #include "tal_mutex.h"
 #include "tdl_audio_manage.h"
 #include "tkl_audio.h"
+#include "tkl_asr.h"
 #include <string.h>
 static TDL_AUDIO_HANDLE_T audio;
 static MUTEX_HANDLE lock;
@@ -16,16 +17,39 @@ typedef struct {
 } pcm_frame_t;
 static hs_queue_t frames;
 static bool failed, collecting;
+enum { WAKE_FRAME_BYTES = 640 };
+typedef union {
+  int16_t samples[WAKE_FRAME_BYTES / sizeof(int16_t)];
+  uint8_t bytes[WAKE_FRAME_BYTES];
+} wake_frame_t;
+static hs_queue_t wake_frames;
+static wake_frame_t wake_partial;
+static unsigned wake_used;
+static bool wake_enabled;
 static unsigned volume = 60;
 static bool barge_enabled,barge_monitor,barge_trigger;
 static int64_t playback_start;
-static unsigned barge_samples,pre_write,pre_count;
+enum {
+  BARGE_ENERGY_THRESHOLD = 1200,
+  BARGE_VOICED_SAMPLES = 1600, /* 100 ms at 16 kHz */
+  BARGE_GAP_SAMPLES = 640,    /* 40 ms between syllables */
+};
+static unsigned barge_samples,barge_gap,pre_write,pre_count;
+static unsigned barge_frames,barge_peak,barge_longest;
 static unsigned char pre_roll[16000];
 void hs_t5_audio_barge_arm(bool enabled){tal_mutex_lock(lock);barge_enabled=enabled;tal_mutex_unlock(lock);}
 bool hs_t5_audio_barge_requested(void){tal_mutex_lock(lock);bool requested=barge_trigger;tal_mutex_unlock(lock);return requested;}
-void hs_t5_audio_barge_discard(void){tal_mutex_lock(lock);barge_trigger=false;barge_monitor=false;pre_count=pre_write=barge_samples=0;tal_mutex_unlock(lock);}
-static void playback_monitor_start(void){tal_mutex_lock(lock);barge_monitor=barge_enabled;barge_samples=0;pre_count=pre_write=0;playback_start=hs_time_us();tal_mutex_unlock(lock);}
-static void playback_monitor_end(void){tal_mutex_lock(lock);barge_monitor=false;tal_mutex_unlock(lock);}
+void hs_t5_audio_barge_discard(void){tal_mutex_lock(lock);barge_trigger=false;barge_monitor=false;pre_count=pre_write=barge_samples=barge_gap=0;tal_mutex_unlock(lock);}
+static void playback_monitor_start(void){tal_mutex_lock(lock);barge_monitor=barge_enabled;barge_samples=barge_gap=0;barge_frames=barge_peak=barge_longest=0;pre_count=pre_write=0;playback_start=hs_time_us();tal_mutex_unlock(lock);}
+static void playback_monitor_end(void) {
+  tal_mutex_lock(lock);
+  bool monitored=barge_monitor, triggered=barge_trigger;
+  unsigned frames_seen=barge_frames, peak=barge_peak, longest=barge_longest;
+  barge_monitor=false;
+  tal_mutex_unlock(lock);
+  if(monitored)HS_LOGI("audio","barge frames=%u peak_mean=%u peak_voiced_samples=%u triggered=%d",
+    frames_seen,peak,longest,(int)triggered);
+}
 
 static volatile bool playback_cancelled;
 static bool playback_drained=true;
@@ -59,10 +83,39 @@ static void microphone(TDL_AUDIO_FRAME_FORMAT_E type, TDL_AUDIO_STATUS_E status,
   if (type != TDL_AUDIO_FRAME_FORMAT_PCM || !data || !n)
     return;
   tal_mutex_lock(lock);
+  if (wake_enabled && !collecting && !(n % 2)) {
+    const uint8_t *pcm = data;
+    uint32_t remaining = n;
+    while (remaining) {
+      unsigned count = WAKE_FRAME_BYTES - wake_used;
+      if (count > remaining) count = remaining;
+      memcpy(wake_partial.bytes + wake_used, pcm, count);
+      wake_used += count;
+      pcm += count;
+      remaining -= count;
+      if (wake_used == WAKE_FRAME_BYTES) {
+        hs_queue_send(wake_frames, &wake_partial, 0);
+        wake_used = 0;
+      }
+    }
+  }
   if(!collecting&&(barge_monitor||barge_trigger)){
     for(uint32_t i=0;i<n;i++){pre_roll[pre_write]=data[i];pre_write=(pre_write+1)%sizeof(pre_roll);if(pre_count<sizeof(pre_roll))pre_count++;}
     uint64_t energy=0;for(uint32_t i=0;i+1<n;i+=2){int v=(int16_t)((unsigned)data[i]|((unsigned)data[i+1]<<8));energy+=(unsigned)(v<0?-v:v);}
-    if(barge_monitor&&hs_time_us()-playback_start>350000&&n>=2&&energy/(n/2)>1200){barge_samples+=n/2;if(barge_samples>=2560)barge_trigger=true;}else if(!barge_trigger)barge_samples=0;
+    if(barge_monitor&&hs_time_us()-playback_start>350000&&n>=2){
+      unsigned mean=(unsigned)(energy/(n/2));
+      barge_frames++;
+      if(mean>barge_peak)barge_peak=mean;
+      if(!barge_trigger&&mean>BARGE_ENERGY_THRESHOLD){
+        barge_gap=0;
+        barge_samples+=n/2;
+        if(barge_samples>barge_longest)barge_longest=barge_samples;
+        if(barge_samples>=BARGE_VOICED_SAMPLES)barge_trigger=true;
+      }else if(!barge_trigger&&barge_samples){
+        barge_gap+=n/2;
+        if(barge_gap>BARGE_GAP_SAMPLES)barge_samples=barge_gap=0;
+      }
+    }
   }
   if (collecting && !failed) {
     uint64_t energy=0;
@@ -149,16 +202,27 @@ hs_err_t hs_audio_start(const char *path) {
     tal_mutex_unlock(lock);
     return HS_FAIL;
   }
+  if (barge_trigger) {
+    unsigned offset=(pre_write+sizeof(pre_roll)-pre_count)%sizeof(pre_roll);
+    unsigned first=sizeof(pre_roll)-offset;
+    if(first>pre_count)first=pre_count;
+    unsigned second=pre_count-first;
+    if(hs_fs_write(pre_roll+offset,first,recording)!=first||
+       (second&&hs_fs_write(pre_roll,second,recording)!=second)){
+      hs_fs_close(recording);
+      recording=NULL;
+      tal_mutex_unlock(lock);
+      return HS_FAIL;
+    }
+    bytes=pre_count;
+    voice_heard=true;
+    voice_last_sound=hs_time_us();
+    barge_trigger=barge_monitor=false;
+    pre_count=pre_write=barge_samples=barge_gap=0;
+  }
   collecting = true;
   tal_mutex_unlock(lock);
   return HS_OK;
-}
-void hs_t5_audio_barge_resume(void){
-  tal_mutex_lock(lock);
-  unsigned at=(pre_write+sizeof(pre_roll)-pre_count)%sizeof(pre_roll);
-  while(pre_count){pcm_frame_t f;f.size=pre_count>sizeof(f.data)?sizeof(f.data):pre_count;for(unsigned i=0;i<f.size;i++){f.data[i]=pre_roll[at];at=(at+1)%sizeof(pre_roll);}if(!hs_queue_send(frames,&f,0)){failed=true;break;}pre_count-=f.size;}
-  voice_heard=true;voice_last_sound=hs_time_us();barge_trigger=barge_monitor=false;pre_count=pre_write=barge_samples=0;
-  tal_mutex_unlock(lock);
 }
 hs_err_t hs_audio_read(void) {
   hs_delay_ms(10);
@@ -183,11 +247,11 @@ hs_err_t hs_audio_stop(void) {
   recording = NULL;
   return e;
 }
-hs_err_t hs_audio_play(void) {
+hs_err_t hs_t5_audio_play_path(const char *path) {
   hs_file_info_t info;
-  if (hs_outbox_validate_wav(HS_REPLY) || hs_fs_info(HS_REPLY, &info))
+  if (hs_outbox_validate_wav(path) || hs_fs_info(path, &info))
     return HS_FAIL;
-  hs_file_t f = hs_fs_open(HS_REPLY, "rb");
+  hs_file_t f = hs_fs_open(path, "rb");
   if (!f)
     return HS_FAIL;
   hs_err_t e = hs_fs_seek(f, 44) ? HS_FAIL : HS_OK;
@@ -196,7 +260,7 @@ hs_err_t hs_audio_play(void) {
   playback_monitor_start();
   int64_t began=hs_time_us(),read_max=0,put_max=0;uint32_t sent=0,crc=~0u;unsigned stalls=0;
   while (!e && remaining) {
-    if(playback_cancelled){e=HS_ERR_INVALID_STATE;break;}
+    if(playback_cancelled||hs_t5_audio_barge_requested()){e=HS_ERR_INVALID_STATE;break;}
     size_t wanted =
         remaining > sizeof(frame) ? sizeof(frame) : (size_t)remaining;
     int64_t read_start=hs_time_us();
@@ -252,6 +316,7 @@ void hs_audio_demo_volume(int delta) {
   if (tdl_audio_volume_set(audio, (uint8_t)next) == OPRT_OK)
     volume = (unsigned)next;
 }
+hs_err_t hs_audio_play(void) { return hs_t5_audio_play_path(HS_REPLY); }
 int hs_audio_volume_percent(void) { return (int)volume; }
 void hs_audio_volume_save(void) {}
 hs_err_t hs_audio_demo(const signed char *pcm, size_t n,
@@ -272,12 +337,45 @@ hs_err_t hs_audio_demo(const signed char *pcm, size_t n,
   HS_LOGI("audio","fixed end elapsed_ms=%u",(unsigned)((hs_time_us()-demo_start)/1000));
   return HS_OK;
 }
-hs_err_t hs_audio_voice_init(void) { return HS_ERR_NOT_SUPPORTED; }
+hs_err_t hs_audio_voice_init(void) {
+  /* SDK 将 Hey Tuya 和“你好涂鸦”映射到同一识别项。 */
+  TKL_ASR_WAKEUP_WORD_E word = TKL_ASR_WAKEUP_NIHAO_TUYA;
+  if (tkl_asr_get_process_uint_size() != WAKE_FRAME_BYTES)
+    return HS_ERR_NOT_SUPPORTED;
+  wake_frames = hs_queue_create(12, sizeof(wake_frame_t));
+  if (!wake_frames)
+    return HS_ERR_NO_MEM;
+  if (tkl_asr_init() != OPRT_OK)
+    return HS_FAIL;
+  if (tkl_asr_wakeup_word_config(&word, 1) != OPRT_OK) {
+    tkl_asr_deinit();
+    return HS_FAIL;
+  }
+  return HS_OK;
+}
 int hs_audio_voice_poll(bool commands) {
   (void)commands;
+  tal_mutex_lock(lock);
+  wake_enabled = true;
+  tal_mutex_unlock(lock);
+  wake_frame_t frame;
+  for (unsigned i = 0; i < 4 && hs_queue_receive(wake_frames, &frame, 0); i++) {
+    if (tkl_asr_recognize_wakeup_word(frame.bytes, sizeof(frame.bytes)) ==
+        TKL_ASR_WAKEUP_NIHAO_TUYA) {
+      hs_audio_voice_pause();
+      return 100;
+    }
+  }
   return 0;
 }
-void hs_audio_voice_pause(void) {}
+void hs_audio_voice_pause(void) {
+  tal_mutex_lock(lock);
+  wake_enabled = false;
+  wake_used = 0;
+  tal_mutex_unlock(lock);
+  wake_frame_t frame;
+  while (hs_queue_receive(wake_frames, &frame, 0)) {}
+}
 void hs_audio_voice_listen(void) {}
 bool hs_audio_voice_finished(void) {
   tal_mutex_lock(lock);bool done=voice_heard&&hs_time_us()-voice_last_sound>1200000;tal_mutex_unlock(lock);return done;

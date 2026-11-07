@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import themes from "../../../../../packages/avatar/themes.json";
+import stickers from "../../../../../packages/avatar/stickers.json";
+import { WallpaperPanel } from "./wallpaper-panel";
 import styles from "./avatar-panel.module.css";
 const states = [
   "陪伴",
@@ -34,11 +36,15 @@ export function AvatarPanel() {
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     fetch("/api/yard/avatar")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw Error();
+        return r.json();
+      })
       .then((d) => setConfig(d.config))
       .catch(() => setMessage("主题设置暂不可用"));
   }, []);
   const t = themes[config.theme];
+  const sticker = stickers.byState[state];
   async function save() {
     setSaving(true);
     try {
@@ -69,7 +75,7 @@ export function AvatarPanel() {
               onClick={() => setConfig({ ...config, theme: i })}
               style={{ borderColor: `#${v.body}` }}
             >
-              {v.name}
+              {i === 0 ? "萌小冰 · 默认" : v.name}
             </button>
           ))}
         </div>
@@ -91,92 +97,114 @@ export function AvatarPanel() {
       </div>
       <div>
         <div className={styles.stage} data-state={state}>
-          <svg
-            viewBox="0 0 480 320"
-            role="img"
-            aria-label={`${t.name}，${states[state]}动画示意`}
-          >
-            <g className={styles.body}>
-              <rect
-                x="110"
-                y="52"
-                width="260"
-                height="232"
-                rx={t.radius}
-                fill={`#${t.body}`}
-              />
-              {[0, 1].map((i) => (
-                <g key={i}>
-                  <g opacity={state === 7 ? 0 : 1}>
+          {config.theme === 0 ? (
+            <div className={styles.stickerStage}>
+              <span>
+                {states[state]} · {stickers.names[sticker]}
+              </span>
+              {config.mode === "fullscreen" && <span>返回</span>}
+              <picture key={sticker}>
+                <source
+                  media="(prefers-reduced-motion: reduce)"
+                  srcSet={`/avatar/stickers/${sticker}-still.webp`}
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/avatar/stickers/${sticker}.webp`}
+                  alt={stickers.names[sticker]}
+                  width={320}
+                  height={320}
+                />
+              </picture>
+            </div>
+          ) : (
+            <svg
+              viewBox="0 0 480 320"
+              role="img"
+              aria-label={`${t.name}，${states[state]}动画示意`}
+            >
+              <g className={styles.body}>
+                <rect
+                  x="110"
+                  y="52"
+                  width="260"
+                  height="232"
+                  rx={t.radius}
+                  fill={`#${t.body}`}
+                />
+                {[0, 1].map((i) => (
+                  <g key={i}>
+                    <g opacity={state === 7 ? 0 : 1}>
+                      <rect
+                        className={styles.eye}
+                        x={110 + 260 * (i ? 0.68 : 0.32) - t.eyeWidth * 0.75}
+                        y="133"
+                        width={t.eyeWidth * 1.5}
+                        height={
+                          state === 8 || state === 5 ? 8 : t.eyeHeight * 1.5
+                        }
+                        rx={state === 7 ? 8 : t.eyeWidth}
+                        fill={state === 7 ? `#${t.accent}` : "white"}
+                      />
+                      <ellipse
+                        className={styles.pupil}
+                        cx={110 + 260 * (i ? 0.68 : 0.32)}
+                        cy={state === 8 || state === 5 ? 137 : 155}
+                        rx={t.eyeWidth / 2}
+                        ry={state === 8 || state === 5 ? 3 : t.eyeHeight * 0.55}
+                        fill={`#${t.ink}`}
+                      />
+                      <circle
+                        cx={105 + 260 * (i ? 0.68 : 0.32)}
+                        cy="146"
+                        r={state === 8 || state === 5 ? 0 : 5}
+                        fill="white"
+                      />
+                    </g>
+                    {state === 7 && (
+                      <path
+                        transform={`translate(${110 + 260 * (i ? 0.68 : 0.32) - t.eyeWidth * 0.75} 133) scale(${(t.eyeWidth * 1.5) / 40} ${(t.eyeHeight * 1.5) / 40})`}
+                        d="M20 8C2 -7 -8 15 20 40C48 15 38 -7 20 8Z"
+                        fill={`#${t.accent}`}
+                      />
+                    )}
                     <rect
-                      className={styles.eye}
-                      x={110 + 260 * (i ? 0.68 : 0.32) - t.eyeWidth * 0.75}
-                      y="133"
-                      width={t.eyeWidth * 1.5}
-                      height={
-                        state === 8 || state === 5 ? 8 : t.eyeHeight * 1.5
-                      }
-                      rx={state === 7 ? 8 : t.eyeWidth}
-                      fill={state === 7 ? `#${t.accent}` : "white"}
-                    />
-                    <ellipse
-                      className={styles.pupil}
-                      cx={110 + 260 * (i ? 0.68 : 0.32)}
-                      cy={state === 8 || state === 5 ? 137 : 155}
-                      rx={t.eyeWidth / 2}
-                      ry={state === 8 || state === 5 ? 3 : t.eyeHeight * 0.55}
-                      fill={`#${t.ink}`}
-                    />
-                    <circle
-                      cx={105 + 260 * (i ? 0.68 : 0.32)}
-                      cy="146"
-                      r={state === 8 || state === 5 ? 0 : 5}
-                      fill="white"
-                    />
-                  </g>
-                  {state === 7 && (
-                    <path
-                      transform={`translate(${110 + 260 * (i ? 0.68 : 0.32) - t.eyeWidth * 0.75} 133) scale(${(t.eyeWidth * 1.5) / 40} ${(t.eyeHeight * 1.5) / 40})`}
-                      d="M20 8C2 -7 -8 15 20 40C48 15 38 -7 20 8Z"
+                      x={85 + 260 * (i ? 0.68 : 0.32)}
+                      y="203"
+                      width="44"
+                      height="9"
+                      rx="5"
                       fill={`#${t.accent}`}
                     />
-                  )}
-                  <rect
-                    x={85 + 260 * (i ? 0.68 : 0.32)}
-                    y="203"
-                    width="44"
-                    height="9"
-                    rx="5"
-                    fill={`#${t.accent}`}
-                  />
-                  {state === 9 && (
-                    <path
-                      d={i ? "M270 116l40 -8" : "M169 108l40 8"}
-                      stroke={`#${t.ink}`}
-                      strokeWidth="7"
-                    />
-                  )}
-                </g>
-              ))}
-              <rect
-                className={styles.mouth}
-                x="225"
-                y="211"
-                width="30"
-                height={state === 6 ? 30 : state === 5 ? 18 : 8}
-                rx="12"
-                fill={`#${t.ink}`}
-              />
-            </g>
-            <text x="16" y="28" fill={`#${t.ink}`} fontSize="16">
-              {states[state]}
-            </text>
-            {config.mode === "fullscreen" && (
-              <text x="408" y="28" fill={`#${t.ink}`} fontSize="16">
-                返回
+                    {state === 9 && (
+                      <path
+                        d={i ? "M270 116l40 -8" : "M169 108l40 8"}
+                        stroke={`#${t.ink}`}
+                        strokeWidth="7"
+                      />
+                    )}
+                  </g>
+                ))}
+                <rect
+                  className={styles.mouth}
+                  x="225"
+                  y="211"
+                  width="30"
+                  height={state === 6 ? 30 : state === 5 ? 18 : 8}
+                  rx="12"
+                  fill={`#${t.ink}`}
+                />
+              </g>
+              <text x="16" y="28" fill={`#${t.ink}`} fontSize="16">
+                {states[state]}
               </text>
-            )}
-          </svg>
+              {config.mode === "fullscreen" && (
+                <text x="408" y="28" fill={`#${t.ink}`} fontSize="16">
+                  返回
+                </text>
+              )}
+            </svg>
+          )}
         </div>
         <div className={styles.states}>
           {states.map((v, i) => (
@@ -191,6 +219,7 @@ export function AvatarPanel() {
         </div>
         <small>动画设计预览；设备真实状态由语音、拍照事件驱动。</small>
       </div>
+      <WallpaperPanel />
     </section>
   );
 }

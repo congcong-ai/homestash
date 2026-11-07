@@ -50,3 +50,19 @@ Wi-Fi会话用户已确认键盘可输入且“新wifi已经连上了”，核�
 2026-11-07，用户要求另一台Tailscale Mac与第二块同型号T5专门跑IMU；已新建01a1b3f1-8fed-7002-9dbb-543c8fff678c（GPT-6.1 SOL / medium）。远端IP待用户提供，尚未连接。建议本次只传必要源码的隔离快照与SHA清单，远端独立基线/修改，回传IMU补丁和证据；本机审核集成后再统一GitHub留档。明确禁止占用本机主板串口/共享SDK或覆盖并发源码；第二块板需自己的型号核验与原厂备份。原未焊排针与异常WHO_AM_I历史保持未通过，远端先确认可靠焊接。第二板实测通过不等同于本机主板通过；最终接入须另有本机独占窗口与真实安装验证。
 
 avatar-controls-stop已备份/写入/逐字节回读与重启完成，QIO SHA256 79c89ffc44c92a7a7d2c4c4055c70bf21578b82296a0e2a33b16c50631795990，UART0已关闭，SDK/串口窗口释放。新UI与“退下”待用户操作验收，见30及avatar-controls-stop.json。
+
+用户反馈语音退下无效并要求本地短指令与TTS降延迟。只读UART复现结束，捕获到AEC打断和后续“退下”在线ASR/stop动作，但用户实际体验判失败，不标通过。现接通主机预加载本地模型识别插话短指令（不是板端离线），TTS直收SSE PCM绕开OSS二次下载；131项回归、构建通过后将独占刷写latency-local-stop镜像，完成后再释放。用户需暂停操作保持供电。
+
+latency-local-stop镜像完整备份、刷写、逐字节回读及重启完成，QIO SHA256 3f980f5e8a05559133c661d67ce183e634586de60bebf8c43bffeddf8f0d78c9。UART0关闭，SDK/串口窗口释放。后台本地模型已就绪，设备在线；新语音停止/首音时延待用户复验，见31及latency-local-stop.json。
+
+更正：首版latency-local-stop有Wi-Fi IP但未收到新心跳，不能视为设备在线。已修正启动pending录音阻塞维护的条件，原录音归档保留、不重播；现重新独占刷写latency-local-stop-recovery。串口窗口尚未释放，不接管。
+
+latency-local-stop-recovery已现场备份、刷写、逐字节回读和重启，QIO SHA256 3475fb07f2418a3569df750b38f1bfc8d25feaf4ce537d569d4344719fbda79d；boot archived=1 pending=0，设备状态[{"id":"food-spirit-t5-01","online":true,"heap":90056,"uptime":30015,"network":"已连接：黑客松"}]，以本条为最终状态。UART0关闭，SDK/串口窗口释放。语音退下和TTS实机体验待用户复验。
+
+语音停止会话接手 UART0，正在按完整备份、刷写和逐字节回读流程部署 voice-barge-diagnostics。编译产物确认传感器诊断关闭。在串口释放记录前，请避免其他会话接管硬件。
+
+voice-barge-diagnostics 和 voice-barge-tuned 均完成现场备份、刷写、逐字节回读和重启。当前设备运行 voice-barge-tuned，Core 已收到新启动心跳。只读 UART0 观察窗口已结束，串口和 SDK 已释放。调整版观察期间没有收到用户复测的录音，语音验收仍待完成。
+
+语音停止会话正在独占 UART0 部署 voice-stop-transition，包含插话探测画面、预录顺序和停止优先级修正。保持原备份、写入、回读流程，传感器诊断关闭。
+
+voice-stop-transition 写入、逐字节回读与新启动心跳通过，后续观察结束时 Core 显示离线。语音停止仍未完成验收。UART0 已释放。

@@ -1,0 +1,68 @@
+第二板双读备份、镜像、芯片与容量核对通过，开始写入最小只读镜像
+逐字节回读通过，重启；未格式化SD或清KV
+I IMU_HW: driver_init=0
+I IMU_HW: init=0 bus=1 scl=P00 sda=P01 configured_hz=100000
+I IMU_HW: sample=0 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=219
+I IMU_HW: sample=0 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=187
+I IMU_HW: sample=3 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: REGISTER addr=0x68 reg=0x1a value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x6b value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x6c value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x70 value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: deinit bus=1 result=0
+I IMU_HW: init=0 bus=1 scl=P00 sda=P01 configured_hz=400000
+I IMU_HW: sample=0 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=188
+I IMU_HW: sample=0 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: REGISTER addr=0x68 reg=0x1a value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x6b value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x6c value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x70 value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: deinit bus=1 result=0
+I IMU_HW: driver_init=0
+I IMU_HW: init=0 bus=1 scl=P00 sda=P01 configured_hz=100000
+I IMU_HW: sample=0 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=188
+I IMU_HW: sample=0 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=187
+I IMU_HW: sample=1 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=100000 elapsed_us=218
+I IMU_HW: REGISTER addr=0x68 reg=0x1a value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x6b value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x6c value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: REGISTER addr=0x68 reg=0x70 value=0xa5 result=0 changed=0 configured_hz=100000
+I IMU_HW: deinit bus=1 result=0
+I IMU_HW: init=0 bus=1 scl=P00 sda=P01 configured_hz=400000
+I IMU_HW: sample=0 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=188
+I IMU_HW: sample=0 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=1 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=2 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=3 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x68 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: sample=4 addr=0x69 WHO_AM_I=0xa5 result=0 changed=0 verified=0 configured_hz=400000 elapsed_us=218
+I IMU_HW: REGISTER addr=0x68 reg=0x1a value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x6b value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x6c value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: REGISTER addr=0x68 reg=0x70 value=0xa5 result=0 changed=0 configured_hz=400000
+I IMU_HW: deinit bus=1 result=0

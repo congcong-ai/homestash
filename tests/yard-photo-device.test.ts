@@ -10,8 +10,9 @@ import { pcmWav } from "@homestash/ai/speech";
 test("独立照片协议：鉴权、真实来源标记、取消迟到上传、重试、重拍、保存与重启回看", async () => {
   const dir = await mkdtemp(join(tmpdir(), "yard-photo-"));
   let core = createApp(join(dir, "db.sqlite"));
+  let spoken = "";
   const speech = {
-    transcribe: async () => "",
+    transcribe: async () => spoken,
     synthesize: async () => pcmWav(Buffer.alloc(3200)),
   };
   let server = createDeviceServer(core, speech, { mediaDir: dir });
@@ -37,6 +38,28 @@ test("独立照片协议：鉴权、真实来源标记、取消迟到上传、�
       "x-device-id": "photo-t5",
       authorization: `Bearer ${reg.json().token}`,
     };
+    for (const [text, action] of [
+      ["拍照", "photo"],
+      ["帮我拍一张", "photo"],
+      ["小冰，请帮我们拍一张合影吧。", "photo"],
+      ["帮我拍一下", "photo"],
+      ["不要拍照", null],
+      ["他说帮我拍一张", null],
+      ["怎么拍照？", null],
+    ] as const) {
+      spoken = text;
+      const capture = await server.inject({
+        method: "POST",
+        url: `/device/v1/captures/${randomUUID()}`,
+        headers: { ...headers, "content-type": "audio/wav" },
+        payload: pcmWav(Buffer.alloc(320)),
+      });
+      assert.equal(capture.statusCode, 200);
+      assert.equal(capture.json().action, action, text);
+      if (action === "photo")
+        assert.equal(capture.json().message, "好，正在拍照。");
+    }
+    assert.equal((await core.app.inject("/api/yard")).json().consent, null);
     // 仅协议测试替身，不是真机照片。
     const jpeg = Buffer.concat([
       Buffer.from([255, 216]),

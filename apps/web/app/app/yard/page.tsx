@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { MemoryBook } from "./memory-book";
 import { OfflinePhotos } from "./offline-photos";
 import { ModelPanel } from "./model-panel";
 import { FoodPanel } from "./food-panel";
@@ -40,6 +41,7 @@ type Yard = {
     createdAt: string;
     simulated: boolean;
   }[];
+  foodNames?: { id: string; food: string; name: string }[];
   memories: Memory[];
   preview: {
     id: string;
@@ -374,6 +376,7 @@ export default function YardPage() {
           <a href="#devices">我的设备</a>
           <a href="#interaction">互动记录</a>
           <a href="#roles">萌萌伙伴</a>
+          <a href="#memory-book">冰箱拾光</a>
           <a href="#memories">家庭回忆</a>
           <a href="#settings">语音与设置</a>
           <a href="#avatar-settings">表情与吃饭互动</a>
@@ -384,7 +387,7 @@ export default function YardPage() {
             <h1>
               你回来啦，
               <br />
-              <em>莓莓等你好久啦。</em>
+              <em>萌小冰等你好久啦。</em>
             </h1>
             <p>和萌萌伙伴聊聊今天，分享一口好吃的，把小日子过得甜甜的。</p>
             <div className={styles.heroTags}>
@@ -401,6 +404,7 @@ export default function YardPage() {
             <div className={styles.artCaption}>莓莓在，甜甜的陪伴就在。</div>
           </div>
         </section>
+        <MemoryBook />
         {error && (
           <div role="alert" className={styles.error}>
             {error}
@@ -758,6 +762,16 @@ export default function YardPage() {
                   </p>
                 </div>
               </div>
+              {!!yard.foodNames?.length && (
+                <div>
+                  <h3>食物小名</h3>
+                  <ul>
+                    {yard.foodNames.map(({ id, food, name }) => (
+                      <li key={id}>{food} · {name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <form
                 className={styles.roleForm}
                 onSubmit={(e) => {

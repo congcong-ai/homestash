@@ -1,7 +1,9 @@
-import { isYardStop } from "./yard-commands";
+import { isYardPhoto, isYardStop } from "./yard-commands";
 import { registerRecordings } from "./yard-recordings";
 import { registerFood, foodInteraction } from "./yard-food";
+import { registerWallpaper } from "./yard-wallpaper";
 import { registerAvatar } from "./yard-avatar";
+import { memoryDay, writeMemoryChapters } from "./yard-memory-book";
 import { prepareYardChat } from "./yard-chat";
 import {
   applyYardRuleEffect,
@@ -31,7 +33,8 @@ export type YardPhotoJob = {
 const photoKey = "yard:photo:job";
 const cameraKey = "yard:photo:camera";
 
-type YardMemory = {
+export type YardMemory = {
+  story?: string;
   id: string;
   title: string;
   createdAt: string;
@@ -39,7 +42,8 @@ type YardMemory = {
   photoPath: string;
   source: "device" | "simulated";
 };
-type YardState = {
+export type YardState = {
+  textStories?: Record<string, string>;
   version: 1;
   role: {
     name: string;
@@ -100,6 +104,17 @@ const empty: YardState = {
   consent: null,
   preview: null,
 };
+type OfflinePhoto = {
+  id: string;
+  deviceId: string;
+  path: string;
+  receivedAt: string;
+  status: "pending" | "saved" | "discarded";
+};
+const offlineKey = "product:food-spirit-yard:offline-photos:v1";
+export const readOfflinePhotos = (repo: SQLiteRepository) =>
+  repo.read<OfflinePhoto[]>(offlineKey, []);
+
 export const rootKey = "product:food-spirit-yard:v1";
 const defaultTts = structuredClone(empty.tts);
 export function yardTtsProfile(repo: SQLiteRepository) {
@@ -107,6 +122,18 @@ export function yardTtsProfile(repo: SQLiteRepository) {
     repo.read<YardState>(rootKey, structuredClone(empty)).tts ?? defaultTts
   );
 }
+const foodNamingKey = "yard:food-naming";
+type FoodNaming = {
+  names: { id: string; food: string; name: string }[];
+  pending: Partial<Record<"web" | "device", { food: string; expiresAt: number }>>;
+};
+
+function readFoodNaming(repo: SQLiteRepository) {
+  return repo.read<FoodNaming>(foodNamingKey, { names: [], pending: {} });
+}
+
+const purchasedFood = /(?:买了|买回来(?:了)?|刚买的)(?:[些点一两三四五六七八九十\d个颗斤袋盒把棵块条只份串新鲜\s]*)(葡萄|橙子|苹果|香蕉|梨|桃子|西瓜|芒果|蓝莓|柚子|橘子|猕猴桃|牛肉|猪肉|羊肉|鸡腿|鸡翅|鸡肉|排骨|鱼|虾|白菜|青菜|菠菜|生菜|西兰花|番茄|西红柿|土豆|胡萝卜|黄瓜|茄子|玉米|南瓜|芹菜|豆腐)(?=$|[，。！？、,.!?\s]|和|跟|还有)/;
+
 export function applyYardInteraction(
   repo: SQLiteRepository,
   requestId: string,
@@ -129,9 +156,26 @@ export function applyYardInteraction(
   let matchedRule: ReturnType<typeof matchYardRule>;
   let response = "我在听呀。聊聊今天吃了什么，或是认识一下萌萌伙伴吧？";
   const rename = text.match(/(?:叫它|给它起名|改名叫|名字叫|就叫)(.{1,20})$/);
+  const naming = readFoodNaming(repo);
+  const channel = simulated ? "web" : "device";
+  const pending = naming.pending[channel];
+  const canName = pending && pending.expiresAt > Date.now();
+  const foodName = canName
+    ? text.match(/^(?:给它起名(?:叫)?|叫它|名字叫|就叫|叫)\s*[「“"]?([\p{L}\p{N}·]{1,20})[」”"]?[。！!]?$/u)?.[1]
+    : undefined;
+  delete naming.pending[channel];
+  const food = text.match(purchasedFood)?.[1];
   if (isYardStop(text)) {
     state.consent = null;
     response = "这次已停止，我们歇一会儿。";
+  } else if (foodName && pending) {
+    naming.names.unshift({ id: requestId, food: pending.food, name: foodName });
+    response = `好呀，今天买的${pending.food}就叫${foodName}！`;
+  } else if (canName && pending && !state.consent && /^(?:好|好呀|好的|可以|想)[。！!？?]?$/.test(text)) {
+    naming.pending[channel] = pending;
+    response = `好呀，想叫这次的${pending.food}什么？比如说「叫它」再加上你想的名字。`;
+  } else if (canName && /^(?:不用|不取了|不起了|不用了|算了|不了)[。！!？?]?$/.test(text)) {
+    response = "好呀，我们继续聊。";
   } else if (rename && state.role.createdAt) {
     const oldName = state.role.name;
     state.role.previousName = oldName;
@@ -158,15 +202,12 @@ export function applyYardInteraction(
   } else if (/^(不拍|算了|取消|不要|不了)[。！!？?]?$/.test(text)) {
     state.consent = null;
     response = "好，这次不拍了。我们继续聊聊吧。";
-  } else if (/(拍照|拍一张|拍张照|合影|留影)/.test(text)) {
-    state.consent = {
-      token: crypto.randomUUID(),
-      expiresAt: Date.now() + 90_000,
-      accepted: false,
-    };
-    response = simulated
-      ? "请在设备主屏点击拍照，即可直接采集。"
-      : "正在准备拍照，照片会在网页预览，确认后才保存。";
+  } else if (isYardPhoto(text)) {
+    if (simulated) {
+      response = "请在设备上说拍照，或点击拍照按钮。";
+    } else {
+      response = "好，正在拍照。";
+    }
   }
   // 内置许可、取消和命名分支优先；规则不能执行拍照或任意代码。
   if (response === "我在听呀。聊聊今天吃了什么，或是认识一下萌萌伙伴吧？") {
@@ -174,6 +215,9 @@ export function applyYardInteraction(
     if (rule) {
       response = rule.line;
       matchedRule = rule;
+    } else if (food && !canName) {
+      naming.pending[channel] = { food, expiresAt: Date.now() + 120_000 };
+      response = `今天买了${food}呀，要不要给它起个小名？`;
     } else {
       response =
         chatReply ??
@@ -184,8 +228,11 @@ export function applyYardInteraction(
     !isYardStop(text) &&
     !simulated &&
     !matchedRule &&
+    !naming.pending[channel] &&
+    !canName &&
     !rename &&
-    !/(拍照|拍一张|合影|取消|停止)/.test(text)
+    !isYardPhoto(text) &&
+    !/(取消|停止)/.test(text)
   ) {
     const foodReply = foodInteraction(repo, requestId, text);
     if (foodReply)
@@ -204,6 +251,7 @@ export function applyYardInteraction(
   const result = { ...item, role: state.role };
   repo.sqlite.transaction(() => {
     applyYardRuleEffect(repo, matchedRule);
+    if (pending || naming.pending[channel]) repo.write(foodNamingKey, naming);
     repo.write(rootKey, state);
     repo.write(key, result);
   })();
@@ -214,20 +262,24 @@ export function registerYardRoutes(
   app: FastifyInstance,
   repo: SQLiteRepository,
   mediaRoot: string,
+  now: () => Date = () => new Date(),
 ) {
   registerYardRules(app, repo);
   registerAvatar(app, repo);
+  registerWallpaper(app, repo);
   registerFood(app, repo);
   registerRecordings(app, repo);
   // 局部插件锁住小院写请求，避免文件 I/O 期间保存/取消互相覆盖；旧后台不受影响。
   app.register(async (app) => {
     let tail = Promise.resolve();
     const releases = new WeakMap<object, () => void>();
-    app.addHook("preHandler", async (req) => {
-      if (req.method === "GET") return;
+    const lockWrite = async (req: object) => {
       const previous = tail;
       tail = new Promise<void>((resolve) => releases.set(req, resolve));
       await previous;
+    };
+    app.addHook("preHandler", async (req) => {
+      if (req.method !== "GET") await lockWrite(req);
     });
     const release = (req: object) => {
       releases.get(req)?.();
@@ -282,15 +334,7 @@ export function registerYardRoutes(
       return path;
     };
 
-    type OfflinePhoto = {
-      id: string;
-      deviceId: string;
-      path: string;
-      receivedAt: string;
-      status: "pending" | "saved" | "discarded";
-    };
-    const offlineKey = "product:food-spirit-yard:offline-photos:v1";
-    const offlinePhotos = () => repo.read<OfflinePhoto[]>(offlineKey, []);
+    const offlinePhotos = () => readOfflinePhotos(repo);
     app.post("/api/yard/offline-photos/upload", async (req, reply) => {
       if (req.headers["x-yard-internal"] !== yardPhotoSecret(repo))
         return reply.code(403).send({ error: "仅设备内部上传" });
@@ -391,10 +435,85 @@ export function registerYardRoutes(
       return { id, status: item.status };
     });
 
+    app.get("/api/yard/memory-book", async (req, reply) => {
+      const query = z.object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        includeTrials: z.enum(["true", "false"]).optional(),
+        photoId: z.uuid().optional(),
+      }).safeParse(req.query);
+      if (!query.success || query.data.from > query.data.to)
+        return reply.code(400).send({ error: "请选择有效的起止日期。" });
+
+      const { from, to, includeTrials, photoId } = query.data;
+      const start = new Date(`${from}T00:00:00+08:00`).toISOString();
+      const end = new Date(`${to}T23:59:59.999+08:00`).toISOString();
+      const inRange = (date: string) => date >= start && date <= end;
+      const state = read();
+      // 单条互动记录保留完整历史，院子首页的互动列表仅保留最近 50 条。
+      const saved = repo.sqlite.prepare(`
+        SELECT data FROM app_state
+        WHERE id GLOB 'yard:interaction:*'
+          AND json_extract(data, '$.createdAt') BETWEEN ? AND ?
+      `).all(start, end) as { data: string }[];
+      const turns = new Map(state.interactions.map((turn) => [turn.id, turn]));
+      for (const row of saved) {
+        const turn = JSON.parse(row.data) as YardState["interactions"][number];
+        turns.set(turn.id, turn);
+      }
+
+      const conversations = [...turns.values()]
+          .filter((turn) => inRange(turn.createdAt) && (!turn.simulated || includeTrials === "true"))
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .map(({ id, text, reply, createdAt, simulated }) => ({ id, text, reply, createdAt, simulated }));
+      const photos = state.memories
+          .filter((memory) => (!photoId || memory.id === photoId) && inRange(memory.createdAt) && (memory.source !== "simulated" || includeTrials === "true"))
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .map(({ id, title, createdAt, source }) => ({
+            id, title, createdAt, source, url: `/api/yard/memories/${id}/photo`,
+          }));
+      if (photoId && !photos.length) return reply.code(404).send({ error: "照片不存在" });
+      const chapters = await writeMemoryChapters(repo, conversations, photos);
+      const stories = new Map<string, string>();
+      const photosByDay = new Map<string, typeof photos>();
+      for (const photo of photos) {
+        const day = memoryDay(photo.createdAt);
+        const dayPhotos = photosByDay.get(day) ?? [];
+        dayPhotos.push(photo);
+        photosByDay.set(day, dayPhotos);
+      }
+      for (const chapter of chapters) {
+        const dayPhotos = photosByDay.get(chapter.day) ?? [];
+        const captions = new Map(chapter.captions.map(({ id, text }) => [id, text]));
+        for (const photo of dayPhotos) {
+          stories.set(photo.id, captions.get(photo.id) ??
+            (dayPhotos.length === 1 ? chapter.paragraphs[0] : photo.title.trim().slice(0, 70) || "当天的留影"));
+        }
+      }
+      // 生成期间照片可能被确认或删除，只更新仍然存在的照片。
+      if (chapters.length) {
+        await lockWrite(req);
+        const latest = read();
+        const textStories = latest.textStories ??= {};
+        for (const chapter of chapters) {
+          if (photoId) continue;
+          if (photosByDay.has(chapter.day)) delete textStories[chapter.day];
+          else textStories[chapter.day] = chapter.paragraphs[0];
+        }
+        for (const memory of latest.memories) {
+          const story = stories.get(memory.id);
+          if (story && (!photoId || !memory.story)) memory.story = story;
+        }
+        repo.write(rootKey, latest);
+      }
+      return reply.header("Cache-Control", "no-store").send({ conversations, photos, chapters });
+    });
+
     app.get("/api/yard", async () => {
       const state = read();
       return {
         ...state,
+        foodNames: readFoodNaming(repo).names,
         preview: state.preview
           ? {
               id: state.preview.id,
@@ -505,7 +624,7 @@ export function registerYardRoutes(
         .parse(req.body);
       const cached = repo.read(`yard:interaction:${body.requestId}`, null);
       if (cached) return cached;
-      const chatReply = await prepareYardChat(repo, body.text);
+      const chatReply = await prepareYardChat(repo, body.text, now());
       return applyYardInteraction(
         repo,
         body.requestId,

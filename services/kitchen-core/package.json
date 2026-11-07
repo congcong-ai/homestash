@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@homestash/domain": "workspace:*",
-    "@homestash/database": "workspace:*",
     "@homestash/ai": "workspace:*",
+    "@homestash/database": "workspace:*",
+    "@homestash/domain": "workspace:*",
     "@homestash/protocol": "workspace:*",
-    "@homestash/recipes": "workspace:*"
+    "@homestash/recipes": "workspace:*",
+    "lunar-typescript": "1.8.7",
+    "sharp": "0.35.5"
   }
 }

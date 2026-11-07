@@ -1,0 +1,82 @@
+第二板双读备份、镜像、芯片与容量核对通过，开始写入最小只读镜像
+逐字节回读通过，重启；未格式化SD或清KV
+I IMU: LINE sda_when_scl_low=1 scl_when_sda_low=1 final_scl=1 final_sda=1 io_ok=1 check_ok=1；不代表模块端接线或供电通过
+I IMU: PROFILE configured_pause_us=5 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=12503000
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=12522000
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=12537687
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=12548968
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=12564687
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=12575968
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=12591687
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=12602968
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=12618687
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=12629968
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: PROFILE configured_pause_us=50 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=12658562
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=12673062
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=12694500
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=12708031
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=12729500
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=12743031
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=12764843
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=12779031
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=12800500
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=12814062
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: PROFILE configured_pause_us=500 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=12910218
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=12944687
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=13034937
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=13069937
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=13160062
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=13194687
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=13285250
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=13319718
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=13409968
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=13444687
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: LINE sda_when_scl_low=1 scl_when_sda_low=1 final_scl=1 final_sda=1 io_ok=1 check_ok=1；不代表模块端接线或供电通过
+I IMU: PROFILE configured_pause_us=5 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=24590906
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=24610000
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=24625687
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=24636968
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=24652687
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=24664000
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=24679687
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=24690968
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=5 time_us=24706718
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=5 time_us=24717968
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: PROFILE configured_pause_us=50 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=24746625
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=24761375
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=24783500
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=24797062
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=24818500
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=24832031
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=24853500
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=24867062
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=50 time_us=24888500
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=50 time_us=24902031
+I IMU: 身份检测 matches=0/10；尚未启用运动采样
+I IMU: PROFILE configured_pause_us=500 timer=native_busy_delay
+I IMU: 开漏慢速诊断 idle_scl=1 idle_sda=1 io_ok=1
+I IMU: sample=0 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=24998218
+I IMU: sample=0 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=25032718
+I IMU: sample=1 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=25123000
+I IMU: sample=1 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=25157718
+I IMU: sample=2 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=25247812
+I IMU: sample=2 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=25282718
+I IMU: sample=3 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=25372812
+I IMU: sample=3 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=25407687
+I IMU: sample=4 addr=0x68 transfer_ok=1 WHO_AM_I=0x2e verified=0 phase=complete error=none ack_pre=0 ack_high=0 pause_us=500 time_us=25498062
+I IMU: sample=4 addr=0x69 transfer_ok=0 WHO_AM_I=0x00 verified=0 phase=address-write error=nack ack_pre=1 ack_high=1 pause_us=500 time_us=25532687
+I IMU: 身份检测 matches=0/10；尚未启用运动采样

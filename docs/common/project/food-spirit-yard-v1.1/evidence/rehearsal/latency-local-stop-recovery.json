@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-07T03:53:03.398Z",
+  "firmware": "latency-local-stop-recovery",
+  "flash": {
+    "qio_sha256": "3475fb07f2418a3569df750b38f1bfc8d25feaf4ce537d569d4344719fbda79d",
+    "readback_matches": true,
+    "backup_sha256": "1872d74cfda89f0cada844998350225ad447c5cdb8b4cf543bdd1d05d0a97ed9",
+    "covered_bytes": 4374528
+  },
+  "devices": [
+    {
+      "id": "food-spirit-t5-01",
+      "online": true,
+      "heap": 90056,
+      "uptime": 30015,
+      "network": "已连接：黑客松"
+    }
+  ],
+  "local": {
+    "ready": true,
+    "configured": true
+  },
+  "bootRecovery": "boot archived=1 pending=0",
+  "http200Count": 5,
+  "fatal": false,
+  "tests": 132,
+  "apBytes": 3002660,
+  "apRemaining": 863964,
+  "deviceVoiceStopConfirmed": false,
+  "deviceTtsLatencyConfirmed": false
+}

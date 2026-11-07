@@ -8,12 +8,21 @@ import { createDeviceServer } from "../services/kitchen-core/src/device-server";
 import { pcmWav } from "@homestash/ai/speech";
 import { isYardStop } from "../services/kitchen-core/src/yard-commands";
 test("退下只匹配独立指令", () => {
-  for (const text of ["退下", "退下！", "小冰，退下", "萌小冰请退下吧。"])
+  for (const text of [
+    "退下",
+    "退下！",
+    "，你退下吧。",
+    "小冰，退下",
+    "萌小冰请退下吧。",
+    "好，等，退下。等，嗯。",
+  ])
     assert.equal(isYardStop(text), true, text);
   for (const text of [
     "退下是什么意思",
     "他说退下",
     "不要退下",
+    "你别退下",
+    "他说你退下吧",
     "讲一个关于退下的故事",
   ])
     assert.equal(isYardStop(text), false, text);

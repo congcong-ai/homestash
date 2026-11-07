@@ -57,7 +57,7 @@ export async function collectTtsSse(
 export function spokenText(text: string) {
   return text
     .replace(
-      /（[^）\n]{0,50}(?:眨眼|托腮|门缝|眼睛|清清嗓|被子|白雾)[^）\n]{0,50}）/g,
+      /^\s*（(?:托腮|清清嗓子|轻轻缩回|眨眨眼|眨眼|门缝里的光)[^）\n]{0,100}）\s*/,
       "",
     )
     .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "")
