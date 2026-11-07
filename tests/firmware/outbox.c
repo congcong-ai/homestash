@@ -25,6 +25,11 @@ static void wav(const char *name,size_t bytes,int finalize) {
  assert(!fclose(f));
 }
 static long length(const char *name) {struct stat st;assert(!stat(name,&st));return st.st_size;}
+int hs_photo_archive(const char *,const void *,size_t);
+int hs_photo_next(char id[37],char path[160]);
+int hs_recording_archive(const char *id);
+int hs_recording_next(char id[37],char path[160]);
+int hs_recording_sent(const char *id);
 int main(void) {
  char file[256],ready[256],id[37],done[256];assert(!hs_outbox_init());
  assert(hs_outbox_recover(id)==HS_OUTBOX_EMPTY);
@@ -37,7 +42,9 @@ int main(void) {
  FILE *f=fopen(ready,"rb");unsigned char h[44];assert(fread(h,1,44,f)==44);fclose(f);
  assert(h[40]==0 && h[41]==125); // 32000 字节 PCM
  assert(hs_outbox_recover(id)==0 && !strcmp(id,one));assert(hs_outbox_commit(one)<0);
- assert(!hs_outbox_complete(one));assert(hs_outbox_recover(id)==HS_OUTBOX_EMPTY);
+ unsigned char jpeg[]={255,216,255,217};char photo[160];assert(!hs_photo_archive(two,jpeg,sizeof(jpeg)));assert(!hs_photo_next(id,photo));assert(!strcmp(id,two));assert(length(photo)==4);assert(!hs_recording_sent(two));assert(hs_photo_next(id,photo)==1);
+ assert(!hs_recording_archive(one));assert(!hs_recording_archive(one));char archived[160];assert(!hs_recording_next(id,archived));assert(!strcmp(id,one));assert(length(archived)==32044);assert(!hs_recording_sent(one));assert(hs_recording_next(id,archived)==1);
+ assert(hs_outbox_complete(one)<0);assert(hs_outbox_recover(id)==HS_OUTBOX_EMPTY);
  /* 长度字段写完、尚未 rename 的中断仍恢复原 ID。 */
  wav(file,1024,1);assert(hs_outbox_recover(id)==0 && !strcmp(id,one));assert(!hs_outbox_complete(one));
  /* 已完成但尚未清理的录音不能再进入待上传列表。 */

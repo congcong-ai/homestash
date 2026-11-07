@@ -1,3 +1,5 @@
+import { registerModels, readModels, bailianKey } from "./yard-models";
+import { prepareYardChat } from "./yard-chat";
 import Fastify from "fastify";
 import { householdCalendar } from "./calendar";
 import { registerBackups } from "./backups";
@@ -48,7 +50,11 @@ import { deviceScreen, type DevicePage } from "./device-screen";
 import { registerImageIntake } from "./image-intake";
 import { inventoryAssistant } from "./inventory-assistant";
 import { registerBarcodeIntake } from "./barcode-intake";
-import { applyYardInteraction, registerYardRoutes, yardTtsProfile } from "./yard";
+import {
+  applyYardInteraction,
+  registerYardRoutes,
+  yardTtsProfile,
+} from "./yard";
 const settingsSchema = z.object({
   persona: Persona,
   provider: z.object({
@@ -84,6 +90,7 @@ export function createApp(
   });
   const offlineAccess = registerInternalAuth(app);
   const repo = new SQLiteRepository(path);
+  registerModels(app, repo, path);
   registerYardRoutes(app, repo, resolve(dirname(path), "yard-media"));
   const { current: calendar, change: changeCalendar } = householdCalendar(
     repo,
@@ -851,7 +858,12 @@ export function createApp(
     devices,
     firmware,
     yardTtsProfile: () => yardTtsProfile(repo),
-    yardVoice: (requestId: string, text: string) => applyYardInteraction(repo, requestId, text, false),
+    bailianProfile: () => ({ ...readModels(repo), key: bailianKey(repo) }),
+    prepareYardVoice: async (requestId: string, text: string) => {
+      const cached = repo.read(`yard:interaction:${requestId}`, null);
+      const reply = cached ? undefined : await prepareYardChat(repo, text);
+      return () => applyYardInteraction(repo, requestId, text, false, reply);
+    },
     deviceScreen: (page: DevicePage) => {
       const day = calendar().date;
       return deviceScreen(repo, currentRecipes(day), page, day);

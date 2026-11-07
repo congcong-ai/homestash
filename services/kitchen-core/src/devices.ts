@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { SQLiteRepository } from "@homestash/database";
 import { DomainError } from "@homestash/domain";
@@ -154,5 +154,9 @@ export function registerDevices(app: FastifyInstance, repo: SQLiteRepository) {
     save(records);
     return publicRecord(device);
   });
-  return { list, legacy, authenticate, seen };
+  const discoverySign = (id: string, message: string) => {
+    const device = read().find((d) => d.id === id && d.enabled);
+    return device ? createHmac("sha256", Buffer.from(device.tokenHash, "hex")).update(message).digest("hex") : null;
+  };
+  return { list, legacy, authenticate, seen, discoverySign };
 }

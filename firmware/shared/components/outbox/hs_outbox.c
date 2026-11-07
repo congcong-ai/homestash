@@ -111,3 +111,36 @@ int hs_outbox_replace_cache(const char *temporary,const char *destination) {
   if(hs_fs_remove(destination)<0) return -1;
   return hs_fs_rename(temporary,destination)==0 ? 0 : -1;
 }
+
+/* 独立回忆队列。每段最多1.92MB，总量64MB；满时拒绝新增，不覆盖旧录音。 */
+#define MEMDIR HS_DATA_ROOT "/recordings"
+int hs_recording_archive(const char *id){
+ if(!valid_id(id)||hs_fs_mkdir(MEMDIR))return -1;
+ char source[HS_OUTBOX_PATH_SIZE],target[160],part[160];hs_file_info_t st;
+ if(hs_outbox_path(id,"wav",source,sizeof(source)))return -1;
+ snprintf(target,sizeof(target),MEMDIR "/%s.wav",id);if(!hs_fs_info(target,&st))return 0;
+ hs_dir_t dir=hs_fs_dir_open(MEMDIR);if(!dir)return -1;char entry[256],path[320];int64_t total=0;unsigned count=0;int next;
+ while((next=hs_fs_dir_next(dir,entry,sizeof(entry)))==0){snprintf(path,sizeof(path),MEMDIR "/%s",entry);if(!hs_fs_info(path,&st)&&st.regular){total+=st.size;count++;}}
+ hs_fs_dir_close(dir);if(next<0||count>=1000||hs_fs_info(source,&st)||total+st.size>64*1024*1024)return -1;
+ /* 文件在同一SD卷上原子移交，无需复制PCM或阻塞首个回复。 */
+ (void)part;
+ return hs_fs_rename(source,target);
+
+}
+static int media_next(const char *extension,char id[37],char path[160]){
+ id[0]=0;hs_fs_mkdir(MEMDIR);hs_dir_t dir=hs_fs_dir_open(MEMDIR);if(!dir)return -1;char entry[256];int n;
+ while((n=hs_fs_dir_next(dir,entry,sizeof(entry)))==0){if(strlen(entry)!=40||strcmp(entry+36,extension))continue;memcpy(id,entry,36);id[36]=0;if(!valid_id(id)){id[0]=0;continue;}char sent[160];hs_file_info_t st;snprintf(sent,sizeof(sent),MEMDIR "/%s.sent",id);if(!hs_fs_info(sent,&st)){id[0]=0;continue;}snprintf(path,160,MEMDIR "/%s%s",id,extension);break;}
+ hs_fs_dir_close(dir);return id[0]?0:1;
+}
+int hs_recording_sent(const char *id){if(!valid_id(id))return -1;char path[160];snprintf(path,sizeof(path),MEMDIR "/%s.sent",id);hs_file_t f=hs_fs_open(path,"wb");if(!f)return -1;int e=hs_fs_sync(f);return hs_fs_close(f)||e?-1:0;}
+
+int hs_recording_next(char id[37],char path[160]){return media_next(".wav",id,path);}
+int hs_photo_next(char id[37],char path[160]){return media_next(".jpg",id,path);}
+int hs_photo_archive(const char *id,const void *bytes,size_t size){
+ if(!valid_id(id)||!bytes||size<4||size>350000||hs_fs_mkdir(MEMDIR))return -1;
+ hs_dir_t dir=hs_fs_dir_open(MEMDIR);if(!dir)return -1;char entry[256],scan[320];int64_t total=0;unsigned count=0;hs_file_info_t st;int next;
+ while((next=hs_fs_dir_next(dir,entry,sizeof(entry)))==0){snprintf(scan,sizeof(scan),MEMDIR "/%s",entry);if(!hs_fs_info(scan,&st)&&st.regular){total+=st.size;count++;}}
+ hs_fs_dir_close(dir);if(next<0||count>=1000||total+(int64_t)size>64*1024*1024)return -1;
+ char path[160],part[160];snprintf(path,sizeof(path),MEMDIR "/%s.jpg",id);snprintf(part,sizeof(part),MEMDIR "/%s.part",id);if(!hs_fs_info(path,&st))return -1;
+ hs_file_t f=hs_fs_open(part,"wb");if(!f)return -1;bool ok=hs_fs_write(bytes,size,f)==size;if(hs_fs_sync(f))ok=false;if(hs_fs_close(f))ok=false;return ok?hs_fs_rename(part,path):-1;
+}

@@ -45,3 +45,68 @@
 用户确认S1 TX1/RX1已OFF并重新上电。已构建独立I2C1(P00/P01)诊断，触摸I2C0不变，原厂日志尝试通过shell_set_uart_port迁移至UART0，随后重建115200配置RX。构建通过，归档food-spirit-yard-1.1.0-imu-p00。此版本未完成实机刷写：下载握手持续无响应，未生成刷前备份、未进入擦写，已停止握手并释放串口，等待用户核对TX0/RX0是否仍ON。UART0日志迁移、配置RX与IMU均未验证，不把待刷镜像记为真机成功。
 
 用户确认S1 TX1/RX1 OFF、TX0/RX0 ON。P00/P01版本两次尝试均在手动RESET后完成握手但Flash读取失败：一次460800握手后等待门控、一次115200直接读取；均未擦除/写入，不能标为升级完成。停止同条件重试。请求用户断电、临时断开IMU两根信号线、恢复TX1/RX1 ON，以隔离变量并恢复此前成功的刷写连接。需要注意115200工具单页4096读取超时0.5s余量较小，不以低速失败断言接线问题。后续刷入应采用此前成功的460800并校验，再断电恢复TX1/RX1 OFF与IMU接线。
+
+## 2026-11-06 面包板重接后真机检测
+
+用户确认IMU仍接P00/P01、TX1/RX1 OFF，且今天用面包板重新接线。先执行 scripts/hardware/t5-probe.py，只读4KB与CRC成功：FlashID 0x1765c8，460800，4111字节协议响应完整，约89ms，总过程约0.5秒。不能仅由此前读取失败认定硬件接线有错。
+
+随后完整读取当前8MB备份，写入P00/P01诊断4d356...并逐字节回读通过。但shell_set_uart_port(0)运行时日志迁移版没有UART0输出，用户反馈屏幕黑屏或未正常显示，未认定启动通过。已去除该日志迁移路径：关闭原厂UART1日志，产品hs_log直接tal_uart_write(UART0)，保留115200配置RX；重新实际交叉构建并刷写、逐字节回读通过。此次受影响Flash区域另行备份，完整8MB备份仍保留；未格式化SD。
+
+最终证据目录：data/hardware/builds/tuya-t5-ai/food-spirit-yard-1.1.0-imu-p00-direct/。
+真实输出：I2C1、SCL=P00/SDA=P01，地址0x68 result=0，WHO_AM_I=0x3f，预期0x12，verified=0；0x69 result=-1。UART0 wifi-status返回connected=0、connecting=0、saved=0，命令结果成功。新日志路径已工作，尚待用户确认屏幕。0x68收到应答不等于ICM-20602识别通过；需要检查CS/SA0和重复身份读取/总线时序，未做运动采样、角度标定、开门唤醒验收。已向用户询问面包板CS连接，未要求照片，未将0x3f伪装为通过。
+
+用户确认IMU CS接3.3V。增加imu-probe串口命令，在主循环空闲时读取身份；启动/命令各对0x68/0x69及STOP/重复起始两种方式各测5次。实际构建、写入、回读通过，证据food-spirit-yard-1.1.0-imu-repeat。此次20个样本verified全0：0x68首样本0x00，其余多为0x1f；0x69多为0xff，均result=0。不能将底层返回成功视为真实设备身份通过，也不能由0x3f/0x1f判定芯片型号或损坏。SDK软件I2C的ACK/采样时序仍需排查，未写IMU工作寄存器。
+
+用户新增摄像头已安装：当前固件配置CONFIG_ENABLE_EX_MODULE_CAMERA/ENABLE_CAMERA均未启用，hs_optional.c相机接口仍返回不支持，故目前未实际使用摄像头。锁定SDK含GC2145/OV2640等驱动，但原厂附件型号说明与实际模组必须对照；已询问用户型号/是否原厂，先核实驱动与ID，不将插上排线当作出图成功。
+
+摄像头补充：用户确认另购，排线丝印 ST2606-LXSC 101-V2.0。对该完整丝印及组合关键词的公开检索未找到可靠的厂商规格或传感器对应资料；不能将排线编号当成GC2145/OV2640型号。现场锁定SDK仅发现GC2145、OV2640 DVP传感器驱动，原厂BSP默认注册GC2145；仍不足以确认用户模组兼容。已索取购买商品链接或商品标题中的芯片型号，用于核对传感器、接口引脚和供电；未盲目上电复位或套写寄存器表。
+
+用户确认T5当前所装与旧ESP32-S31成功拍照的是同一只摄像头。结合本仓库camera-retest.md及camera-retest-20261019.json的实机SC101IOT PID=0xda4a记录，将SC101IOT作为当前移植目标；丝印ST2606-LXSC 101-V2.0本身仍不是独立型号证据。旧S31成功不代表当前T5控制通信或DVP收帧已通。
+
+已读T5 lcd-display-sub-board.pdf和主板引脚资料：主板P10是18针DVP引出；子板归档包含LCD/触摸及18针DVP转接信号，不足以确认用户实际摄像头FPC插座与转接方式。已询问实际接入接口标号/转接板，确认电气映射前不盲写GC2145或SC101IOT初始化表，不改触摸总线。锁定TuyaOpen相机层未发现SC101IOT驱动，需从原厂Espressif传感器定义参考移植适配，保留版权和许可，不能直接编译ESP V4L2/BSP到T5。
+
+## T5相机控制通信初测
+
+用户说明同一SC101IOT摄像头通过排线插在屏幕转接板某排线座；实际转接板型号与该座的引脚映射仍未知。新增hs_camera_probe.c，依据Espressif公开sc101iot.h/reg定义，7bit地址0x68，页选择0xf0写0x31，读取0xf7/0xf8拼PID0xda4a；没有复制初始化表或业务代码。启动时在显示触摸线程之前使用BSP候选I2C0(GPIO13/15)检测三次，不触发拍照、不供MCLK、不操作复位或电源脚。公开依据：https://github.com/espressif/esp-video-components/tree/master/esp_cam_sensor/sensors/sc101iot 。
+
+实际交叉构建、备份、刷写、逐字节回读通过，证据food-spirit-yard-1.1.0-camera-probe。相机三次result=-1、pid=0x0000、verified=0；结论仅为当前被动控制通信未读通，不排除缺时钟/复位/实际映射差异，不能宣称相机损坏或不兼容。未采集画面、未进入旧图片识别入库路径。同期IMU0x68多数WHO_AM_I=0x3f，0x69无应答，matches=0/20，仍未识别通过。后续先确认实际屏幕转接板/相机排线插座映射，再增加相机时钟/复位及DVP适配，避免盲切GPIO51影响LCD。
+
+## IMU优先：独立开漏慢速路径实测
+
+用户要求先不处理相机，集中解决IMU。已停止启动相机诊断（仅保留源码，不再调用）。核对锁定SDK软件I2C：数据读SCL拉高后立即采样，ACK轮询发生在SCL拉高前；这是待比较的时序差异，不足以直接断言根因。新增板级独立慢速开漏实现，不改SDK：释放引脚为上拉输入、拉低才输出，50us稳定等待、SCL拉伸超时2ms、SCL高电平采样ACK与数据；检测空闲电平异常就拒绝继续。只写WHO_AM_I寄存器指针，不改IMU模式或强行忽略身份。
+
+新增主机回归tests/imu-probe.test.ts及C/GPIO测试替身：检查不主动驱动高电平、0x12位序、NACK拒绝、GPIO错误传播；实际CLI通过。T5交叉构建、刷写、逐字节回读通过；原厂与当前区域备份保留，未格式化SD。证据food-spirit-yard-1.1.0-imu-opendrain。
+
+实际启动和UART0 imu-probe两轮共10次：idle_scl=1、idle_sda=1、io_ok=1；0x68 transfer_ok=1且WHO_AM_I稳定0x2e；0x69 transfer_ok=0。matches=0，尚未验证ICM-20602身份，未启用运动采样/门事件。结果比SDK路径0x1f/0x3f稳定，但不能把0x2e改成白名单或据此判断模块损坏。TDK手册DS-000176明确0x75只读WHO_AM_I默认0x12。已请求用户抄芯片本体丝印（非PCB型号），无需照片或改线，以确认器件/模块与寄存器协议。
+
+用户补充芯片本体丝印 I62 H77E 4CH。TDK DS-000176第13节明确ICM-20602标记I62，其余为追溯码；保留型号线索，不据此断言身份读取已正确。
+
+新增imu-reset命令：先读WHO/PWR/CONFIG，成功后按PWR_MGMT_1 DEVICE_RESET复位，200ms后复读。实际构建/刷写/回读通过，证据food-spirit-yard-1.1.0-imu-reset。复位前后PWR均0x41、CONFIG均0x80（符合手册默认），WHO保持0x2e；仍未通过身份验收，不做0x2e白名单。
+
+为进一步区分“只有控制通信”与“运动传感器实际工作”，增加手动imu-raw诊断：仅当PWR=0x41、CONFIG=0x80且通信成立时临时PWR写0x01唤醒，限时读取14个原始数据寄存器，日志显式identity_verified=0，结束尝试恢复原PWR；不发门事件、不当作正式兼容。实际构建/刷写/回读已通过，证据food-spirit-yard-1.1.0-imu-raw。已请求用户准备静止/缓慢转动动作，尚未采集动作对照，不将未来结果写成已完成。
+
+## 已确认物理连接缺口：模块排针未焊接
+
+原始运动诊断：首轮仅1组有效，第二组传输失败；该组加速度(-248,16312,-1080)幅值接近1g，不能据一组判运动通过。结束时PWR恢复传输失败，后续imu-reset确认PWR由0x01恢复为0x41。静止采集曾收到11组有效数据，但因最初采集窗口30秒未覆盖明确结束，完整性未通过；持续串口重新采集静止测试再次出现首组传输失败、PWR恢复未确认。因此不能把失败只归因于用户转动。
+
+用户明确确认：IMU排针没有焊接，仅直接插入接触。这是已确认的电气连接可靠性缺口，足以要求停止带电运动和继续刷写；不能保证焊接后所有故障必然消失，但应先焊牢/建立可靠连接再判断芯片或软件。未将0x2e接受为正式ID，未启用门事件。已通知用户先断电，修复模块排针；串口在诊断后关闭，完整固件与日志保留。后续顺序：确认焊接与短路检查→保持P00/P01、TX1/RX1 OFF→imu-probe应稳定0x12→静止/移动原始数据→去抖/门事件标定。无需继续索取芯片型号或盲换GPIO。
+
+## 焊接等待期间：准备无传感器诊断的联网构建
+
+转向Wi-Fi/按键语音联调前，已请求用户先断电并将未焊IMU及所有跳线完整拆离，包括VCC/GND/CS/SA0/FSY/INT/SCL/SDA；不能只拔信号线。确认前本轮只操作电脑端，未打开串口、探测设备或烧录。
+
+新增yard_mode.h，正常构建默认HS_YARD_SENSOR_DIAGNOSTICS=0；CMake只有HOMESTASH_T5_SENSOR_DIAGNOSTICS=1时才纳入IMU/相机探测源码。关闭时启动跳过探测，应用不调用40/42/43动作，串口明确拒绝imu-*/camera-*命令，能力标记未改为可用。Wifi/Core配置主机C回归新增诊断拒绝断言并通过；实际T5交叉构建通过，arm-none-eabi-nm核对libtuyaapp.a没有hs_t5_imu/camera探测符号。镜像和SHA归档food-spirit-yard-1.1.0-wifi-only，尚未刷写。等待模块完整隔离确认后，核对串口再进行联网测试；Wi-Fi凭据留在本机私有配置或本地输入，不进入聊天日志。
+
+用户明确确认IMU已连同所有线完整拆离。已执行wifi-only镜像备份/刷写/逐字节回读通过，原厂/当前完整备份保留，未格式化SD。该镜像不包含IMU/相机诊断符号；并非用故障IMU固件继续联网。
+
+新增scripts/hardware/configure-t5-wifi.py，支持本机终端隐藏密码或macOS隐藏输入框；保存前核对git忽略路径、校验Wi-Fi长度，原子写config.local.json且权限0600，拒绝把密码放命令行/聊天。用户已通过本机输入框填写，工具仅输出保存成功，未打印凭据。尚未向设备发送网络配置。
+
+wifi-only启动后UART0日志为空，115200的wifi-status无响应；镜像回读正确不能视为设备启动/联网成功。已请求用户短按RESET并说明屏幕是否显示小院，待确认。55秒UART0启动采集未收到数据；不能据此假定用户已按RESET。下一步先确认实际重启/屏幕并增加必要启动分段诊断，再发送Wi-Fi配置，不以未联网当成密码问题。此段未改动新会话负责的Web/Core业务。
+
+## Wi-Fi与中文显示真机通过（2026-11-06）
+
+用户短按RESET后屏幕亮起，反馈“小院”等出现错字/方框。复测UART0配置命令恢复响应。仅通过本地读取私有JSON发送wifi-connect，未打印网络名/密码；实机从connecting=1变为connected=1、saved=1，后续多次状态保持连接，证明连接和保存成功。
+
+中文字库hs_font.c仍是旧生成物，早于本轮文案。重新运行scripts/hardware/font.mjs，CLI验证萌小冰/食灵小院及导航、当前正文所需Unicode字形无缺失。联网模式交叉构建、备份、刷写、逐字节回读通过；未格式化SD。用户明确反馈“中文已正常”，不将字形覆盖检查替代真机观察。
+
+最新镜像归档food-spirit-yard-1.1.0-wifi-font，QIO SHA-256 ada8352fedad669016d82bc9dc509e99afefb4722749e6a38c9e7587b423d521。固件升级重启后，不重发Wi-Fi凭据，实机connected=1，验证保存与自动重连。主动wifi-disconnect后connected=0；wifi-reconnect使用板上保存配置，15秒后connected=1。此时saved=0表示本次重连未再次写入凭据，不是已保存配置丢失。imu-probe返回尚未支持，确认正常联网镜像拒绝传感器诊断；IMU仍完全拆离。验收JSON在镜像归档wifi-acceptance.json；脱敏状态日志在/tmp/homestash-v11-audit/wifi-connect-result.log与wifi-reconnect-result.log。Core设备鉴权/心跳、按键语音与真实ASR/TTS仍未验收，不能用Wi-Fi连接成功代替业务联通。

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "mint",
+    "name": "薄荷团子",
+    "body": "BDE8D5",
+    "ink": "244C49",
+    "accent": "F28EA8",
+    "radius": 72,
+    "eyeWidth": 32,
+    "eyeHeight": 44
+  },
+  {
+    "id": "peach",
+    "name": "桃桃方糖",
+    "body": "FFC5D1",
+    "ink": "643D60",
+    "accent": "ED807D",
+    "radius": 30,
+    "eyeWidth": 38,
+    "eyeHeight": 34
+  },
+  {
+    "id": "bean",
+    "name": "暖暖小豆",
+    "body": "FFDA85",
+    "ink": "69482D",
+    "accent": "EF9879",
+    "radius": 90,
+    "eyeWidth": 24,
+    "eyeHeight": 48
+  },
+  {
+    "id": "moon",
+    "name": "晚安月团",
+    "body": "C9CCF6",
+    "ink": "393E70",
+    "accent": "B58FC9",
+    "radius": 52,
+    "eyeWidth": 42,
+    "eyeHeight": 36
+  }
+]

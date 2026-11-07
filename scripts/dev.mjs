@@ -18,7 +18,11 @@ if (lan) {
   delete process.env.HOMESTASH_LAN_ENABLED;
   delete process.env.HOMESTASH_LAN_ADDRESS;
 }
-if (lan) process.env.DEVICE_HOST = "0.0.0.0";
+if (lan) {
+  process.env.DEVICE_HOST = "0.0.0.0";
+  // LAN预演与本项目其他本地Next开发会话使用独立缓存，避免目录锁冲突。
+  process.env.HOMESTASH_NEXT_DIST_DIR ??= ".next-lan";
+}
 const root = process.cwd();
 const webPort = await preparePort(
   Number(process.env.WEB_PORT ?? 3000),
@@ -58,6 +62,7 @@ console.log(
 );
 console.log(`Core：127.0.0.1:${port}；设备接口端口：${devicePort}`);
 if (lan) {
+  console.log(`设备当前直连地址：http://${host}:${devicePort}（热点切换后请更新设备地址）`);
   if (process.platform === "darwin") {
     try {
       const name = execFileSync("scutil", ["--get", "LocalHostName"], {

@@ -31,3 +31,12 @@ firmware/**/config.local.json
 
 # 本次独立界面检查构建缓存
 apps/web/.next-v11-check/
+
+apps/web/.next-lan/
+
+apps/web/.next-rehearsal-check/
+
+apps/web/.next-avatar-check/
+
+# 本地 hackathon 页面开发构建缓存
+apps/web/.next-hackathon/

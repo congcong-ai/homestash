@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-07",
+  "mode": "不触发录音或拍照的自动验收",
+  "stability": {
+    "samples": 4,
+    "duration": "约60秒",
+    "allOnline": true,
+    "heapBytes": [
+      90048,
+      90048,
+      90048,
+      90048
+    ],
+    "noNewInteractionOrPhoto": true
+  },
+  "browser": {
+    "readOnly": true,
+    "memoryId": "21068f36-db0a-4cd4-b0f1-0859db21a46d",
+    "source": "device",
+    "sha256": "6c553860a5bc3b1cc7aab4e0b4ca1e61518be4e34cf2387f1ffc6dc26dc63a92",
+    "dimensions": {
+      "width": 640,
+      "height": 480
+    },
+    "sizes": [
+      {
+        "width": 320,
+        "overflow": false
+      },
+      {
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "width": 480,
+        "overflow": false
+      },
+      {
+        "width": 1440,
+        "overflow": false
+      }
+    ],
+    "pageErrors": []
+  },
+  "authentication": {
+    "missingDeviceCredentials": 401,
+    "unknownWebOrigin": 403
+  },
+  "isolatedBoundaryTests": {
+    "passed": 1,
+    "scenarios": [
+      "跨设备上传拒绝",
+      "损坏JPEG拒绝",
+      "过期请求拒绝",
+      "失败任务迟到上传拒绝"
+    ],
+    "database": "临时库"
+  }
+}

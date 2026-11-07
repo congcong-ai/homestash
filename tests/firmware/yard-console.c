@@ -24,6 +24,10 @@ int main(void){
  assert(yard_console_command("wifi-connect {\"ssid\":\"测试网络\",\"password\":\"test-password\"} garbage")==HS_ERR_INVALID_ARG);
  assert(yard_console_command("wifi-connect {}")==HS_ERR_INVALID_ARG);
  assert(yard_console_command("core-config {\"url\":\"http://host:3101\",\"deviceId\":\"t5-kitchen\",\"token\":\"12345678901234567890123456789012\"}")==HS_OK);
+ assert(yard_console_command("imu-probe")==HS_ERR_NOT_SUPPORTED);
+ assert(yard_console_command("imu-reset")==HS_ERR_NOT_SUPPORTED);
+ assert(yard_console_command("imu-raw")==HS_ERR_NOT_SUPPORTED);
+ assert(yard_console_command("camera-probe")==HS_ERR_NOT_SUPPORTED);
  assert(yard_console_command("wifi-status")==HS_OK);assert(yard_console_command("invalid")==HS_ERR_NOT_SUPPORTED);
  puts("通过：Wi-Fi/Core 配置解析、remember 语义、错误字段和尾随数据拒绝");return 0;
 }

@@ -1,0 +1,24 @@
+{
+  "time": "2026-11-07T02:59:55.164Z",
+  "flash": {
+    "qio_sha256": "79c89ffc44c92a7a7d2c4c4055c70bf21578b82296a0e2a33b16c50631795990",
+    "readback_matches": true,
+    "backup_sha256": "632e39ca07ca4b4dd9bdc7f4f964949d77f1849c4b32f17be899d727fc6027c1",
+    "covered_bytes": 4374528
+  },
+  "devices": [
+    {
+      "id": "food-spirit-t5-01",
+      "online": true,
+      "heap": 90008,
+      "uptime": 60022,
+      "network": "已连接：黑客松"
+    }
+  ],
+  "tests": 129,
+  "apBytes": 3002452,
+  "bootFatal": false,
+  "hardwareUIConfirmed": true,
+  "voiceStopConfirmed": false,
+  "hardwareUIObservation": "用户确认正常：底部三按钮、激活停止图标显隐、点击停止声音与口型"
+}

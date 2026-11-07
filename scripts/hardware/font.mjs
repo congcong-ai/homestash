@@ -27,6 +27,12 @@ for (const dir of [
   "services/kitchen-core/src",
 ])
   scan(resolve(root, dir));
+// GB2312 一级、二级汉字覆盖动态回复；仓库新增文案仍自动补入。
+// 6763 个汉字，28px/2bpp；字形常驻只读 Flash，不在启动时复制到 PSRAM。
+for(let high=0xb0;high<=0xf7;high++)for(let low=0xa1;low<=0xfe;low++){
+  const ch=new TextDecoder("gb18030").decode(Uint8Array.of(high,low));
+  if(/^[\u4e00-\u9fff]$/u.test(ch))symbols+=ch;
+}
 symbols = [...new Set(symbols.match(/[^\u0000-\u007f]/gu) ?? [])].join("");
 const result = spawnSync(
   "pnpm",
@@ -42,7 +48,7 @@ const result = spawnSync(
     "--size",
     "28",
     "--bpp",
-    "4",
+    "2",
     "--format",
     "lvgl",
     "--no-compress",

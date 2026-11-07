@@ -1,0 +1,50 @@
+{
+  "日期": "2026-11-06",
+  "镜像": "food-spirit-yard-1.1.0-greeting-rotation-paced",
+  "QIO_SHA256": "9730f1cf975de1509836a18d175e763a9489fadffd1547c46ca70abeee0742b0",
+  "刷写依据": "声音会话备份、写入与逐字节回读归档；本会话复核当前产物SHA一致，未重复刷写",
+  "真实设备采集": {
+    "首次字节数": 30164,
+    "重拍字节数": 30110,
+    "尺寸": [
+      640,
+      480
+    ],
+    "旧预览HTTP": 404,
+    "放弃后HTTP": 404
+  },
+  "用户确认主屏点击": true,
+  "主屏实拍保存": {
+    "id": "21068f36-db0a-4cd4-b0f1-0859db21a46d",
+    "source": "device",
+    "bytes": 30290,
+    "sha256": "6c553860a5bc3b1cc7aab4e0b4ca1e61518be4e34cf2387f1ffc6dc26dc63a92",
+    "refreshVisible": true,
+    "coreRestartPreserved": true,
+    "webImageDecoded": true,
+    "dimensions": [
+      640,
+      480
+    ],
+    "pageErrors": [],
+    "deviceRestartPreserved": true,
+    "postRestartDimensions": [
+      640,
+      480
+    ]
+  },
+  "照片未提交或输出聊天": true,
+  "CLI通过数": 7,
+  "设备断电重启": "2026-11-07用户确认已重启；实际设备重新在线，新热点下照片状态连续HTTP200；回忆图像SHA一致且浏览器完整解码",
+  "未验收": [
+    "明确语音拍照真实ASR触发",
+    "播放中点拍照仲裁真机",
+    "缺相机与取帧失败真机拔插（已测替身）"
+  ],
+  "重启后网络": {
+    "SSID": "peter-mate40",
+    "电脑IP": "192.168.43.101",
+    "设备请求Core": "192.168.43.101:3101",
+    "照片状态HTTP": 200
+  }
+}

@@ -1,7 +1,18 @@
 "use client";
 import Link from "next/link";
+import { OfflinePhotos } from "./offline-photos";
+import { ModelPanel } from "./model-panel";
+import { FoodPanel } from "./food-panel";
+import { AvatarPanel } from "./avatar-panel";
+import { createRequestId } from "@homestash/api-client";
 import type { ManagedDevice } from "@homestash/protocol";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  type FormEvent,
+} from "react";
 import styles from "./yard.module.css";
 
 type Memory = {
@@ -13,6 +24,7 @@ type Memory = {
   photoUrl: string;
 };
 type Yard = {
+  photoJob: { status: string; expiresAt: number } | null;
   consent: { token: string; expiresAt: number; accepted: boolean } | null;
   role: {
     name: string;
@@ -64,7 +76,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(data.error ?? `请求失败（${response.status}）`);
   return data as T;
 }
-const rid = () => crypto.randomUUID();
+const rid = createRequestId;
 const capabilityNames: Record<string, string> = {
   audio_input: "麦克风",
   audio_output: "扬声器",
@@ -79,8 +91,74 @@ const capabilityNames: Record<string, string> = {
   timer_sleep: "定时唤醒",
 };
 
+type StoryRules = {
+  version: number;
+  rules: {
+    id: string;
+    enabled: boolean;
+    trigger: "wake" | "keyword";
+    keyword: string;
+    line: string;
+    mood: "happy" | "curious" | "rest";
+    keepsake: "none" | "first-story";
+  }[];
+};
 export default function YardPage() {
+  const [story, setStory] = useState<StoryRules | null>(null);
+  const [storyMessage, setStoryMessage] = useState("");
+  const [storyBusy, setStoryBusy] = useState(false);
+  const [trial, setTrial] = useState<{
+    id: string;
+    text: string;
+    reply: string;
+  } | null>(null);
+  const saveReplies = async (keyword?: string, ruleId?: string) => {
+    if (!story || storyBusy) return;
+    setStoryBusy(true);
+    setStoryMessage("");
+    setTrial(null);
+    let saved = false;
+    try {
+      const next = await api<StoryRules>("/api/yard/rules", {
+        method: "PUT",
+        body: JSON.stringify(story),
+      });
+      setStory(next);
+      saved = true;
+      setStoryMessage("已保存，下次聊天就会使用这些回答。");
+      if (keyword && ruleId) {
+        const result = await api<{ reply: string }>("/api/yard/interactions", {
+          method: "POST",
+          body: JSON.stringify({
+            requestId: createRequestId(),
+            text: keyword,
+            simulated: true,
+          }),
+        });
+        setTrial({ id: ruleId, text: keyword, reply: result.reply });
+        await refresh();
+      }
+    } catch (error) {
+      setStoryMessage(
+        `${saved ? "设置已保存，但试聊未完成：" : "保存失败："}${(error as Error).message}`,
+      );
+    } finally {
+      setStoryBusy(false);
+    }
+  };
+  useEffect(() => {
+    void api<StoryRules>("/api/yard/rules")
+      .then(setStory)
+      .catch((e: Error) => setStoryMessage(e.message));
+  }, []);
+
   const [yard, setYard] = useState<Yard | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const latestTurnId = yard?.interactions.at(-1)?.id;
+  useEffect(() => {
+    if (chatRef.current)
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [latestTurnId]);
   const [devices, setDevices] = useState<ManagedDevice[]>([]);
   const [deviceError, setDeviceError] = useState("");
   const [checkedAt, setCheckedAt] = useState("");
@@ -90,7 +168,7 @@ export default function YardPage() {
   const [name, setName] = useState("");
   const [line, setLine] = useState("");
   const [token, setToken] = useState("");
-  const [title, setTitle] = useState("今天的小院合影");
+  const [title, setTitle] = useState("和小冰聊聊天合影");
   const [testMode, setTestMode] = useState(false);
   const [ttsAudio, setTtsAudio] = useState("");
   const [tts, setTts] = useState({
@@ -105,7 +183,12 @@ export default function YardPage() {
     setToken(next.consent?.token ?? "");
     setName(next.role.name);
     setLine(next.role.line);
-    setTts(next.tts);
+    setTts({
+      provider: next.tts.provider,
+      model: next.tts.model,
+      voice: next.tts.voice,
+      speed: next.tts.speed,
+    });
   }, []);
   const refreshDevices = useCallback(async () => {
     try {
@@ -129,9 +212,9 @@ export default function YardPage() {
       void api<Yard>("/api/yard")
         .then((next) => setYard(next))
         .catch(() => {
-          setError("小院状态更新失败，请检查服务连接后刷新页面。");
+          setError("家庭空间状态更新失败，请检查服务连接后刷新页面。");
         });
-    }, 15000);
+    }, 2000);
     return () => clearInterval(timer);
   }, []);
   useEffect(
@@ -177,7 +260,7 @@ export default function YardPage() {
       const response = await fetch("/api/yard/tts/preview", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: "莓香一到，小院就热闹起来啦。" }),
+        body: JSON.stringify({ text: "莓莓在，甜甜的陪伴就在。" }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -198,6 +281,10 @@ export default function YardPage() {
         body: JSON.stringify({ requestId: rid() }),
       });
       setToken(result.token);
+      await api("/api/yard/photo/consent", {
+        method: "POST",
+        body: JSON.stringify({ token: result.token, accepted: true }),
+      });
     });
   const consent = async (accepted: boolean) =>
     run(async () => {
@@ -263,14 +350,14 @@ export default function YardPage() {
     setToken("");
   };
   if (!yard && !error)
-    return <main className={styles.loading}>正在打开食灵小院…</main>;
+    return <main className={styles.loading}>正在打开暖暖的家…</main>;
   return (
     <main className={styles.page}>
       <header className={styles.header}>
         <Link className={styles.brand} href="/app/yard">
           <span className={styles.brandIcon}>✳</span>
           <span>
-            萌小冰 <small>食灵小院</small>
+            萌小冰 <small>暖暖的家</small>
           </span>
         </Link>
         <div className={styles.headerActions}>
@@ -280,38 +367,38 @@ export default function YardPage() {
           </a>
         </div>
       </header>
+
       <div className={styles.content}>
-        <nav className={styles.navigation} aria-label="小院后台导航">
-          <a href="#overview">小院概览</a>
+        <nav className={styles.navigation} aria-label="家庭空间导航">
+          <a href="#overview">家的日常</a>
           <a href="#devices">我的设备</a>
           <a href="#interaction">互动记录</a>
-          <a href="#roles">食灵角色</a>
+          <a href="#roles">萌萌伙伴</a>
           <a href="#memories">家庭回忆</a>
           <a href="#settings">语音与设置</a>
+          <a href="#avatar-settings">表情与吃饭互动</a>
         </nav>
         <section id="overview" className={styles.hero}>
           <div>
-            <span className={styles.eyebrow}>家里的一方小院</span>
+            <span className={styles.eyebrow}>有你在，家就暖暖的</span>
             <h1>
-              家门一开，
+              你回来啦，
               <br />
-              <em>小院醒来了。</em>
+              <em>莓莓等你好久啦。</em>
             </h1>
-            <p>和食灵说说今天的厨房故事，把一起经历的小事，留成家的回忆。</p>
+            <p>和萌萌伙伴聊聊今天，分享一口好吃的，把小日子过得甜甜的。</p>
             <div className={styles.heroTags}>
-              <span>✦ 共享小院</span>
-              <span>✦ 一起养成食灵</span>
-              <span>✦ 拍照先征得同意</span>
+              <span>✦ 一家人在一起</span>
+              <span>✦ 陪伙伴慢慢长大</span>
+              <span>✦ 点一下，留住小瞬间</span>
             </div>
           </div>
-          <div className={styles.heroArt} aria-label="草莓食灵插画">
+          <div className={styles.heroArt} aria-label="草莓伙伴莓莓插画">
             <div className={styles.sun} />
             <div className={styles.leaf}>✦</div>
             <div className={styles.berry}>🍓</div>
             <div className={styles.house}>⌂</div>
-            <div className={styles.artCaption}>
-              莓香一到，小院就热闹起来啦。
-            </div>
+            <div className={styles.artCaption}>莓莓在，甜甜的陪伴就在。</div>
           </div>
         </section>
         {error && (
@@ -320,6 +407,185 @@ export default function YardPage() {
             <button onClick={() => setError("")}>知道了</button>
           </div>
         )}
+        <section className={`${styles.card} ${styles.storyCard}`}>
+          <h2>教小冰怎么接话</h2>
+          <p>
+            给小冰教一句暖暖的回答。设置好后，聊天时你说到这句话，小冰就会这样回应你。
+          </p>
+          <div className={styles.replyExample}>
+            <strong>比如，你说「我回来啦」</strong>
+            <p>小冰回答：「欢迎回家！今天辛苦啦，抱抱你。」</p>
+            <small>
+              可以写一句话，也可以只写几个字。聊天内容包含这些字时就会匹配；多条同时匹配时，使用排在前面的回答。
+            </small>
+          </div>
+          <form
+            className={styles.storyForm}
+            onChange={() => {
+              setTrial(null);
+              setStoryMessage("");
+            }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveReplies();
+            }}
+          >
+            <fieldset disabled={storyBusy} className={styles.replyFields}>
+              {story?.rules.map((rule, index) => (
+                <fieldset key={rule.id}>
+                  <legend>
+                    {rule.trigger === "wake"
+                      ? "见面时，小冰先说什么"
+                      : "你说一句，小冰回一句"}
+                  </legend>
+                  <label>
+                    使用这句回答
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={(e) =>
+                        setStory({
+                          ...story,
+                          rules: story.rules.map((r, i) =>
+                            i === index
+                              ? { ...r, enabled: e.target.checked }
+                              : r,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  {rule.trigger === "wake" && (
+                    <p className={styles.replyHelp}>
+                      设备唤醒时使用的招呼语。网页聊天不会自动播放；开门自动招呼还需要设备传感器支持。
+                    </p>
+                  )}
+                  {rule.trigger === "keyword" && (
+                    <label>
+                      当你说到……
+                      <input
+                        value={rule.keyword}
+                        required
+                        placeholder="比如：我回来啦"
+                        maxLength={30}
+                        onChange={(e) =>
+                          setStory({
+                            ...story,
+                            rules: story.rules.map((r, i) =>
+                              i === index
+                                ? { ...r, keyword: e.target.value }
+                                : r,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                  )}
+                  <label>
+                    {rule.trigger === "wake" ? "小冰的招呼语" : "小冰就回答……"}
+                    <input
+                      value={rule.line}
+                      placeholder="比如：欢迎回家！今天辛苦啦，抱抱你。"
+                      maxLength={80}
+                      required
+                      onChange={(e) =>
+                        setStory({
+                          ...story,
+                          rules: story.rules.map((r, i) =>
+                            i === index ? { ...r, line: e.target.value } : r,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  {rule.trigger === "keyword" && (
+                    <details className={styles.replyMore}>
+                      <summary>更多设置（可以不改）</summary>
+                      <label>
+                        回答后，小冰的心情
+                        <select
+                          value={rule.mood}
+                          onChange={(e) =>
+                            setStory({
+                              ...story,
+                              rules: story.rules.map((r, i) =>
+                                i === index
+                                  ? {
+                                      ...r,
+                                      mood: e.target.value as typeof rule.mood,
+                                    }
+                                  : r,
+                              ),
+                            })
+                          }
+                        >
+                          <option value="happy">开心</option>
+                          <option value="curious">好奇</option>
+                          <option value="rest">休息</option>
+                        </select>
+                      </label>
+                      <label>
+                        这次聊天要点亮纪念吗
+                        <select
+                          value={rule.keepsake}
+                          onChange={(e) =>
+                            setStory({
+                              ...story,
+                              rules: story.rules.map((r, i) =>
+                                i === index
+                                  ? {
+                                      ...r,
+                                      keepsake: e.target
+                                        .value as typeof rule.keepsake,
+                                    }
+                                  : r,
+                              ),
+                            })
+                          }
+                        >
+                          <option value="none">不用啦</option>
+                          <option value="first-story">
+                            我们的第一个故事（仅一次）
+                          </option>
+                        </select>
+                      </label>
+                      <small>
+                        纪念是一个互动标记，不会保存照片或家庭故事。
+                      </small>
+                    </details>
+                  )}
+                  {rule.trigger === "keyword" && (
+                    <div className={styles.replyTrial}>
+                      <button
+                        type="button"
+                        disabled={!rule.enabled || !rule.keyword.trim()}
+                        onClick={(e) => {
+                          if (e.currentTarget.form?.reportValidity())
+                            void saveReplies(rule.keyword.trim(), rule.id);
+                        }}
+                      >
+                        保存并试一试
+                      </button>
+                      <small>
+                        会保存本页全部设置，并发送一次网页试聊；会留下互动记录，也可能点亮纪念。
+                      </small>
+                      {trial?.id === rule.id && (
+                        <div role="status" className={styles.replyExample}>
+                          <p>你说：{trial.text}</p>
+                          <p>小冰回答：{trial.reply}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </fieldset>
+              ))}
+            </fieldset>
+            <button disabled={!story || storyBusy} type="submit">
+              {storyBusy ? "正在保存…" : "保存回答"}
+            </button>
+            <p role="status">{storyMessage}</p>
+          </form>
+        </section>
         <section id="devices" className={`${styles.card} ${styles.devices}`}>
           <div className={styles.cardHeading}>
             <div>
@@ -428,14 +694,14 @@ export default function YardPage() {
               <div className={styles.cardHeading}>
                 <div>
                   <span className={styles.kicker}>01 · 自然接话</span>
-                  <h2>今天的小院</h2>
+                  <h2>和小冰聊聊天</h2>
                 </div>
-                <span className={styles.simTag}>网页模拟器</span>
+                <span className={styles.simTag}>文字试聊</span>
               </div>
               <p className={styles.subtle}>
-                设备开门唤醒目前待传感器接入；这里的文字互动会明确标记为模拟事件。
+                在这里输入你想对冰箱贴说的话，看看小冰怎么回答。网页和设备使用同一套回复逻辑；这里不测试麦克风和扬声器，也不会让冰箱贴出声。
               </p>
-              <div className={styles.chat}>
+              <div className={styles.chat} ref={chatRef}>
                 <div className={styles.botBubble}>
                   <span>✿ 萌小冰</span>
                   <p>{yard.role.line}</p>
@@ -445,7 +711,7 @@ export default function YardPage() {
                     <div className={styles.userBubble}>{turn.text}</div>
                     <div className={styles.botBubble}>
                       <span>
-                        ✿ 萌小冰 · {turn.simulated ? "网页模拟" : "设备互动"}
+                        ✿ 萌小冰 · {turn.simulated ? "文字试聊" : "设备互动"}
                       </span>
                       <p>{turn.reply}</p>
                     </div>
@@ -463,8 +729,8 @@ export default function YardPage() {
                   value={text}
                   maxLength={1000}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="试试：今天买了草莓 / 叫它莓老板"
-                  aria-label="输入对食灵说的话"
+                  placeholder="聊聊今天：买了什么，或有什么开心事"
+                  aria-label="输入对萌萌伙伴说的话"
                 />
                 <button disabled={busy || !text.trim()}>
                   说给小冰听 <span>↗</span>
@@ -475,7 +741,7 @@ export default function YardPage() {
               <div className={styles.cardHeading}>
                 <div>
                   <span className={styles.kicker}>02 · 一起长大</span>
-                  <h2>我们的食灵</h2>
+                  <h2>家里的萌萌伙伴</h2>
                 </div>
                 <span className={styles.keepsake}>
                   ✦ {yard.role.keepsakeCount} 枚纪念
@@ -487,8 +753,8 @@ export default function YardPage() {
                   <strong>{yard.role.name}</strong>
                   <p>
                     {yard.role.createdAt
-                      ? "已经在小院安家"
-                      : "等一句草莓故事来唤醒"}
+                      ? "已经成为家里的一员啦"
+                      : "聊聊草莓，认识莓莓吧"}
                   </p>
                 </div>
               </div>
@@ -513,7 +779,7 @@ export default function YardPage() {
                   />
                 </label>
                 <label>
-                  小院招呼语
+                  伙伴的悄悄话
                   <input
                     value={line}
                     maxLength={120}
@@ -525,7 +791,7 @@ export default function YardPage() {
               <div className={styles.culture}>
                 <span>今日小知识 · 原创叙事</span>
                 <p>
-                  “草莓食灵说，酸甜的果香像春末的一阵小风。”这是角色台词，不记录现实食材，也不代表家庭往事。
+                  “莓莓说：今天也要甜甜的，开心多一点点。”这是角色台词，不记录现实食材，也不代表家庭往事。
                 </p>
               </div>
             </section>
@@ -536,35 +802,27 @@ export default function YardPage() {
                   <h2>留一张合影</h2>
                 </div>
                 <span className={styles.statusTag}>
-                  {yard.capabilities.cameraReady ? "相机就绪" : "相机未接通"}
+                  {yard.capabilities.cameraReady
+                    ? "近期采集成功"
+                    : "待采集验证"}
                 </span>
               </div>
               <p className={styles.subtle}>{yard.capabilities.cameraReason}</p>
-              {!token ? (
-                <button
-                  className={styles.secondaryButton}
-                  disabled={busy}
-                  onClick={invite}
-                >
-                  发起一次拍照邀请
-                </button>
-              ) : (
-                <div className={styles.consent}>
-                  <strong>这次邀请已发出（90 秒有效）</strong>
-                  <div>
-                    <button disabled={busy} onClick={() => void consent(true)}>
-                      我答应了
-                    </button>
-                    <button
-                      className={styles.quietButton}
-                      disabled={busy}
-                      onClick={() => void consent(false)}
-                    >
-                      这次先不了
-                    </button>
-                  </div>
-                </div>
-              )}
+              <p role="status">
+                在小冰主屏点击「拍照」即可直接采集，预览会自动出现在这里。
+              </p>
+              <p role="status">
+                {yard.photoJob?.status === "capturing"
+                  ? yard.photoJob.expiresAt > Date.now()
+                    ? "正在拍摄或传输，请稍候…"
+                    : "本次拍摄已超时，请重试。"
+                  : yard.photoJob?.status === "failed"
+                    ? "拍摄未完成，请检查相机与网络。"
+                    : ""}
+              </p>
+              <button disabled={busy} onClick={() => void consent(false)}>
+                取消当前拍摄 / 放弃预览
+              </button>
               {yard.capabilities.cameraReady && (
                 <p className={styles.available}>相机功能已由设备报告就绪。</p>
               )}
@@ -604,7 +862,7 @@ export default function YardPage() {
                         })
                       }
                     >
-                      重拍并重新确认
+                      重拍
                     </button>
                     <button
                       className={styles.quietButton}
@@ -627,10 +885,12 @@ export default function YardPage() {
                 }
               >
                 <summary>软件联调工具（模拟）</summary>
-                <p>
-                  仅用于验证许可、预览、重拍、保存和删除流程，不会调用 T5
-                  摄像头。
-                </p>
+                <p>仅用于验证预览、保存和删除流程，不会调用 T5 摄像头。</p>
+                {!token && (
+                  <button disabled={busy} onClick={invite}>
+                    创建模拟测试
+                  </button>
+                )}
                 {token && (
                   <button
                     className={styles.testButton}
@@ -649,7 +909,7 @@ export default function YardPage() {
               <div className={styles.cardHeading}>
                 <div>
                   <span className={styles.kicker}>04 · 温柔一点</span>
-                  <h2>小院设置</h2>
+                  <h2>贴心小设置</h2>
                 </div>
               </div>
               <div className={styles.settingRow}>
@@ -665,7 +925,8 @@ export default function YardPage() {
                       api("/api/yard/settings", {
                         method: "PATCH",
                         body: JSON.stringify({
-                          ...yard.settings,
+                          listening: yard.settings.listening,
+                          silent: yard.settings.silent,
                           proactiveVoice: e.target.checked,
                         }),
                       }),
@@ -686,7 +947,8 @@ export default function YardPage() {
                       api("/api/yard/settings", {
                         method: "PATCH",
                         body: JSON.stringify({
-                          ...yard.settings,
+                          proactiveVoice: yard.settings.proactiveVoice,
+                          silent: yard.settings.silent,
                           listening: e.target.checked,
                         }),
                       }),
@@ -707,7 +969,8 @@ export default function YardPage() {
                       api("/api/yard/settings", {
                         method: "PATCH",
                         body: JSON.stringify({
-                          ...yard.settings,
+                          proactiveVoice: yard.settings.proactiveVoice,
+                          listening: yard.settings.listening,
                           silent: e.target.checked,
                         }),
                       }),
@@ -839,7 +1102,7 @@ export default function YardPage() {
             <div className={styles.cardHeading}>
               <div>
                 <span className={styles.kicker}>05 · 家庭共同记忆</span>
-                <h2>小院回忆卡</h2>
+                <h2>暖暖回忆卡</h2>
               </div>
               <span className={styles.pill}>只保存用户确认的内容</span>
             </div>
@@ -854,7 +1117,7 @@ export default function YardPage() {
                         {memory.source === "simulated" ? " · 模拟" : " · 设备"}
                       </small>
                       <h3>{memory.title}</h3>
-                      <p>和 {memory.roleName} 的一段小院回忆</p>
+                      <p>和 {memory.roleName} 的一段暖暖的回忆</p>
                       <button
                         className={styles.deleteButton}
                         onClick={() =>
@@ -874,7 +1137,7 @@ export default function YardPage() {
             ) : (
               <div className={styles.emptyMemory}>
                 <span>♡</span>
-                <p>小院还没有保存的回忆。</p>
+                <p>第一张合影，等我们一起留下。</p>
                 <small>
                   只有明确同意并确认保存后，照片才会留在本机私有目录。
                 </small>
@@ -882,9 +1145,15 @@ export default function YardPage() {
             )}
           </section>
         )}
+        <div id="avatar-settings">
+          <AvatarPanel />
+          <FoodPanel />
+          <ModelPanel />
+          <OfflinePhotos />
+        </div>
         <footer className={styles.footer}>
-          <span>食灵小院 V1.1 · 新产品状态独立保存</span>
-          <a href="#overview">回到小院顶部 ↑</a>
+          <span>暖暖的家 V1.1 · 新产品状态独立保存</span>
+          <a href="#overview">回到顶部 ↑</a>
         </footer>
       </div>
     </main>

@@ -16,4 +16,8 @@ hs_err_t hs_display_suspend(void);
 hs_err_t hs_display_resume(void);
 
 void hs_display_backend(bool connected);
+typedef enum { HS_FACE_IDLE,HS_FACE_WAKE,HS_FACE_LISTEN,HS_FACE_THINK,HS_FACE_SPEAK,HS_FACE_HAPPY,HS_FACE_SURPRISE,HS_FACE_LOVE,HS_FACE_SLEEP,HS_FACE_ANGRY,HS_FACE_PHOTO,HS_FACE_ERROR } hs_face_state_t;
 void hs_display_dialogue(int state);
+void hs_t5_avatar_config(unsigned revision,int theme,int fullscreen);
+
+void hs_t5_display_active(bool active);

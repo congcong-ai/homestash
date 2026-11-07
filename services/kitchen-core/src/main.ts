@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { startLanDiscovery } from "./lan-discovery";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
@@ -25,14 +26,23 @@ if (process.env.HOMESTASH_LAN_ENABLED === "true") {
 }
 const core = createApp(path);
 const { app } = core;
-const speech = speechFromEnv(core.yardTtsProfile);
+const speech = speechFromEnv(core.yardTtsProfile, core.bailianProfile);
 app.post("/api/yard/tts/preview", { bodyLimit: 4096 }, async (req, reply) => {
-  const body = z.object({ text: z.string().trim().min(1).max(120) }).strict().parse(req.body);
+  const body = z
+    .object({ text: z.string().trim().min(1).max(120) })
+    .strict()
+    .parse(req.body);
   try {
-    const audio = await speech.synthesize(body.text, { requestId: crypto.randomUUID() });
+    const audio = await speech.synthesize(body.text, {
+      requestId: crypto.randomUUID(),
+    });
     return reply.type("audio/wav").send(audio);
   } catch {
-    return reply.code(503).send({ error: "语音试听失败，请检查当前 Provider 配置。业务状态没有改变。" });
+    return reply
+      .code(503)
+      .send({
+        error: "语音试听失败，请检查当前 Provider 配置。业务状态没有改变。",
+      });
   }
 });
 const deviceServer = createDeviceServer(core, speech, {
@@ -50,10 +60,21 @@ if (deviceServer)
     port: Number(process.env.DEVICE_PORT ?? 3101),
     host: process.env.DEVICE_HOST ?? "127.0.0.1",
   });
+const discovery =
+  process.env.HOMESTASH_LAN_ENABLED === "true"
+    ? await startLanDiscovery({
+        port: Number(process.env.DEVICE_PORT ?? 3101),
+        sign: core.devices.discoverySign,
+      }).catch(() => {
+        console.warn("局域网发现端口暂不可用，已有HTTP服务继续运行");
+        return undefined;
+      })
+    : undefined;
 console.log(`HomeStash Core 已启动：${app.listeningOrigin}`);
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
     void (async () => {
+      discovery?.close();
       await deviceServer?.close();
       await app.close();
       process.exit(0);

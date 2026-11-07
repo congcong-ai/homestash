@@ -30,7 +30,13 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     ".next-v11-check/types/**/*.ts",
-    ".next-v11-check/dev/types/**/*.ts"
+    ".next-v11-check/dev/types/**/*.ts",
+    ".next-lan/types/**/*.ts",
+    ".next-lan/dev/types/**/*.ts",
+    ".next-rehearsal-check/types/**/*.ts",
+    ".next-rehearsal-check/dev/types/**/*.ts",
+    ".next-avatar-check/types/**/*.ts",
+    ".next-avatar-check/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

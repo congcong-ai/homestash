@@ -1,0 +1,116 @@
+.panel {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 28px;
+  padding: 28px;
+  background: #f3f7f6;
+  border-radius: 24px;
+  color: #244c49;
+  margin: 24px 0;
+}
+.panel h2 {
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+.panel p {
+  line-height: 1.6;
+}
+.panel button,
+.panel select {
+  min-height: 44px;
+  border: 2px solid #bdd4ce;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: white;
+  color: #244c49;
+  cursor: pointer;
+}
+.panel button[aria-pressed="true"] {
+  background: #244c49;
+  color: white;
+}
+.panel button:focus-visible {
+  outline: 3px solid #d06a8a;
+  outline-offset: 3px;
+}
+.themes,
+.states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.stage {
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.stage svg {
+  display: block;
+  width: 100%;
+}
+.body {
+  animation: breathe 2s ease-in-out infinite;
+  transform-origin: 240px 190px;
+}
+.eye,
+.pupil {
+  animation: blink 4.2s infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stage[data-state="4"] .mouth {
+  animation: talk 0.4s steps(4) infinite;
+  transform-origin: 240px 211px;
+}
+.stage[data-state="3"] .pupil {
+  animation: think 2s ease-in-out infinite;
+}
+.stage[data-state="1"] .body,
+.stage[data-state="9"] .body {
+  animation: wiggle 0.6s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes talk {
+  50% {
+    transform: scaleY(3);
+  }
+}
+@keyframes think {
+  50% {
+    transform: translateX(5px);
+  }
+}
+@keyframes wiggle {
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+@media (max-width: 700px) {
+  .panel {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel * {
+    animation: none !important;
+  }
+}

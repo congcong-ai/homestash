@@ -14,7 +14,8 @@ static void (*dispatch)(hs_action_t);
 static void button_poll(void *arg) {
   (void)arg;
   bool down = false;
-  int64_t changed = 0;
+  int64_t changed = 0, pressed = 0;
+  bool held = false;
   for (;;) {
     TUYA_GPIO_LEVEL_E level;
     if (tkl_gpio_read(TUYA_GPIO_NUM_12, &level) == OPRT_OK) {
@@ -22,9 +23,12 @@ static void button_poll(void *arg) {
       if (next != down && hs_time_us() - changed >= 50000) {
         down = next;
         changed = hs_time_us();
-        if (down)
-          dispatch(HS_ACTION_VOICE_TOGGLE);
+        if (down) { pressed = changed; held = false; }
+        else if (!held) dispatch(HS_ACTION_VOICE_TOGGLE);
       }
+    }
+    if (down && !held && hs_time_us()-pressed >= 1200000) {
+      held = true; dispatch(HS_ACTION_PHOTO); /* 小院将值3解释为取消，不触发拍照。 */
     }
     hs_delay_ms(10);
   }

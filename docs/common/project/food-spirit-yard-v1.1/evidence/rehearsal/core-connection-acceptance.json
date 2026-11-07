@@ -1,0 +1,34 @@
+{
+  "verification": "真实T5设备请求，非主机模拟心跳",
+  "qio_sha256": "ff0f11fd460d39f71e20918ad994fc404b6cbf371965a1760ed7b8b86a6a3ca9",
+  "screen_http_status": 200,
+  "devices": [
+    {
+      "id": "food-spirit-t5-01",
+      "boardId": "tuya-t5-ai-board-v1.02",
+      "online": true,
+      "lastSeen": "2026-11-06T09:18:07.362Z",
+      "report": {
+        "screen": "萌小冰·食灵小院\n草莓食灵\n我在小院等你，一起聊聊今天吧。",
+        "network": "已连接：XM",
+        "screenRevision": 4,
+        "uptimeMs": 120665,
+        "firmwareVersion": "1.1.0",
+        "freeHeapBytes": 106584,
+        "hardware": {
+          "boardId": "tuya-t5-ai-board-v1.02",
+          "chip": "t5ai",
+          "capabilities": [
+            "audio_input",
+            "audio_output",
+            "display",
+            "touch",
+            "buttons",
+            "wifi",
+            "persistent_storage"
+          ]
+        }
+      }
+    }
+  ]
+}

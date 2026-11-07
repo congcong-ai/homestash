@@ -1,8 +1,14 @@
 import { networkInterfaces } from "node:os";
 import { createServer } from "node:net";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import {
+  mkdirSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  realpathSync,
+} from "node:fs";
+import { join, sep } from "node:path";
 import { randomBytes, scryptSync } from "node:crypto";
 import { parseEnv } from "node:util";
 export function isPrivateAddress(value) {
@@ -128,14 +134,43 @@ function belongsTo(pid, root) {
       .split("\n")
       .find((l) => l.startsWith("n"))
       ?.slice(1);
-    return (
-      cwd &&
-      (resolve(cwd) === resolve(root) ||
-        resolve(cwd).startsWith(resolve(root) + sep))
-    );
+    if (!cwd) return false;
+    const actualCwd = realpathSync(cwd),
+      actualRoot = realpathSync(root);
+    return actualCwd === actualRoot || actualCwd.startsWith(actualRoot + sep);
   } catch {
     return false;
   }
+}
+// 沿当前监听者的父链寻找本项目启动器，防止watcher在杀子进程后抢回端口。
+function listenerOwner(pid, root) {
+  let owner = pid,
+    current = pid;
+  for (let depth = 0; depth < 8 && current > 1; depth++) {
+    if (current === process.pid || !belongsTo(current, root)) break;
+    try {
+      const line = execFileSync(
+        "ps",
+        ["-p", String(current), "-o", "ppid=,command="],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      ).trim();
+      const match = line.match(/^(\d+)\s+(.+)$/);
+      if (!match) break;
+      const command = match[2];
+      if (/^(?:\S*\/)?node\s+(?:\S*\/)?scripts\/dev\.mjs(?:\s|$)/.test(command))
+        return current;
+      if (
+        /^(?:\S*\/)?node\s+.*(?:tsx|cli\.mjs).*\bwatch\s+services\/kitchen-core\/src\/main\.ts(?:\s|$)/.test(
+          command,
+        )
+      )
+        owner = current;
+      current = Number(match[1]);
+    } catch {
+      break;
+    }
+  }
+  return owner;
 }
 export function portAvailable(port, host) {
   return new Promise((resolve) => {
@@ -156,7 +191,7 @@ export async function preparePort(
   for (const pid of listenerPids(preferred))
     if (pid !== process.pid && belongsTo(pid, root)) {
       try {
-        process.kill(pid, "SIGTERM");
+        process.kill(listenerOwner(pid, root), "SIGTERM");
         stopped = true;
       } catch {
         /* 无权限时选择其他可用端口。 */

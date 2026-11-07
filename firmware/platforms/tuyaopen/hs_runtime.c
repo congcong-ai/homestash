@@ -9,12 +9,13 @@
 #include "tal_thread.h"
 #include "tkl_output.h"
 #include "tal_uart.h"
-#include "common/bk_typedef.h"
-#include "components/shell_task.h"
+#include "components/system.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+static bool product_uart_ready;
+static MUTEX_HANDLE uart_log_lock;
 typedef struct {
   MUTEX_HANDLE lock;
   SEM_HANDLE items, slots;
@@ -106,22 +107,24 @@ hs_err_t hs_random_bytes(void *data, size_t n) {
 hs_err_t hs_platform_init(void) {
   if (tal_mutex_create_init(&clock_lock) != OPRT_OK)
     return HS_ERR_NO_MEM;
+  if (tal_mutex_create_init(&uart_log_lock) != OPRT_OK) return HS_ERR_NO_MEM;
   tal_log_init(TAL_LOG_LEVEL_WARN, 1024, (TAL_LOG_OUTPUT_CB)tkl_log_output);
   if (tal_kv_init(&(tal_kv_cfg_t){.seed = "homestash-t5-v1",
                                   .key = "hs-config-v1"}) != 0)
     return HS_FAIL;
   if (board_register_hardware() != OPRT_OK)
     return HS_FAIL;
-  /* 小院 IMU 使用P00/P01。迁移原厂日志设备到UART0后，再建立配置RX。
+  /* 小院 IMU 使用P00/P01。关闭原厂UART1日志，产品日志直接写UART0，保留配置RX。
    * S1 TX1/RX1须OFF隔离CH342F；TX0/RX0保留ON。 */
-  shell_set_uart_port(0);
+  bk_set_printf_enable(0);
   TAL_UART_CFG_T uart = {.rx_buffer_size = 2048,
                         .base_cfg = {.baudrate = 115200,
                               .databits = TUYA_UART_DATA_LEN_8BIT,
                               .stopbits = TUYA_UART_STOP_LEN_1BIT,
                               .parity = TUYA_UART_PARITY_TYPE_NONE,
                               .flowctrl = TUYA_UART_FLOWCTRL_NONE}};
-  return tal_uart_init(TUYA_UART_NUM_0, &uart) == OPRT_OK ? HS_OK : HS_FAIL;
+  product_uart_ready = tal_uart_init(TUYA_UART_NUM_0, &uart) == OPRT_OK;
+  return product_uart_ready ? HS_OK : HS_FAIL;
 }
 void hs_restart(void) { tal_system_reset(); }
 int hs_console_read_byte(void) {
@@ -153,8 +156,12 @@ void hs_log(const char *level, const char *tag, const char *format, ...) {
   va_start(args, format);
   vsnprintf(msg + offset, sizeof(msg) - (size_t)offset, format, args);
   va_end(args);
-  tkl_log_output(msg);
-  tkl_log_output("\r\n");
+  if (product_uart_ready) {
+    tal_mutex_lock(uart_log_lock);
+    tal_uart_write(TUYA_UART_NUM_0, (const uint8_t *)msg, strlen(msg));
+    tal_uart_write(TUYA_UART_NUM_0, (const uint8_t *)"\r\n", 2);
+    tal_mutex_unlock(uart_log_lock);
+  } else { tkl_log_output(msg); tkl_log_output("\r\n"); }
 }
 void hs_require(bool condition, const char *expression) {
   if (!condition) {

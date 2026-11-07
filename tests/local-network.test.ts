@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import {
+  mkdir,
+  writeFile,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
@@ -280,5 +287,40 @@ test("家庭免登录模式允许匿名读写，无需用户Cookie", async () =>
     await core.app.close();
     if (previous === undefined) delete process.env.INTERNAL_LOGIN_ENABLED;
     else process.env.INTERNAL_LOGIN_ENABLED = previous;
+  }
+});
+
+test("端口清理停止旧启动器，防止监听子进程自动重启抢回端口", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "hs-watched-listener-"));
+  await mkdir(join(dir, "scripts"));
+  const script = join(dir, "scripts", "dev.mjs");
+  await writeFile(
+    script,
+    `
+import {spawn} from 'node:child_process';
+let port=0,child,closing=false;
+function start(){
+ child=spawn(process.execPath,['-e',"const s=require('net').createServer();s.listen("+port+",'127.0.0.1',()=>process.stdout.write(String(s.address().port)))"],{stdio:['ignore','pipe','ignore']});
+ child.stdout.once('data',data=>{if(!port){port=Number(String(data));process.stdout.write(String(port));}});
+ child.once('exit',()=>{if(!closing)start();});
+}
+process.on('SIGTERM',()=>{closing=true;child.kill();process.exit(0);});
+start();
+`,
+  );
+  const launcher = spawn(process.execPath, [script], {
+    cwd: dir,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    const [data] = await once(launcher.stdout, "data");
+    const port = Number(String(data));
+    const exited = once(launcher, "exit");
+    assert.equal(await preparePort(port, "127.0.0.1", dir), port);
+    await exited;
+    assert.equal(await portAvailable(port, "127.0.0.1"), true);
+  } finally {
+    launcher.kill();
+    await rm(dir, { recursive: true, force: true });
   }
 });

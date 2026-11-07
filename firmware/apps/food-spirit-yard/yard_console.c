@@ -1,12 +1,21 @@
 #include "hs_runtime.h"
+#include "yard_mode.h"
 #include "hs_device_config.h"
 #include "wifi_profiles.h"
 #include "cJSON.h"
 #include <stdio.h>
 #include <string.h>
 static void (*dispatch)(int);
+#if HS_YARD_UVC_DIAGNOSTICS
+int hs_t5_uvc_probe(void);
+int hs_t5_uvc_shot(void);
+#endif
 /* 不回显命令：输入中可能包含 Wi-Fi 密码及设备 Token。 */
 hs_err_t yard_console_command(const char *line) {
+#if HS_YARD_UVC_DIAGNOSTICS
+  if(!strcmp(line,"uvc-shot"))return hs_t5_uvc_shot()==0?HS_OK:HS_ERR_NOT_SUPPORTED;
+  if(!strcmp(line,"uvc-probe"))return hs_t5_uvc_probe()==0?HS_OK:HS_ERR_NOT_SUPPORTED;
+#endif
   if(!strcmp(line,"wifi-status")) {
     hs_wifi_status_t s;hs_wifi_status(&s);
     HS_LOGI("小院","Wi-Fi connected=%d connecting=%d saved=%d count=%u",s.connected,s.connecting,s.connection_saved,s.count);
@@ -15,6 +24,13 @@ hs_err_t yard_console_command(const char *line) {
   if(!strcmp(line,"wifi-scan"))return hs_wifi_scan();
   if(!strcmp(line,"wifi-reconnect")||!strcmp(line,"wifi-auto"))return hs_wifi_reconnect();
   if(!strcmp(line,"wifi-disconnect"))return hs_wifi_disconnect();
+#if HS_YARD_SENSOR_DIAGNOSTICS
+  if(!strcmp(line,"imu-raw")){if(dispatch)dispatch(43);return HS_OK;}
+  if(!strcmp(line,"imu-reset")){if(dispatch)dispatch(42);return HS_OK;}
+  if(!strcmp(line,"imu-probe")){if(dispatch)dispatch(40);return HS_OK;}
+#else
+  if(!strncmp(line,"imu-",4)||!strncmp(line,"camera-",7))return HS_ERR_NOT_SUPPORTED;
+#endif
   if(!strcmp(line,"record")){if(dispatch)dispatch(1);return HS_OK;}
   if(!strcmp(line,"stop")){if(dispatch)dispatch(3);return HS_OK;}
   if(!strncmp(line,"screen ",7)&&line[7]>='0'&&line[7]<='5'&&!line[8]){if(dispatch)dispatch(10+line[7]-'0');return HS_OK;}

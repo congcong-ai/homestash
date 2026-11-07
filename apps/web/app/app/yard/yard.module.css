@@ -1,10 +1,14 @@
 .page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: 100vh;
   background: #faf7f3;
   color: #302e35;
   padding: 0 24px 40px;
 }
 .header {
+  width: 100%;
   height: 76px;
   max-width: 1160px;
   margin: auto;
@@ -696,6 +700,10 @@
 }
 .navigation {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
   gap: 6px;
   overflow-x: auto;
   padding: 18px 0;
@@ -706,7 +714,11 @@
   backdrop-filter: blur(12px);
 }
 .navigation a {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
   padding: 9px 14px;
   border-radius: 12px;
   color: #745d60;
@@ -789,4 +801,139 @@
   .page {
     scroll-behavior: smooth;
   }
+}
+
+/* 明确小院布局边界，避免旧库存页面的全局元素规则渗入。 */
+.page input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+.page :is(input, select, button):focus-visible {
+  outline: 3px solid #b95061;
+  outline-offset: 3px;
+}
+.loading {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+}
+.storyCard {
+  margin-bottom: 20px;
+}
+.storyCard > p {
+  color: #75676a;
+  font-size: 13px;
+}
+.storyForm {
+  display: grid;
+  gap: 16px;
+}
+.storyForm fieldset {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid #e8ded8;
+  border-radius: 14px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.storyForm legend {
+  padding: 0 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #80585f;
+}
+.storyForm label {
+  min-width: 0;
+  color: #706266;
+  font-size: 13px;
+}
+.storyForm input,
+.storyForm select {
+  width: 100%;
+  min-height: 44px;
+}
+.storyForm label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  grid-column: 1/-1;
+}
+.storyForm input[type="checkbox"] {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  accent-color: #a84e5d;
+}
+.storyForm > button {
+  justify-self: start;
+  min-height: 44px;
+}
+.storyForm > p {
+  margin: 0;
+  color: #80585f;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .navigation {
+    padding-block: 10px;
+  }
+  .storyForm fieldset {
+    grid-template-columns: 1fr;
+  }
+}
+
+.storyForm .replyFields {
+  display: grid;
+  grid-template-columns: 1fr;
+  border: 0;
+  padding: 0;
+  gap: 20px;
+}
+.replyExample {
+  background: #faf2ee;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  color: #70545a;
+  line-height: 1.7;
+}
+.replyExample p {
+  margin: 6px 0;
+}
+.replyExample small,
+.replyTrial small,
+.replyMore small {
+  display: block;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.replyHelp,
+.replyMore,
+.replyTrial {
+  grid-column: 1 / -1;
+}
+.replyHelp {
+  margin: 0;
+  color: #75676a;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.replyMore summary {
+  cursor: pointer;
+  padding: 12px 0;
+  color: #80585f;
+}
+.replyMore label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.replyTrial button {
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+.replyTrial small,
+.replyMore small {
+  color: #75676a;
 }

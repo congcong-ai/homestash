@@ -1,3 +1,4 @@
+import { collectTtsSse, spokenText } from "./speech-sse";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -7,7 +8,7 @@ import { z } from "zod";
 const exec = promisify(execFile);
 export interface SpeechProvider {
   readonly cacheKey?: string;
-  transcribe(wav: Buffer): Promise<string>;
+  transcribe(wav: Buffer, options?: { signal?: AbortSignal }): Promise<string>;
   synthesize(
     text: string,
     options?: { signal?: AbortSignal; requestId?: string },
@@ -98,7 +99,7 @@ export class BailianSpeechProvider implements SpeechProvider {
       this.config.baseUrl,
       this.config.ttsModel,
       this.config.voice,
-      "pcm-wav-16k-mono-v1",
+      "pcm-wav-16k-mono-tts-sse-v2",
     ]);
   }
   private async request(url: string, body: unknown, signal?: AbortSignal) {
@@ -118,7 +119,7 @@ export class BailianSpeechProvider implements SpeechProvider {
       (await limited(response, 8_000_000)).toString(),
     ) as unknown;
   }
-  async transcribe(wav: Buffer) {
+  async transcribe(wav: Buffer, options: { signal?: AbortSignal } = {}) {
     validateWav(wav);
     const result = await this.request(
       `${this.config.compatibleUrl}/chat/completions`,
@@ -140,6 +141,7 @@ export class BailianSpeechProvider implements SpeechProvider {
         ],
         asr_options: { language: "zh", enable_itn: true },
       },
+      options.signal,
     );
     return z
       .object({
@@ -160,14 +162,70 @@ export class BailianSpeechProvider implements SpeechProvider {
     options: { signal?: AbortSignal; requestId?: string } = {},
   ) {
     const started = performance.now();
-    const result = await this.request(
-      `${this.config.baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
-      {
-        model: this.config.ttsModel,
-        input: { text, voice: this.config.voice, language_type: "Chinese" },
-      },
-      options.signal,
-    );
+    text = spokenText(text);
+    if (!text) throw Error("没有可播报文字");
+    const body = {
+      model: this.config.ttsModel,
+      input: { text, voice: this.config.voice, language_type: "Chinese" },
+    };
+    const useSse =
+      this.config.ttsModel.startsWith("qwen3-tts-") &&
+      process.env.BAILIAN_TTS_TRANSPORT !== "url";
+    let result: unknown;
+    if (useSse) {
+      if (!this.config.key) throw Error("尚未配置百炼 API Key");
+      const response = await fetch(
+        `${this.config.baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.config.key}`,
+            "Content-Type": "application/json",
+            "X-DashScope-SSE": "enable",
+          },
+          body: JSON.stringify(body),
+          signal: options.signal
+            ? AbortSignal.any([options.signal, AbortSignal.timeout(90000)])
+            : AbortSignal.timeout(90000),
+        },
+      );
+      if (response.headers.get("content-type")?.includes("text/event-stream")) {
+        let firstAudioMs: number | undefined;
+        const pcm = await collectTtsSse(response, () => {
+          firstAudioMs = Math.round(performance.now() - started);
+        });
+        const completed = performance.now();
+        const input = pcmWav(pcm);
+        input.writeUInt32LE(24000, 24);
+        input.writeUInt32LE(48000, 28);
+        const wav = await normalizeAudio(input);
+        validateWav(wav);
+        console.info(
+          JSON.stringify({
+            event: "speech_stage",
+            requestId: options.requestId,
+            provider: "bailian",
+            stage: "tts",
+            transport: "sse",
+            model: this.config.ttsModel,
+            voice: this.config.voice,
+            firstAudioMs,
+            generationMs: Math.round(completed - started),
+            downloadMs: 0,
+            normalizeMs: Math.round(performance.now() - completed),
+            totalMs: Math.round(performance.now() - started),
+            audioBytes: wav.length,
+          }),
+        );
+        return wav;
+      }
+      result = JSON.parse((await limited(response, 8000000)).toString());
+    } else
+      result = await this.request(
+        `${this.config.baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
+        body,
+        options.signal,
+      );
     const data = z
       .object({ output: z.object({ audio: z.object({ url: z.string() }) }) })
       .parse(result);
@@ -304,8 +362,8 @@ class RoutedSpeechProvider implements SpeechProvider {
   get cacheKey() {
     return this.resolveTts().cacheKey;
   }
-  transcribe(wav: Buffer) {
-    return this.asr.transcribe(wav);
+  transcribe(wav: Buffer, options?: { signal?: AbortSignal }) {
+    return this.asr.transcribe(wav, options);
   }
   synthesize(
     text: string,
@@ -322,6 +380,12 @@ export type TtsProfile = {
 };
 export function speechFromEnv(
   getProfile: () => TtsProfile = () => ({}),
+  getBailian: () => {
+    enabled?: boolean;
+    key?: string;
+    asrModel?: string;
+    ttsModel?: string;
+  } = () => ({}),
 ): SpeechProvider {
   const unavailable: SpeechProvider = {
     async transcribe() {
@@ -354,11 +418,24 @@ export function speechFromEnv(
       : unavailable;
   const resolveTts = () => {
     const profile = getProfile();
-    const selected = profile.provider ?? ttsProvider;
+    const configured = getBailian();
+    const selected = configured.enabled
+      ? "bailian"
+      : (profile.provider ?? ttsProvider);
     if (selected === "bailian")
       return new BailianSpeechProvider({
         ...bailianConfig,
-        ttsModel: profile.model || bailianConfig.ttsModel,
+        ...(configured.enabled
+          ? {
+              baseUrl: "https://dashscope.aliyuncs.com",
+              compatibleUrl:
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            }
+          : {}),
+        key: configured.key || bailianConfig.key,
+        ttsModel: configured.enabled
+          ? configured.ttsModel || bailianConfig.ttsModel
+          : profile.model || bailianConfig.ttsModel,
         voice: profile.voice || bailianConfig.voice,
       });
     if (selected === "local-http") {
@@ -386,5 +463,23 @@ export function speechFromEnv(
     }
     return unavailable;
   };
-  return new RoutedSpeechProvider(asr, resolveTts);
+  return new RoutedSpeechProvider(
+    {
+      transcribe: async (wav, options) => {
+        const c = getBailian();
+        return c.enabled
+          ? new BailianSpeechProvider({
+              ...bailianConfig,
+              baseUrl: "https://dashscope.aliyuncs.com",
+              compatibleUrl:
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              key: c.key || bailianConfig.key,
+              asrModel: c.asrModel || bailianConfig.asrModel,
+            }).transcribe(wav, options)
+          : asr.transcribe(wav, options);
+      },
+      synthesize: (text, options) => asr.synthesize(text, options),
+    },
+    resolveTts,
+  );
 }

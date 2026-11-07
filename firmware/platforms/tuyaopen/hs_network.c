@@ -22,6 +22,7 @@ static hs_queue_t requests;
 static hs_wifi_status_t state;
 static saved_t saved;
 static bool paused;
+void hs_t5_discover_core(void);
 static void changed(const char *message) {
   snprintf(state.message, sizeof(state.message), "%s", message);
   state.revision++;
@@ -82,11 +83,21 @@ static void worker(void *arg) {
   (void)arg;
   request_t r;
   int64_t retry = 0;
+  int64_t last_discovery=0;
+  unsigned ip_revision = (unsigned)-1;
   for (;;) {
     if (!hs_queue_receive(requests, &r, 1000)) {
       hs_wifi_status_t s;
       hs_wifi_status(&s);
       hs_display_network(s.ssid, s.connected);
+      if(s.connected&&(s.connection_revision!=ip_revision||hs_time_us()-last_discovery>10000000)){
+        hs_t5_discover_core();last_discovery=hs_time_us();
+      }
+      if(s.connected&&s.connection_revision!=ip_revision){
+        NW_IP_S ip={0};if(tal_wifi_get_ip(WF_STATION,&ip)==OPRT_OK){
+          HS_LOGI("network","station ip=%s gateway=%s mask=%s",ip.ip,ip.gw,ip.mask);ip_revision=s.connection_revision;
+        }
+      }
       if (!paused && !s.connected && !s.connecting && hs_time_us() >= retry &&
           saved.ssid[0]) {
         r = (request_t){.kind = 4};

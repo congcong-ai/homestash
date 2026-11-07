@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-07",
+  "softwareTests": {
+    "passed": 120,
+    "failed": 0
+  },
+  "devices": [
+    {
+      "id": "food-spirit-t5-01",
+      "online": true,
+      "lastSeen": "2026-11-07T00:54:02.207Z",
+      "firmwareVersion": "1.1.0"
+    }
+  ],
+  "ruleVersion": 5,
+  "roleName": "草莓宝宝",
+  "memories": [
+    {
+      "id": "21068f36-db0a-4cd4-b0f1-0859db21a46d",
+      "source": "device"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-07",
+  "firmware": "food-spirit-yard-1.1.0-avatar-memory-paced",
+  "flash": {
+    "qio_sha256": "92389853092884aca805ca72515168b3dcd558ee224fe0c5f40609ab99acc80a",
+    "readback_matches": true,
+    "backup_sha256": "99981b107b5836b2ca824cea87b9400d9ebcfd0b1d8b5d53fc3386eb505434f7",
+    "covered_bytes": 4374528
+  },
+  "apBytes": 3001604,
+  "apBudgetBytes": 3866624,
+  "apRemainingBytes": 865020,
+  "apGrowthVsGreetingPaced": 4864,
+  "online": true,
+  "idleFreeHeapBytes": 89704,
+  "bootHttp200Count": 5,
+  "bootFatalFound": false,
+  "testsPassed": 127,
+  "productionBuild": true,
+  "newModulesLint": true,
+  "webWidths": [
+    320,
+    390,
+    480,
+    1440
+  ],
+  "webMotionFramesDiffer": true,
+  "automaticRecording": false,
+  "automaticPhotoCapture": false,
+  "uartReleased": true,
+  "pending": [
+    "真机主题切换和KV重启保持",
+    "全屏触屏返回",
+    "声音/停止表情联动与实际帧率CPU",
+    "同步中真实唤醒抢占",
+    "断网断电恢复及满卡",
+    "声纹与成员建档"
+  ]
+}

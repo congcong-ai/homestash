@@ -1,3 +1,15 @@
+import { localStopRecognizer } from "./local-stop";
+import { isYardStop } from "./yard-commands";
+import { recordingWorker } from "./yard-background";
+import {
+  recordings,
+  recordingsKey,
+  recordingSettings,
+  type Recording,
+} from "./yard-recordings";
+import { readAvatar } from "./yard-avatar";
+import { yardPhotoSecret } from "./yard";
+import { readYardRules } from "./yard-rules";
 import { deviceReply } from "./device-reply";
 import Fastify, { type FastifyRequest } from "fastify";
 import { DeviceReport, KORVO_BOARD_ID } from "@homestash/protocol";
@@ -36,6 +48,29 @@ export function createDeviceServer(
   if (options.token && options.deviceId)
     core.devices.legacy(options.deviceId, options.token);
   const app = Fastify({ logger: false, bodyLimit: MAX_WAV_BYTES });
+  if (process.env.HOMESTASH_DEVICE_DIAGNOSTICS === "1") {
+    app.server.on("connection", (socket) =>
+      console.log(
+        JSON.stringify({
+          event: "device_tcp_connected",
+          remoteAddress: socket.remoteAddress,
+        }),
+      ),
+    );
+    app.addHook("onRequest", async (req) => {
+      console.log(
+        JSON.stringify({
+          event: "device_http_received",
+          method: req.method,
+          path: req.url.split("?")[0],
+        }),
+      );
+    });
+  }
+  const localStop = localStopRecognizer();
+  app.addHook("onClose", async () => localStop.close());
+  const background = recordingWorker(core.repo, speech);
+  app.addHook("onClose", async () => background.close());
   const sessions = new WeakMap<
     FastifyRequest,
     { id: string; token: string; boardId: string }
@@ -49,6 +84,8 @@ export function createDeviceServer(
       core.devices.authenticate(req.headers["x-device-id"], token);
     if (!device) return reply.code(401).send({ error: "设备认证失败" });
     sessions.set(req, { id: device.id, boardId: device.boardId, token });
+    if (req.url.includes("/captures/") || req.url.includes("/yard/activity"))
+      background.active(device.id);
   });
   app.addContentTypeParser(
     "audio/wav",
@@ -99,7 +136,69 @@ export function createDeviceServer(
       ? reply.type("application/octet-stream").send(bytes)
       : reply.code(404).send({ error: "固件不存在" });
   });
+  app.post(
+    "/device/v1/yard/photo-archive/:id",
+    { bodyLimit: 350000 },
+    async (req, reply) => {
+      if (identity(req).boardId !== "tuya-t5-ai-board-v1.02")
+        return reply.code(403).send({ error: "板型不支持" });
+      const { id } = params(req.params);
+      const bytes = req.body as Buffer;
+      if (!Buffer.isBuffer(bytes))
+        return reply.code(400).send({ error: "照片格式无效" });
+      const response = await core.app.inject({
+        method: "POST",
+        url: "/api/yard/offline-photos/upload",
+        headers: { "x-yard-internal": yardPhotoSecret(core.repo) },
+        payload: {
+          id,
+          deviceId: identity(req).id,
+          jpegBase64: bytes.toString("base64"),
+        },
+      });
+      return reply
+        .code(response.statusCode)
+        .type("application/json")
+        .send(response.body);
+    },
+  );
+  app.post(
+    "/device/v1/yard/photos/:id/:operation",
+    { bodyLimit: 350000 },
+    async (req, reply) => {
+      if (identity(req).boardId !== "tuya-t5-ai-board-v1.02")
+        return reply.code(403).send({ error: "板型不支持" });
+      const { id, operation } = z
+        .object({
+          id: z.uuid(),
+          operation: z.enum(["begin", "upload", "failed", "status"]),
+        })
+        .parse(req.params);
+      const response = await core.app.inject({
+        method: "POST",
+        url: `/api/yard/photo/device/${operation}`,
+        headers: { "x-yard-internal": yardPhotoSecret(core.repo) },
+        payload: {
+          id,
+          deviceId: identity(req).id,
+          ...(operation === "upload"
+            ? { jpegBase64: (req.body as Buffer).toString("base64") }
+            : { ready: (req.body as { ready?: boolean })?.ready }),
+        },
+      });
+      return reply
+        .code(response.statusCode)
+        .type("application/json")
+        .send(response.body);
+    },
+  );
+  app.get("/device/v1/yard/local-stop/status", async () => localStop.status());
+  app.post("/device/v1/yard/activity", async (req) => {
+    background.active(identity(req).id);
+    return { active: true };
+  });
   app.get("/device/v1/yard/settings", async (req) => {
+    background.inactive(identity(req).id);
     seen(req);
     const state = core.repo.read<{
       settings: {
@@ -108,13 +207,14 @@ export function createDeviceServer(
         proactiveVoice: boolean;
       };
     } | null>("product:food-spirit-yard:v1", null);
-    return (
-      state?.settings ?? {
+    return {
+      avatar: readAvatar(core.repo),
+      ...(state?.settings ?? {
         silent: false,
         listening: false,
         proactiveVoice: false,
-      }
-    );
+      }),
+    };
   });
   app.get("/device/v1/screen", async (req) => {
     const { page } = z
@@ -131,7 +231,7 @@ export function createDeviceServer(
         page === "freshness"
           ? "按键开始接话，再按结束。当前身份未知。"
           : page === "recipes"
-            ? "相机缺件，尚不能拍照。明确许可后才会采集。"
+            ? "点击拍照即可采集。拍后可在网页预览、重拍、放弃或保存。"
             : page === "cooking"
               ? `家庭回忆\n${
                   state?.memories
@@ -141,7 +241,7 @@ export function createDeviceServer(
                 }`
               : page === "shopping"
                 ? "配套网页可修改角色、静默与语音服务。门传感器未验证。"
-                : `萌小冰·食灵小院\n${state?.role.name ?? "草莓食灵"}\n${state?.role.line ?? "说说今天的厨房故事吧。"}`;
+                : `萌小冰·食灵小院\n${state?.role.name ?? "草莓食灵"}\n${readYardRules(core.repo).rules.find((r) => r.enabled && r.trigger === "wake")?.line ?? state?.role.line ?? "说说今天的厨房故事吧。"}`;
       return { text };
     }
     return core.deviceScreen(page);
@@ -149,6 +249,66 @@ export function createDeviceServer(
   app.post("/device/v1/heartbeat", async (req) => {
     seen(req, DeviceReport.parse(req.body ?? {}));
     return { ok: true };
+  });
+  const archiveUploads = new Map<
+    string,
+    {
+      deviceId: string;
+      hash: string;
+      promise: Promise<{ id: string; stored: boolean }>;
+    }
+  >();
+  // 回忆归档独立于实时对话，不重放旧业务，也不默认调用付费ASR。
+  app.post("/device/v1/yard/recordings/:id", async (req, reply) => {
+    const { id } = params(req.params);
+    const bytes = req.body as Buffer;
+    try {
+      validateWav(bytes);
+    } catch {
+      return reply.code(400).send({ error: "录音格式无效" });
+    }
+    const deviceId = identity(req).id;
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const old = recordings(core.repo).find((v) => v.id === id);
+    if (old) {
+      if (old.deviceId !== deviceId || old.sha256 !== sha256)
+        return reply.code(409).send({ error: "录音身份或内容冲突" });
+      return { id, stored: true };
+    }
+    const inFlight = archiveUploads.get(id);
+    if (inFlight) {
+      if (inFlight.hash !== sha256 || inFlight.deviceId !== deviceId)
+        return reply.code(409).send({ error: "录音身份或内容冲突" });
+      return inFlight.promise;
+    }
+    const work = (async () => {
+      const directory = join(options.mediaDir, deviceId, "recordings");
+      await mkdir(directory, { recursive: true });
+      const path = join(directory, `${id}.wav`);
+      await writeFile(`${path}.tmp`, bytes, { mode: 0o600 });
+      await rename(`${path}.tmp`, path);
+      const item: Recording = {
+        id,
+        deviceId,
+        path,
+        sha256,
+        bytes: bytes.length,
+        createdAt: new Date().toISOString(),
+        speakerId: null,
+        analysis: recordingSettings(core.repo).transcribe
+          ? "pending"
+          : "disabled",
+      };
+      // 保存先于分析，分析错误也不能丢失原录音。
+      core.repo.write(recordingsKey, [...recordings(core.repo), item]);
+      return { id, stored: true };
+    })();
+    archiveUploads.set(id, { deviceId, hash: sha256, promise: work });
+    try {
+      return await work;
+    } finally {
+      archiveUploads.delete(id);
+    }
   });
   app.post("/device/v1/captures/:id", async (req, reply) => {
     const { id } = params(req.params);
@@ -166,16 +326,34 @@ export function createDeviceServer(
     return core.once(key(req, id), { hash }, async () => {
       const started = performance.now();
       const asrStarted = performance.now();
-      const text = await speech.transcribe(wav);
+      const localStarted = performance.now();
+      const local =
+        req.headers["x-speech-mode"] === "interruption"
+          ? await localStop.recognize(wav)
+          : null;
+      const text = local === true ? "退下" : await speech.transcribe(wav);
+      if (req.headers["x-speech-mode"] === "interruption")
+        console.info(
+          JSON.stringify({
+            event: "local_stop",
+            requestId: id,
+            matched: local === true,
+            available: local !== null,
+            ms: Math.round(performance.now() - localStarted),
+          }),
+        );
       const asrMs = performance.now() - asrStarted;
       const isYardDevice = identity(req).boardId === "tuya-t5-ai-board-v1.02";
       const intentStarted = performance.now();
       const commit = isYardDevice ? null : await core.prepareVoice(text);
+      const yardCommit = isYardDevice
+        ? await core.prepareYardVoice(id, text)
+        : null;
       const prepareMs = performance.now() - intentStarted;
       return () => {
         const commitStarted = performance.now();
         const applied = commit ? commit() : null;
-        const yardApplied = isYardDevice ? core.yardVoice(id, text) : null;
+        const yardApplied = yardCommit ? yardCommit() : null;
         const commitMs = performance.now() - commitStarted;
         console.info(
           JSON.stringify({
@@ -197,6 +375,15 @@ export function createDeviceServer(
         return {
           id,
           text,
+          action:
+            isYardDevice && isYardStop(text)
+              ? "stop"
+              : isYardDevice &&
+                  /^(?:请|帮我|给我|我们)?(?:拍照|拍一张|拍张照|合影|留影)(?:吧|。|！|!)?$/.test(
+                    text.trim(),
+                  )
+                ? "photo"
+                : null,
           message: yardApplied
             ? yardApplied.reply
             : deviceReply(applied!, core.repo.locations()),
